@@ -1,0 +1,73 @@
+/*
+ * HomeLab Portal basic stylesheet.
+ * HomeLab Portal 基础样式。
+ *
+ * Keep CSS intentionally simple for legacy browser support.
+ * 为兼容旧浏览器，CSS 有意保持简单。
+ */
+
+body {
+    margin: 0;
+    padding: 20px;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    background: #eeeeee;
+    color: #222222;
+}
+
+
+.container {
+    max-width: 800px;
+
+    margin: 0 auto;
+    padding: 20px;
+
+    background: #ffffff;
+
+    border: 1px solid #cccccc;
+}
+
+
+h1 {
+    margin-top: 0;
+}
+
+
+.subtitle {
+    color: #666666;
+}
+
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    margin-bottom: 25px;
+}
+
+
+td {
+    padding: 10px;
+
+    border: 1px solid #cccccc;
+}
+
+
+.status-ok {
+    font-weight: bold;
+    color: green;
+}
+
+
+.status-error {
+    font-weight: bold;
+    color: red;
+}
+
+
+.footer {
+    color: #777777;
+    font-size: 12px;
+}

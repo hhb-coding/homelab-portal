@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>{{ app_name }}</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>{{ app_name }}</h1>
+
+    <p class="subtitle">
+        Lightweight HomeLab Device & Metrics Dashboard
+    </p>
+
+    <hr>
+
+    <h2>System Status</h2>
+
+    <table>
+        <tr>
+            <td>Portal</td>
+            <td class="status-ok">ONLINE</td>
+        </tr>
+
+        <tr>
+            <td>SQLite Database</td>
+
+            <td>
+                {% if database_ready %}
+                    <span class="status-ok">READY</span>
+                {% else %}
+                    <span class="status-error">ERROR</span>
+                {% endif %}
+            </td>
+        </tr>
+
+        <tr>
+            <td>Beszel</td>
+            <td>Not configured yet</td>
+        </tr>
+
+        <tr>
+            <td>Heartbeat</td>
+            <td>Not configured yet</td>
+        </tr>
+    </table>
+
+    <h2>Legacy Browser Test</h2>
+
+    <p>
+        Dynamic counter:
+        <strong id="counter">0</strong>
+    </p>
+
+    <p>
+        Browser time:
+        <strong id="clock">Loading...</strong>
+    </p>
+
+    <hr>
+
+    <p class="footer">
+        HomeLab Portal - Step 1
+    </p>
+
+</div>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+
+</body>
+</html>

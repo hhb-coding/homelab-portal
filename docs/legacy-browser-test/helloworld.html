@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HomeLab Portal Test</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #eeeeee;
+            margin: 20px;
+            color: #222222;
+        }
+
+        .box {
+            background: white;
+            border: 1px solid #cccccc;
+            padding: 20px;
+            max-width: 600px;
+        }
+
+        .ok {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .value {
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="box">
+
+    <div class="ok">
+        HomeLab Portal
+    </div>
+
+    <p>Hello World!</p>
+
+    <p>
+        If you can see this page, basic HTML and CSS are working.
+    </p>
+
+    <hr>
+
+    <p>
+        JavaScript test:
+        <span id="counter" class="value">0</span>
+    </p>
+
+    <p>
+        Current browser time:
+        <span id="clock" class="value">loading...</span>
+    </p>
+
+</div>
+
+<script>
+var count = 0;
+
+function updatePage() {
+    count = count + 1;
+
+    document.getElementById("counter").innerHTML = count;
+    document.getElementById("clock").innerHTML =
+        new Date().toLocaleTimeString();
+}
+
+updatePage();
+setInterval(updatePage, 1000);
+</script>
+
+</body>
+</html>
