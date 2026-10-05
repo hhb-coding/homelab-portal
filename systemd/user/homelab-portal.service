@@ -1,0 +1,21 @@
+[Unit]
+Description=HomeLab Portal Web Service
+
+[Service]
+Type=simple
+
+# Run the Portal from its project directory.
+# 从项目目录运行 HomeLab Portal。
+WorkingDirectory=%h/homelab-portal
+
+# Use the project's Python virtual environment.
+# 使用项目自己的 Python 虚拟环境。
+ExecStart=%h/homelab-portal/.venv/bin/python %h/homelab-portal/app.py
+
+# Restart automatically if the Portal exits unexpectedly.
+# Portal 异常退出时自动重新启动。
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

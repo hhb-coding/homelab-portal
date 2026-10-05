@@ -8,6 +8,7 @@ Environment-specific values should be stored in .env.
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 
@@ -34,3 +35,8 @@ if os.path.isabs(_database_path):
     DATABASE_PATH = Path(_database_path)
 else:
     DATABASE_PATH = BASE_DIR / _database_path
+
+
+# Shared token used by heartbeat clients.
+# Heartbeat 客户端与 Portal 共用的认证 Token。
+HEARTBEAT_TOKEN = os.getenv("HEARTBEAT_TOKEN", "")

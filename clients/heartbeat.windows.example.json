@@ -1,0 +1,6 @@
+{
+  "portal_url": "http://your-portal-host:8088",
+  "heartbeat_token": "change-me",
+  "device_id": "example-windows-pc",
+  "display_name": "Example Windows PC"
+}
