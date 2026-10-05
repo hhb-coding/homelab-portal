@@ -1,0 +1,13 @@
+[Unit]
+Description=HomeLab Portal Linux Heartbeat Client
+
+[Service]
+Type=oneshot
+
+# Local secrets and device-specific settings live outside the Git repository.
+# 本机密码和设备专属配置保存在 Git 仓库之外。
+EnvironmentFile=%h/.config/homelab-portal/heartbeat.env
+
+WorkingDirectory=%h/homelab-portal
+
+ExecStart=/usr/bin/python3 %h/homelab-portal/clients/linux-heartbeat.py

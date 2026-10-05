@@ -1,0 +1,17 @@
+[Unit]
+Description=Run HomeLab Portal heartbeat every 5 minutes
+
+[Timer]
+
+# Run shortly after the timer is started.
+# Timer 启动后稍等一会执行第一次 heartbeat。
+OnActiveSec=30s
+
+# Run again five minutes after the previous heartbeat finishes.
+# 上一次 heartbeat 完成五分钟后再次执行。
+OnUnitInactiveSec=5min
+
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
