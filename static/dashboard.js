@@ -5,6 +5,114 @@
  */
 var DASHBOARD_URL = "/api/dashboard";
 var REFRESH_MS = 5000;
+var HISTORY_URL = "/api/history?minutes=60";
+var HISTORY_REFRESH_MS = 60000;
+
+/*
+ * Persistent Beszel history / Beszel 持久化历史
+ *
+ * Filled from /api/history and used by the chart renderer.
+ * 从 /api/history 读取，用于页面刷新后立即显示过去 60 分钟曲线。
+ */
+var beszelHistory = {};
+
+
+
+/*
+ * In-memory metric history / 浏览器内存中的指标历史
+ *
+ * 120 points x 5 seconds = approximately 10 minutes.
+ * 120 个点 × 5 秒 ≈ 最近 10 分钟。
+ *
+ * Step 5A keeps history only while the page is open.
+ * A later Step 5D will load persistent history from Beszel so that
+ * refreshing the page does not erase the chart history.
+ *
+ * 第 5A 步只保存“当前页面打开期间”的历史。
+ * 后续第 5D 步会从 Beszel 读取持久化历史，
+ * 这样刷新页面后曲线仍能看到过去的数据。
+ */
+var HISTORY_MAX_POINTS = 120;
+var metricHistory = {};
+
+
+function historyValue(value) {
+
+    var numberValue;
+
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    numberValue = Number(value);
+
+    if (isNaN(numberValue)) {
+        return null;
+    }
+
+    return numberValue;
+}
+
+
+function trimHistoryArray(items) {
+
+    while (items.length > HISTORY_MAX_POINTS) {
+        items.shift();
+    }
+}
+
+
+function appendHistory(devices) {
+
+    var now = new Date().getTime();
+    var i;
+    var device;
+    var key;
+    var item;
+
+    for (i = 0; i < devices.length; i = i + 1) {
+
+        device = devices[i];
+
+        key = device.device_id
+            || device.hostname
+            || device.display_name;
+
+        if (!key) {
+            continue;
+        }
+
+        if (!metricHistory[key]) {
+            metricHistory[key] = {
+                timestamps: [],
+                cpu: [],
+                memory: [],
+                disk: [],
+                load1: []
+            };
+        }
+
+        item = metricHistory[key];
+
+        item.timestamps.push(now);
+        item.cpu.push(historyValue(device.cpu_percent));
+        item.memory.push(historyValue(device.memory_percent));
+        item.disk.push(historyValue(device.disk_percent));
+        item.load1.push(historyValue(device.load_1));
+
+        trimHistoryArray(item.timestamps);
+        trimHistoryArray(item.cpu);
+        trimHistoryArray(item.memory);
+        trimHistoryArray(item.disk);
+        trimHistoryArray(item.load1);
+    }
+}
+
+
+function getDeviceHistory(deviceId) {
+
+    return metricHistory[deviceId] || null;
+}
 
 function esc(v) {
   if (v === null || v === undefined) { return ""; }
@@ -87,6 +195,289 @@ function nameOf(d) {
   return d.display_name || d.hostname || d.device_id || "Unknown device";
 }
 
+
+function seriesMax(values, fixedMax) {
+  var max = 0;
+  var i;
+  var v;
+
+  if (fixedMax !== null && fixedMax !== undefined) {
+    return fixedMax;
+  }
+
+  for (i = 0; i < values.length; i = i + 1) {
+    v = values[i];
+
+    if (v !== null && v !== undefined && !isNaN(Number(v))) {
+      if (Number(v) > max) {
+        max = Number(v);
+      }
+    }
+  }
+
+  if (max < 1) {
+    max = 1;
+  }
+
+  return max * 1.15;
+}
+
+
+function sparkline(values, fixedMax) {
+  var WIDTH = 300;
+  var HEIGHT = 60;
+  var maxValue = seriesMax(values, fixedMax);
+  var points = "";
+  var i;
+  var x;
+  var y;
+  var v;
+  var count = values.length;
+
+  if (count < 2) {
+    return '<div class="chart-wait">Collecting history...</div>';
+  }
+
+  for (i = 0; i < count; i = i + 1) {
+    v = values[i];
+
+    if (v === null || v === undefined || isNaN(Number(v))) {
+      continue;
+    }
+
+    x = (i / (count - 1)) * WIDTH;
+    y = HEIGHT - ((Number(v) / maxValue) * HEIGHT);
+
+    if (y < 0) {
+      y = 0;
+    }
+
+    if (y > HEIGHT) {
+      y = HEIGHT;
+    }
+
+    if (points !== "") {
+      points = points + " ";
+    }
+
+    points = points + x.toFixed(1) + "," + y.toFixed(1);
+  }
+
+  if (points === "") {
+    return '<div class="chart-wait">No data</div>';
+  }
+
+  return '<svg class="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none">'
+    + '<line x1="0" y1="59.5" x2="300" y2="59.5" class="chart-baseline"></line>'
+    + '<polyline points="' + points + '" class="chart-line"></polyline>'
+    + '</svg>';
+}
+
+
+function latestHistoryValue(values) {
+  var i;
+
+  for (i = values.length - 1; i >= 0; i = i - 1) {
+    if (values[i] !== null && values[i] !== undefined) {
+      return values[i];
+    }
+  }
+
+  return null;
+}
+
+
+function chartBox(label, values, fixedMax, unit) {
+  var latest = latestHistoryValue(values);
+
+  return '<div class="chart-box">'
+    + '<div class="chart-title">' + esc(label)
+    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + sparkline(values, fixedMax)
+    + '<div class="chart-axis"><span>older</span><span>now</span></div>'
+    + '</div>';
+}
+
+
+function seriesRange(values, minSpan, hardMin, hardMax) {
+  var min = null;
+  var max = null;
+  var i;
+  var n;
+  var span;
+  var center;
+  var pad;
+
+  for (i = 0; i < values.length; i = i + 1) {
+    if (values[i] === null || values[i] === undefined || isNaN(Number(values[i]))) {
+      continue;
+    }
+
+    n = Number(values[i]);
+
+    if (min === null || n < min) { min = n; }
+    if (max === null || n > max) { max = n; }
+  }
+
+  if (min === null || max === null) {
+    min = (hardMin !== null && hardMin !== undefined) ? hardMin : 0;
+    max = min + (minSpan || 1);
+  }
+
+  span = max - min;
+
+  if (span < (minSpan || 1)) {
+    center = (max + min) / 2;
+    min = center - ((minSpan || 1) / 2);
+    max = center + ((minSpan || 1) / 2);
+  }
+
+  pad = (max - min) * 0.08;
+  min = min - pad;
+  max = max + pad;
+
+  if (hardMin !== null && hardMin !== undefined && min < hardMin) {
+    min = hardMin;
+  }
+
+  if (hardMax !== null && hardMax !== undefined && max > hardMax) {
+    max = hardMax;
+  }
+
+  if (max <= min) {
+    max = min + 1;
+  }
+
+  return { min: min, max: max };
+}
+
+
+function sparklineZoom(values, minSpan, hardMin, hardMax) {
+  var WIDTH = 300;
+  var HEIGHT = 60;
+  var range = seriesRange(values, minSpan, hardMin, hardMax);
+  var span = range.max - range.min;
+  var points = "";
+  var i;
+  var x;
+  var y;
+  var v;
+  var count = values.length;
+
+  if (count < 2) {
+    return '<div class="chart-wait">Collecting live samples...</div>';
+  }
+
+  for (i = 0; i < count; i = i + 1) {
+    v = values[i];
+
+    if (v === null || v === undefined || isNaN(Number(v))) {
+      continue;
+    }
+
+    x = (i / (count - 1)) * WIDTH;
+    y = HEIGHT - (((Number(v) - range.min) / span) * HEIGHT);
+
+    if (y < 0) { y = 0; }
+    if (y > HEIGHT) { y = HEIGHT; }
+
+    if (points !== "") {
+      points = points + " ";
+    }
+
+    points = points + x.toFixed(1) + "," + y.toFixed(1);
+  }
+
+  if (points === "") {
+    return '<div class="chart-wait">No data</div>';
+  }
+
+  return '<svg class="sparkline" viewBox="0 0 300 60" preserveAspectRatio="none">'
+    + '<line x1="0" y1="59.5" x2="300" y2="59.5" class="chart-baseline"></line>'
+    + '<polyline points="' + points + '" class="chart-line"></polyline>'
+    + '</svg>';
+}
+
+
+function liveChartBox(label, values, minSpan, unit, hardMin, hardMax) {
+  var latest = latestHistoryValue(values);
+
+  return '<div class="chart-box">'
+    + '<div class="chart-title">' + esc(label)
+    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + sparklineZoom(values, minSpan, hardMin, hardMax)
+    + '<div class="chart-axis"><span>older</span><span>now</span></div>'
+    + '</div>';
+}
+
+
+function chartSection(d) {
+  var key = d.device_id
+    || d.hostname
+    || d.display_name;
+
+  var live = getDeviceHistory(key);
+  var persistent = beszelHistory[key];
+  var liveSamples = 0;
+  var historySamples = 0;
+  var h = "";
+
+  /*
+   * Two complementary timelines are shown:
+   * - Live: browser-memory samples every 5 seconds, up to 10 minutes.
+   * - History: Beszel persistent one-minute samples, up to 60 minutes.
+   *
+   * 同时显示两种时间尺度：
+   * - Live：浏览器内每 5 秒采样，最多保留约 10 分钟。
+   * - History：Beszel 持久化 1 分钟采样，显示约 60 分钟。
+   */
+
+  if (live && live.timestamps && live.timestamps.length > 0) {
+    liveSamples = live.timestamps.length;
+
+    h += '<div class="chart-section live-chart-section">'
+      + '<div class="chart-header">Live trends <span>'
+      + liveSamples
+      + ' / '
+      + HISTORY_MAX_POINTS
+      + ' samples</span></div>'
+      + '<div class="chart-grid">'
+      + liveChartBox("CPU", live.cpu, 20, "%", 0, 100)
+      + liveChartBox("RAM", live.memory, 10, "%", 0, 100)
+      + liveChartBox("Load 1m", live.load1, 1, "", 0, null)
+      + '</div>'
+      + '<div class="chart-footnote">'
+      + '5-second live samples / 10-minute rolling window / auto-scaled'
+      + '</div>'
+      + '</div>';
+  }
+
+  if (
+    persistent
+    && persistent.timestamps
+    && persistent.timestamps.length > 1
+  ) {
+    historySamples = persistent.timestamps.length;
+
+    h += '<div class="chart-section history-chart-section">'
+      + '<div class="chart-header">Historical trends <span>'
+      + historySamples
+      + ' samples</span></div>'
+      + '<div class="chart-grid">'
+      + chartBox("CPU", persistent.cpu, 100, "%")
+      + chartBox("RAM", persistent.memory, 100, "%")
+      + chartBox("Load 1m", persistent.load1, null, "")
+      + '</div>'
+      + '<div class="chart-footnote">'
+      + 'Beszel 1-minute history / 60-minute window'
+      + '</div>'
+      + '</div>';
+  }
+
+  return h;
+}
+
+
 function card(d) {
   var online = d.beszel_status === "up";
   var h = '<div class="card">';
@@ -109,11 +500,19 @@ function card(d) {
     h += '<div class="unavailable">Beszel metrics unavailable</div>';
   }
 
+  h += chartSection(d);
+
   return h + '</div>';
 }
 
 function render(data) {
   var list = data.devices || [], h = "", i;
+
+  /*
+   * Store the newest sample before rendering.
+   * 在页面渲染前先保存本轮最新指标。
+   */
+  appendHistory(list);
   document.getElementById("device-count").innerHTML = list.length;
 
   if (data.sources && data.sources.metrics_status === "ok") {
@@ -140,6 +539,88 @@ function fail() {
     "Refresh failed. Existing data remains on screen.";
 }
 
+function installHistory(data) {
+  var devices = data.devices || [];
+  var i;
+  var j;
+  var device;
+  var point;
+  var item;
+
+  for (i = 0; i < devices.length; i = i + 1) {
+    device = devices[i];
+
+    if (!device.device_id || !device.points) {
+      continue;
+    }
+
+    item = {
+      timestamps: [],
+      cpu: [],
+      memory: [],
+      disk: [],
+      load1: []
+    };
+
+    for (j = 0; j < device.points.length; j = j + 1) {
+      point = device.points[j];
+
+      item.timestamps.push(point.timestamp);
+      item.cpu.push(historyValue(point.cpu_percent));
+      item.memory.push(historyValue(point.memory_percent));
+      item.disk.push(historyValue(point.disk_percent));
+      item.load1.push(historyValue(point.load_1));
+    }
+
+    beszelHistory[device.device_id] = item;
+  }
+}
+
+
+function loadHistory() {
+  var x = new XMLHttpRequest();
+
+  x.onreadystatechange = function () {
+    var data;
+
+    if (x.readyState !== 4) {
+      return;
+    }
+
+    if (x.status >= 200 && x.status < 300) {
+      try {
+        data = JSON.parse(x.responseText);
+
+        if (data.status === "ok") {
+          installHistory(data);
+
+          /*
+           * Re-render immediately so the user sees the persistent
+           * curves without waiting for the next 5-second refresh.
+           *
+           * 历史数据到达后立即重绘，不必等待下一次 5 秒刷新。
+           */
+          loadDashboard();
+        }
+      } catch (e) {
+        /*
+         * History is optional. The live fallback stays active.
+         * 历史接口异常时继续使用实时缓存，不影响主 Dashboard。
+         */
+      }
+    }
+  };
+
+  x.open(
+    "GET",
+    HISTORY_URL + "&_=" + new Date().getTime(),
+    true
+  );
+
+  x.send(null);
+}
+
+
 function loadDashboard() {
   var x = new XMLHttpRequest();
   x.onreadystatechange = function () {
@@ -154,5 +635,7 @@ function loadDashboard() {
   x.send(null);
 }
 
+loadHistory();
 loadDashboard();
 setInterval(loadDashboard, REFRESH_MS);
+setInterval(loadHistory, HISTORY_REFRESH_MS);
