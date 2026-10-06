@@ -40,3 +40,24 @@ else:
 # Shared token used by heartbeat clients.
 # Heartbeat 客户端与 Portal 共用的认证 Token。
 HEARTBEAT_TOKEN = os.getenv("HEARTBEAT_TOKEN", "")
+
+# --- Beszel integration / Beszel 集成 ---
+
+# Internal address of the Beszel Hub.
+# Beszel Hub 内部访问地址。
+BESZEL_URL = os.getenv(
+    "BESZEL_URL",
+    "http://127.0.0.1:8090",
+)
+
+# Authentication credentials are loaded from .env only.
+# 认证信息只从 .env 读取，不写入公开代码。
+BESZEL_EMAIL = os.getenv("BESZEL_EMAIL", "")
+BESZEL_PASSWORD = os.getenv("BESZEL_PASSWORD", "")
+BESZEL_TOKEN = os.getenv("BESZEL_TOKEN", "")
+
+# API request timeout in seconds.
+# API 请求超时时间（秒）。
+BESZEL_TIMEOUT = int(
+    os.getenv("BESZEL_TIMEOUT", "10")
+)
