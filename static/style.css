@@ -1,73 +1,36 @@
 /*
- * HomeLab Portal basic stylesheet.
- * HomeLab Portal 基础样式。
- *
- * Keep CSS intentionally simple for legacy browser support.
- * 为兼容旧浏览器，CSS 有意保持简单。
+ * HomeLab Portal UI / 首页样式
+ * Intentionally simple for legacy browsers / 为旧浏览器保持简单。
  */
-
-body {
-    margin: 0;
-    padding: 20px;
-
-    font-family: Arial, Helvetica, sans-serif;
-
-    background: #eeeeee;
-    color: #222222;
-}
-
-
-.container {
-    max-width: 800px;
-
-    margin: 0 auto;
-    padding: 20px;
-
-    background: #ffffff;
-
-    border: 1px solid #cccccc;
-}
-
-
-h1 {
-    margin-top: 0;
-}
-
-
-.subtitle {
-    color: #666666;
-}
-
-
-table {
-    width: 100%;
-
-    border-collapse: collapse;
-
-    margin-bottom: 25px;
-}
-
-
-td {
-    padding: 10px;
-
-    border: 1px solid #cccccc;
-}
-
-
-.status-ok {
-    font-weight: bold;
-    color: green;
-}
-
-
-.status-error {
-    font-weight: bold;
-    color: red;
-}
-
-
-.footer {
-    color: #777777;
-    font-size: 12px;
+body { margin:0; padding:18px; font-family:Arial,Helvetica,sans-serif; background:#eee; color:#222; }
+.container { max-width:980px; margin:0 auto; padding:20px; background:#fff; border:1px solid #ccc; }
+h1 { margin:0 0 5px 0; }
+.subtitle { margin:0 0 16px 0; color:#666; }
+.summary { padding:10px; margin-bottom:18px; background:#f7f7f7; border:1px solid #ccc; line-height:28px; }
+.summary span { display:inline-block; margin-right:22px; }
+.ok { color:green; font-weight:bold; }
+.bad { color:#b00020; font-weight:bold; }
+.error { padding:10px; margin-bottom:15px; border:1px solid #b00020; background:#fff2f2; color:#8a0018; }
+.hidden { display:none; }
+.card { margin-bottom:18px; padding:15px; border:1px solid #bbb; background:#fff; }
+.title { margin-bottom:10px; }
+.title h2 { display:inline-block; margin:0 15px 0 0; font-size:20px; }
+.title b { font-size:12px; }
+table { width:100%; border-collapse:collapse; margin-bottom:13px; }
+td { padding:6px 8px; border:1px solid #ddd; font-size:13px; }
+td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
+.metrics { margin:12px 0; }
+.metric { margin-bottom:10px; white-space:nowrap; }
+.mlabel { display:inline-block; width:45px; font-size:13px; font-weight:bold; }
+.mvalue { display:inline-block; width:58px; text-align:right; font-size:13px; }
+.bar { display:inline-block; width:65%; height:12px; margin-left:10px; border:1px solid #aaa; background:#eee; vertical-align:middle; }
+.fill { display:block; height:12px; background:#555; }
+.unavailable,.loading { padding:15px; text-align:center; color:#666; background:#f5f5f5; border:1px solid #ddd; }
+.footer { margin-top:20px; color:#777; font-size:12px; }
+@media screen and (max-width:600px) {
+  body { padding:5px; }
+  .container { padding:10px; }
+  .summary span { display:block; margin-right:0; }
+  .bar { width:52%; }
+  .title h2 { font-size:18px; }
 }

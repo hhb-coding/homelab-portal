@@ -296,3 +296,33 @@ APIs:
 HomeLab Portal 将 Heartbeat/SQLite 与 Beszel 合并：前者负责设备身份、LAN IP、可选 ZeroTier IP 和 Last Seen；后者负责 CPU、内存、磁盘、Load、温度、Uptime 和在线状态。
 
 两套数据通过 `beszel_system_id` 关联，并通过数据库唯一索引避免一个 Beszel 设备被重复绑定。Beszel 中配置的 host/IP 不作为真实 LAN IP；真实 LAN/ZeroTier 地址始终来自 Heartbeat。
+
+## Live Dashboard UI
+
+Step 4 adds a lightweight browser dashboard powered by the unified `/api/dashboard` endpoint.
+
+Features:
+
+- shows registered HomeLab devices in one page
+- displays LAN IP and optional ZeroTier IP
+- shows Beszel online/offline status
+- displays CPU, memory, disk, load average, temperature, and uptime
+- refreshes automatically every 5 seconds
+- converts UTC heartbeat timestamps to the browser's local time
+- uses ES5-style JavaScript and `XMLHttpRequest` for legacy Safari / iOS 9 compatibility
+- has been tested successfully on a legacy iPad mini running iOS 9
+
+### 中文说明
+
+第四步加入了轻量级动态 Dashboard 首页，并使用统一的 `/api/dashboard` 作为数据源。
+
+主要功能：
+
+- 在一个页面显示所有 HomeLab 设备
+- 显示 LAN IP 和可选 ZeroTier IP
+- 显示 Beszel 在线/离线状态
+- 显示 CPU、内存、磁盘、Load Average、温度和 Uptime
+- 每 5 秒自动刷新
+- 将数据库中的 UTC Heartbeat 时间转换为浏览器本地时间
+- 使用 ES5 风格 JavaScript 和 `XMLHttpRequest`，兼容旧版 Safari / iOS 9
+- 已在运行 iOS 9 的老款 iPad mini 上实机测试通过
