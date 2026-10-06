@@ -282,6 +282,33 @@ def dashboard_api():
     return jsonify(data)
 
 
+@app.route("/api/history")
+def history_api():
+    """
+    Return persistent historical metrics from Beszel.
+    返回来自 Beszel 的持久化历史性能指标。
+    """
+    from history_service import build_history
+
+    minutes_raw = request.args.get("minutes", "60")
+
+    try:
+        minutes = int(minutes_raw)
+    except (TypeError, ValueError):
+        minutes = 60
+
+    try:
+        return jsonify(build_history(minutes=minutes))
+    except BeszelAPIError as exc:
+        app.logger.warning("Beszel history API error: %s", exc)
+        return jsonify(
+            {
+                "status": "error",
+                "error": "beszel_history_unavailable",
+            }
+        ), 502
+
+
 if __name__ == "__main__":
     app.run(
         host=config.HOST,

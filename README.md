@@ -326,3 +326,68 @@ Features:
 - 将数据库中的 UTC Heartbeat 时间转换为浏览器本地时间
 - 使用 ES5 风格 JavaScript 和 `XMLHttpRequest`，兼容旧版 Safari / iOS 9
 - 已在运行 iOS 9 的老款 iPad mini 上实机测试通过
+
+<!-- DASHBOARD-HISTORY-SECTION -->
+
+## Dashboard monitoring / 仪表盘监控
+
+HomeLab Portal provides two complementary metric timelines for each device.
+
+HomeLab Portal 为每台设备提供两种互补的监控时间尺度。
+
+### Live trends / 实时趋势
+
+- Polls the unified dashboard API every 5 seconds.
+- Keeps up to 120 samples in browser memory.
+- Represents approximately the latest 10 minutes.
+- Displays CPU, RAM and Load 1m.
+- Uses lightweight native SVG charts without Chart.js or other front-end frameworks.
+- Live samples are intentionally browser-local and reset when the page is reloaded.
+
+- 每 5 秒轮询一次统一 Dashboard API。
+- 浏览器内最多保留 120 个采样点。
+- 大约表示最近 10 分钟。
+- 展示 CPU、RAM 和 Load 1m。
+- 使用原生 SVG，不依赖 Chart.js 或其他前端框架。
+- Live 数据保存在浏览器内存中，刷新页面后会重新采集。
+
+### Historical trends / 历史趋势
+
+- Reads persistent Beszel `system_stats` data.
+- Uses Beszel 1-minute samples.
+- Shows the latest 60 minutes by default.
+- Historical data survives browser refreshes.
+- Available through `/api/history?minutes=60`.
+
+- 读取 Beszel 持久化的 `system_stats` 数据。
+- 使用 Beszel 的 1 分钟历史采样。
+- 默认展示最近 60 分钟。
+- 浏览器刷新后历史数据不会丢失。
+- API 地址为 `/api/history?minutes=60`。
+
+### Legacy browser compatibility / 老设备兼容
+
+The dashboard intentionally uses simple HTML, CSS, ES5-style JavaScript,
+`XMLHttpRequest`, and native SVG so that it can run on much older browsers.
+
+The current dashboard has been successfully tested on an iPad mini 1 running
+iOS 9 Safari.
+
+Dashboard 有意采用简单 HTML、CSS、ES5 风格 JavaScript、`XMLHttpRequest`
+和原生 SVG，以提高老浏览器兼容性。
+
+当前版本已经在运行 iOS 9 Safari 的 iPad mini 1 上实际测试通过。
+
+### Metric source separation / 数据来源分离
+
+HomeLab Portal treats heartbeat and monitoring data as separate sources:
+
+- Heartbeat data is authoritative for device identity, LAN IP, ZeroTier IP and `last_seen`.
+- Beszel supplies CPU, memory, disk, load, temperature, uptime and persistent history.
+- Beszel host addresses are not treated as authoritative LAN IP addresses.
+
+HomeLab Portal 将设备心跳数据和监控数据分开处理：
+
+- Heartbeat 负责设备身份、LAN IP、ZeroTier IP 和 `last_seen`。
+- Beszel 负责 CPU、内存、磁盘、Load、温度、Uptime 和持久历史。
+- Beszel 中记录的 host 地址不会被当作权威 LAN IP。
