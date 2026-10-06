@@ -58,3 +58,11 @@ ON ip_events(device_id);
 
 CREATE INDEX IF NOT EXISTS idx_ip_events_created
 ON ip_events(created_at);
+
+
+-- One Beszel system may only be linked to one HomeLab Portal device.
+-- 一个 Beszel system 只能绑定一个 HomeLab Portal 设备。
+CREATE UNIQUE INDEX IF NOT EXISTS
+idx_devices_beszel_system_id_unique
+ON devices(beszel_system_id)
+WHERE beszel_system_id IS NOT NULL;

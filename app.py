@@ -8,9 +8,10 @@ Lightweight HomeLab device and monitoring dashboard.
 
 from hmac import compare_digest
 
+import config
+from beszel_client import BeszelAPIError, BeszelClient
 from flask import Flask, jsonify, render_template, request
 
-import config
 from db import (
     database_is_ready,
     get_device,
@@ -183,6 +184,102 @@ def heartbeat():
             "zerotier_ip_changed": result["zerotier_ip_changed"],
         }
     )
+
+
+
+@app.route("/api/metrics")
+def metrics():
+    """
+    Return normalized system metrics from Beszel.
+
+    返回经过 HomeLab Portal 标准化处理后的
+    Beszel 系统性能指标。
+
+    This endpoint intentionally does not expose Beszel credentials,
+    authentication tokens, or other secrets.
+
+    本接口不会向浏览器暴露 Beszel 的账号、密码或 Token。
+    """
+
+    client = BeszelClient(
+        config.BESZEL_URL,
+        timeout=config.BESZEL_TIMEOUT,
+    )
+
+    try:
+        # Prefer token authentication when configured.
+        # 如果配置了 Token，则优先使用 Token。
+        if config.BESZEL_TOKEN:
+            client.authenticate_with_token(
+                config.BESZEL_TOKEN
+            )
+
+        # Otherwise use the normal Beszel account.
+        # 否则使用普通 Beszel 登录账号。
+        elif (
+            config.BESZEL_EMAIL
+            and config.BESZEL_PASSWORD
+        ):
+            client.authenticate_with_password(
+                config.BESZEL_EMAIL,
+                config.BESZEL_PASSWORD,
+            )
+
+        else:
+            return jsonify(
+                {
+                    "status": "error",
+                    "error": (
+                        "beszel_credentials_not_configured"
+                    ),
+                }
+            ), 503
+
+        systems = client.get_snapshot()
+
+        return jsonify(
+            {
+                "status": "ok",
+                "source": "beszel",
+                "count": len(systems),
+                "systems": systems,
+            }
+        )
+
+    except BeszelAPIError as exc:
+        # Log only the API error.
+        # Never log credentials or authentication tokens.
+        # 只记录 API 错误，绝不记录认证信息。
+        app.logger.warning(
+            "Beszel API error: %s",
+            exc,
+        )
+
+        return jsonify(
+            {
+                "status": "error",
+                "error": "beszel_api_unavailable",
+            }
+        ), 502
+
+
+
+@app.route("/api/dashboard")
+def dashboard_api():
+    """
+    Return unified HomeLab Portal device information.
+
+    返回 HomeLab Portal 统一设备信息：
+    IP/ZeroTier/Last Seen + Beszel metrics.
+    """
+
+    # Local import intentionally keeps the integration modular.
+    # 使用局部 import，使 Dashboard 模块保持独立。
+    from dashboard_service import build_dashboard
+
+    data = build_dashboard()
+
+    return jsonify(data)
 
 
 if __name__ == "__main__":

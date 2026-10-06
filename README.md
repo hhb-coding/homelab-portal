@@ -272,3 +272,27 @@ Planned next:
 - CPU / memory / disk / load metrics
 - Unified dashboard API
 - Legacy-browser-compatible live dashboard
+
+## Beszel Metrics Integration
+
+HomeLab Portal combines two data sources:
+
+- **Heartbeat / SQLite**: device identity, LAN IP, optional ZeroTier IP, and last-seen time.
+- **Beszel**: CPU, memory, disk, load average, temperature, uptime, and status.
+
+Devices are linked using `beszel_system_id`. A database-level unique index prevents one Beszel system from being assigned to multiple Portal devices.
+
+### IP design rule
+
+Beszel's configured host/IP is not treated as the authoritative LAN IP because DHCP addresses may change. HomeLab Portal uses Heartbeat for LAN/ZeroTier addresses and Beszel for performance metrics.
+
+APIs:
+
+- `GET /api/metrics` — normalized Beszel metrics.
+- `GET /api/dashboard` — unified device registry + metrics.
+
+### 中文说明
+
+HomeLab Portal 将 Heartbeat/SQLite 与 Beszel 合并：前者负责设备身份、LAN IP、可选 ZeroTier IP 和 Last Seen；后者负责 CPU、内存、磁盘、Load、温度、Uptime 和在线状态。
+
+两套数据通过 `beszel_system_id` 关联，并通过数据库唯一索引避免一个 Beszel 设备被重复绑定。Beszel 中配置的 host/IP 不作为真实 LAN IP；真实 LAN/ZeroTier 地址始终来自 Heartbeat。
