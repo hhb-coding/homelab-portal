@@ -35,6 +35,10 @@ var beszelHistory = {};
 var HISTORY_MAX_POINTS = 120;
 var metricHistory = {};
 
+/* Step 6B selected device / 设备选择 */
+var selectedDeviceId = null;
+var latestDashboardData = null;
+
 
 function historyValue(value) {
 
@@ -479,32 +483,70 @@ function chartSection(d) {
 
 
 
+function deviceKey(d) {
+  return d.device_id || d.hostname || d.display_name || "";
+}
+
 function miniCard(d) {
   var online = d.beszel_status === "up";
   var metrics = d.metrics_available === true;
-  var h = '<div class="mini-card">';
+  var key = deviceKey(d);
+  var selectedClass = key === selectedDeviceId ? " selected-mini-card" : "";
+  var h = '<div class="mini-card' + selectedClass + '" data-device="' + esc(key)
+    + '" onclick="selectDeviceCard(this)">';
 
-  h += '<div class="mini-card-head">'
-    + '<strong>' + esc(nameOf(d)) + '</strong>'
+  h += '<div class="mini-card-head"><strong>' + esc(nameOf(d)) + '</strong>'
     + '<span class="' + (online ? "ok" : "bad") + '">'
-    + (online ? "ONLINE" : "OFFLINE")
-    + '</span></div>';
+    + (online ? "ONLINE" : "OFFLINE") + '</span></div>';
 
-  h += '<div class="mini-card-body">';
-  h += '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
+  h += '<div class="mini-card-body">'
+    + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
 
   if (metrics) {
-    h += '<div><span>CPU</span><b>' + num(d.cpu_percent, 1) + '%</b></div>';
-    h += '<div><span>RAM</span><b>' + num(d.memory_percent, 1) + '%</b></div>';
+    h += '<div><span>CPU</span><b>' + num(d.cpu_percent,1) + '%</b></div>'
+      + '<div><span>RAM</span><b>' + num(d.memory_percent,1) + '%</b></div>';
   } else {
-    h += '<div><span>CPU</span><b>—</b></div>';
-    h += '<div><span>RAM</span><b>—</b></div>';
+    h += '<div><span>CPU</span><b>—</b></div>'
+      + '<div><span>RAM</span><b>—</b></div>';
   }
-
-  h += '</div></div>';
-  return h;
+  return h + '</div></div>';
 }
 
+function selectedDevice(list) {
+  var i;
+  if (!list || list.length === 0) { selectedDeviceId = null; return null; }
+  if (selectedDeviceId) {
+    for (i=0; i<list.length; i=i+1) {
+      if (deviceKey(list[i]) === selectedDeviceId) { return list[i]; }
+    }
+  }
+  selectedDeviceId = deviceKey(list[0]);
+  return list[0];
+}
+
+function renderDevicePanels(list) {
+  var mini="", detail="", chosen=selectedDevice(list), i;
+  if (!list || list.length === 0) {
+    mini = '<div class="loading">No devices registered.</div>';
+    detail = mini;
+  } else {
+    for (i=0; i<list.length; i=i+1) { mini += miniCard(list[i]); }
+    if (chosen) { detail = card(chosen); }
+  }
+  document.getElementById("mini-devices").innerHTML = mini;
+  document.getElementById("devices").innerHTML = detail;
+}
+
+function selectDeviceCard(element) {
+  var key;
+  if (!element) { return; }
+  key = element.getAttribute("data-device");
+  if (!key) { return; }
+  selectedDeviceId = key;
+  if (latestDashboardData) {
+    renderDevicePanels(latestDashboardData.devices || []);
+  }
+}
 
 function card(d) {
   var online = d.beszel_status === "up";
@@ -534,13 +576,9 @@ function card(d) {
 }
 
 function render(data) {
-  var list = data.devices || [], h = "", mini = "", i;
-
-  /*
-   * Store the newest sample before rendering.
-   * 在页面渲染前先保存本轮最新指标。
-   */
+  var list = data.devices || [];
   appendHistory(list);
+  latestDashboardData = data;
   document.getElementById("device-count").innerHTML = list.length;
 
   if (data.sources && data.sources.metrics_status === "ok") {
@@ -549,18 +587,7 @@ function render(data) {
     document.getElementById("metrics-status").innerHTML = '<span class="bad">UNAVAILABLE</span>';
   }
 
-  if (list.length === 0) {
-    mini = '<div class="loading">No devices registered.</div>';
-    h = '<div class="loading">No devices registered.</div>';
-  } else {
-    for (i = 0; i < list.length; i = i + 1) {
-      mini += miniCard(list[i]);
-      h += card(list[i]);
-    }
-  }
-
-  document.getElementById("mini-devices").innerHTML = mini;
-  document.getElementById("devices").innerHTML = h;
+  renderDevicePanels(list);
   document.getElementById("dashboard-error").className = "error hidden";
   document.getElementById("last-updated").innerHTML =
     "Updated: " + new Date().toLocaleTimeString();
