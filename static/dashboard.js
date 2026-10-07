@@ -478,6 +478,34 @@ function chartSection(d) {
 }
 
 
+
+function miniCard(d) {
+  var online = d.beszel_status === "up";
+  var metrics = d.metrics_available === true;
+  var h = '<div class="mini-card">';
+
+  h += '<div class="mini-card-head">'
+    + '<strong>' + esc(nameOf(d)) + '</strong>'
+    + '<span class="' + (online ? "ok" : "bad") + '">'
+    + (online ? "ONLINE" : "OFFLINE")
+    + '</span></div>';
+
+  h += '<div class="mini-card-body">';
+  h += '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
+
+  if (metrics) {
+    h += '<div><span>CPU</span><b>' + num(d.cpu_percent, 1) + '%</b></div>';
+    h += '<div><span>RAM</span><b>' + num(d.memory_percent, 1) + '%</b></div>';
+  } else {
+    h += '<div><span>CPU</span><b>—</b></div>';
+    h += '<div><span>RAM</span><b>—</b></div>';
+  }
+
+  h += '</div></div>';
+  return h;
+}
+
+
 function card(d) {
   var online = d.beszel_status === "up";
   var h = '<div class="card">';
@@ -506,7 +534,7 @@ function card(d) {
 }
 
 function render(data) {
-  var list = data.devices || [], h = "", i;
+  var list = data.devices || [], h = "", mini = "", i;
 
   /*
    * Store the newest sample before rendering.
@@ -522,11 +550,16 @@ function render(data) {
   }
 
   if (list.length === 0) {
+    mini = '<div class="loading">No devices registered.</div>';
     h = '<div class="loading">No devices registered.</div>';
   } else {
-    for (i = 0; i < list.length; i = i + 1) { h += card(list[i]); }
+    for (i = 0; i < list.length; i = i + 1) {
+      mini += miniCard(list[i]);
+      h += card(list[i]);
+    }
   }
 
+  document.getElementById("mini-devices").innerHTML = mini;
   document.getElementById("devices").innerHTML = h;
   document.getElementById("dashboard-error").className = "error hidden";
   document.getElementById("last-updated").innerHTML =
