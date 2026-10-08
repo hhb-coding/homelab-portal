@@ -1,0 +1,88 @@
+/* ES5 + XMLHttpRequest for iOS 9 Safari / 使用 ES5 和 XHR 兼容 iOS 9 Safari。 */
+(function () {
+  "use strict";
+  var pending = false;
+  var hasData = false;
+
+  /* Escape API text before inserting HTML / 插入 HTML 前转义 API 文本。 */
+  function esc(value) {
+    return String(value === null || value === undefined ? "" : value)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function number(value, digits, suffix) {
+    if (typeof value !== "number" || !isFinite(value)) { return "—"; }
+    return value.toFixed(digits) + suffix;
+  }
+
+  function card(device) {
+    var status = device.beszel_status;
+    var online = status === "up";
+    var offline = status === "down" || status === "paused";
+    var label = online ? "ONLINE / 在线" : offline ? "OFFLINE / 离线" : "UNKNOWN / 未知";
+    var available = online && device.metrics_available === true;
+    var name = device.display_name || device.hostname || device.device_id || "Unnamed device / 未命名设备";
+    var html = '<article class="lite-card"><h2><span class="status '
+      + (online ? "online" : offline ? "offline" : "unknown") + '">' + label
+      + '</span>' + esc(name) + '</h2><p class="addresses">LAN IP: '
+      + esc(device.lan_ip || "—");
+    if (device.zerotier_ip) { html += '<br>ZeroTier IP: ' + esc(device.zerotier_ip); }
+    html += '</p><div class="metrics">';
+    html += '<span class="metric">CPU: ' + number(available ? device.cpu_percent : null, 1, "%") + '</span>';
+    html += '<span class="metric">RAM: ' + number(available ? device.memory_percent : null, 1, "%") + '</span>';
+    html += '<span class="metric">Disk / 磁盘: ' + number(available ? device.disk_percent : null, 1, "%") + '</span>';
+    html += '<span class="metric">Load 1m / 负载: ' + number(available ? device.load_1 : null, 2, "") + '</span></div>';
+    /* Offline values can be stale / 离线设备的指标可能过期，因此不显示。 */
+    if (!available) { html += '<p class="note">Current metrics unavailable / 当前指标不可用</p>'; }
+    return html + '</article>';
+  }
+
+  function render(data) {
+    var html = "", i;
+    if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
+      throw new Error("Invalid dashboard response");
+    }
+    for (i = 0; i < data.devices.length; i += 1) {
+      if (!data.devices[i] || typeof data.devices[i] !== "object") { throw new Error("Invalid device"); }
+      html += card(data.devices[i]);
+    }
+    document.getElementById("lite-devices").innerHTML = html || '<p>No devices registered / 暂无设备。</p>';
+    document.getElementById("lite-summary").innerHTML = 'Devices / 设备: ' + data.devices.length
+      + ' · Updated / 更新: ' + esc(new Date().toLocaleTimeString())
+      + (data.sources && data.sources.metrics_status !== "ok" ? ' · Metrics unavailable / 指标不可用' : '');
+    document.getElementById("lite-error").className = "hidden";
+    hasData = true;
+  }
+
+  function fail() {
+    var error = document.getElementById("lite-error");
+    error.innerHTML = 'Unable to refresh. Retrying automatically / 刷新失败，将自动重试。'
+      + (hasData ? ' Displayed data is stale / 显示的数据已过期。' : '');
+    error.className = "";
+    if (!hasData) { document.getElementById("lite-summary").innerHTML = 'Data unavailable / 数据不可用'; }
+  }
+
+  function refresh() {
+    var xhr;
+    if (pending) { return; }
+    pending = true;
+    xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) { return; }
+      pending = false;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { render(JSON.parse(xhr.responseText)); } catch (error) { fail(); }
+      } else { fail(); }
+    };
+    xhr.onerror = xhr.ontimeout = function () { pending = false; fail(); };
+    try {
+      xhr.open("GET", "/api/dashboard?_=" + new Date().getTime(), true);
+      xhr.timeout = 15000;
+      xhr.send(null);
+    } catch (error) { pending = false; fail(); }
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+}());

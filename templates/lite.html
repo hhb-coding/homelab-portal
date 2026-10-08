@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ app_name }} - Lite</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='lite.css') }}">
+</head>
+<body>
+<main class="container">
+  <header>
+    <a class="view-switch" href="{{ url_for('index') }}">Full View</a>
+    <h1>{{ app_name }}</h1>
+    <p>Lite Style / 轻量视图 · Refreshes every 5 seconds / 每 5 秒刷新</p>
+  </header>
+  <p id="lite-summary" role="status">Loading devices / 正在加载设备…</p>
+  <p id="lite-error" class="hidden" role="alert"></p>
+  <div id="lite-devices"></div>
+  <noscript>Enable JavaScript to load devices / 请启用 JavaScript 加载设备。</noscript>
+</main>
+<script src="{{ url_for('static', filename='lite.js') }}"></script>
+</body>
+</html>

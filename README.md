@@ -1,5 +1,51 @@
 # HomeLab Portal
 
+## Stage 6-C Lite Style / 轻量视图
+
+Open `/lite` directly or use **Lite Style** at the top right of the Full
+dashboard (`/`). **Full View** returns to the existing Mini Cards, selected
+device Detail, and SVG trends.
+
+直接访问 `/lite`，或点击完整仪表盘右上角的 **Lite Style**；点击
+**Full View** 返回完整视图，保留设备摘要卡、详情和 SVG 趋势图。
+
+Lite polls `/api/dashboard` every 5 seconds using ES5 JavaScript and
+XMLHttpRequest. It displays device name, Beszel online/offline status, LAN IP,
+optional ZeroTier IP, CPU, RAM, disk, and one-minute load. Missing status is
+shown as UNKNOWN; missing or offline metrics use a dash. Failed requests show
+a retry message and mark retained data as stale. Lite does not request
+historical data or load chart code.
+
+轻量视图每 5 秒刷新，显示名称、Beszel 在线状态、LAN IP、可选 ZeroTier IP、
+CPU、内存、磁盘和一分钟负载。未知状态显示 UNKNOWN，缺失或离线指标显示横线；
+请求失败时自动重试并提示旧数据。轻量视图不加载历史数据或图表。
+
+The **Full page** was previously tested successfully on a real iPad mini 1
+running iOS 9 Safari. Lite follows the same legacy browser conventions, but
+has not yet been verified on that device.
+
+**完整视图**此前已在 iPad mini 1 的 iOS 9 Safari 上实机测试通过。
+轻量视图遵循相同的旧浏览器兼容方式，但尚未进行该设备的实机验证。
+
+### Safe local checks / 安全本地检查
+
+Install `requirements.txt` in a development virtual environment, then run:
+
+```sh
+python -B -m unittest discover -s tests -v
+node --check static/dashboard.js
+node --check static/lite.js
+node tests/test_lite.js
+```
+
+Tests initialize a temporary SQLite database before importing the Flask app,
+skip local `.env` loading, and block outgoing HTTP requests. No live Beszel,
+production database, or credentials are required. GitHub Actions runs the
+same smoke tests plus Python and JavaScript syntax checks.
+
+测试在导入 Flask 应用前初始化临时数据库，不加载本地 `.env`，并禁止外部 HTTP 请求。
+无需真实 Beszel、生产数据库或凭据；GitHub Actions 自动运行冒烟测试和语法检查。
+
 A lightweight self-hosted dashboard for HomeLab device discovery,
 IP tracking, heartbeat monitoring, and system metrics.
 
