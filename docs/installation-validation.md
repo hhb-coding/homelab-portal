@@ -83,11 +83,11 @@ six commits after main, plus this installation-documentation correction:
 | `1da68ee` | Bilingual release preparation / 双语发布资料 |
 
 The eventual v0.1.0 commit must retain this complete history/content and the
-installation fixes, plus any separately approved license/release metadata.
+installation fixes, plus the approved MIT License and any separately approved release metadata.
 Tagging the current `main` or only the earlier application commit would omit
 required functionality or release materials. No merge, tag or Release was performed.
 
-最终发布需包含完整功能、发布文档、本次安装修正以及另行批准的许可证/元数据。
+最终发布需包含完整功能、发布文档、本次安装修正以及已确认的 MIT 许可证与另行批准的发布元数据。
 直接标记现有 main 或仅使用旧应用 Commit 都会遗漏内容。本次未合并、建 Tag 或 Release。
 
 ## Not verified / 尚未验证

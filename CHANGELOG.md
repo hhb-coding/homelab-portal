@@ -35,9 +35,11 @@ No release date, version tag or GitHub Release is asserted here.
 - Safer blank server Heartbeat-token example and expanded local-artifact ignore rules.
   / 服务端 Token 示例留空、补充本地文件忽略规则。
 
+- Maintainer-approved [MIT License](LICENSE), Copyright (c) 2026 Hongbin He.
+  / 维护者已确认 MIT 许可证及版权署名。
+
 ### Known limitations / 已知限制
 
-- License decision is pending. / 许可证待决定。
 - Prior Full-page iOS 9 Safari testing is known; Lite, new Network and 6-E
   real-device validation are still pending. / 历史 Full 实测不代表新版验收通过。
 - Network summarizes reports; it performs no scan, ping or topology discovery.

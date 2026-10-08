@@ -5,8 +5,8 @@ Python, Flask, SQLite, vanilla JavaScript and native SVG; no frontend framework.
 
 **v0.1.0 release preparation:** application baseline
 `f261de40280dfd9cbd57a1c9ef24bf83e4fbd347` (Stages 6-C, 6-D and 6-E).
-A version tag and GitHub Release have not been created. A license has not been
-selected; see [License](#license). [中文说明](#中文说明) follows the English guide.
+A version tag and GitHub Release have not been created. The project uses the
+[MIT License](LICENSE); see [License](#license). [中文说明](#中文说明) follows the English guide.
 
 ## Project overview
 
@@ -349,13 +349,9 @@ validation and dependency/Beszel-version compatibility testing remain pending.
 
 ## License
 
-**No license has been selected and no LICENSE file is provided.** Public source
-availability alone is not an explicit open-source license grant. Choose and
-approve a license before advertising a licensed open-source release. MIT is a
-candidate for a small permissive project; Apache-2.0 is an alternative if an
-explicit patent grant is important. Neither is adopted by this preparation.
-Compare the primary texts: [MIT](https://opensource.org/license/mit) and
-[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Hongbin He
 
 Release material: [changelog](CHANGELOG.md), [draft release notes](docs/releases/v0.1.0.md),
 [release checklist](docs/release-checklist.md). Sanitized screenshots of Full,
@@ -369,7 +365,7 @@ Network and Lite could be added here later; no screenshots are fabricated.
 
 HomeLab Portal 是基于 Python、Flask、SQLite、原生 JavaScript 和 SVG 的轻量
 自托管设备登记与监控仪表盘。v0.1.0 正在准备，应用基线为
-`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347`；尚未创建版本 Tag、Release 或确定许可证。
+`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347`；尚未创建版本 Tag 或 Release，许可证已确认为 [MIT License](LICENSE)。
 
 ### 已实现功能
 
@@ -493,9 +489,9 @@ Lite/Network 实机验证及 Beszel/依赖版本兼容性测试待完成。
 
 ### 许可证信息
 
-尚未选择许可证、未提供 LICENSE，公开源代码本身不等于开源许可授权。
-可考虑 MIT（简洁宽松）或 Apache-2.0（含明确专利授权）；本次不代为采纳任何许可证。
-正式宣称开源发布前需由维护者决定并确认。
+本项目采用 [MIT License](LICENSE)。
+
+Copyright (c) 2026 Hongbin He
 
 发布资料：[CHANGELOG](CHANGELOG.md)、[双语 Release Notes 草稿](docs/releases/v0.1.0.md)、
 [发布前检查清单](docs/release-checklist.md)。之后可在 README 加入已脱敏的真实

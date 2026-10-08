@@ -4,9 +4,9 @@ This is a preparation checklist, not evidence of a published release. Leave
 items unchecked until verified for the actual release candidate.
 这是发布准备清单，不是已发布证明；候选版本未确认的项目保持未勾选。
 
-- [ ] Maintainer selects and approves a license; add an approved LICENSE and
-  update the README before describing the release as licensed open source.
-  / 维护者确认许可证，添加获批 LICENSE，更新项目说明。
+- [x] Maintainer approved the [MIT License](../LICENSE); the root LICENSE and
+  bilingual README reflect Copyright (c) 2026 Hongbin He.
+  / 维护者已确认 MIT，根目录 LICENSE 与双语 README 已更新。
 - [ ] Review/merge the documentation branch through the maintainer's chosen
   process and select the final immutable release commit (including docs).
   / 按维护者流程审核文档分支，选定包含文档的最终发布 Commit。
@@ -31,9 +31,5 @@ items unchecked until verified for the actual release candidate.
   GitHub Release at the approved commit. **Neither is authorized by this prep.**
   / 另行授权创建 Tag 与正式 Release，本次准备不包含发布操作。
 
-License candidates for discussion: MIT (short permissive terms) or Apache-2.0
-(permissive terms with an explicit patent grant). No license has been selected.
-可讨论 MIT 或 Apache-2.0；本清单不作选择，不构成许可授权。
-
-Primary texts / 原文：[MIT](https://opensource.org/license/mit),
-[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
+Confirmed license / 已确认许可证：[MIT License](../LICENSE).
+Copyright (c) 2026 Hongbin He.
