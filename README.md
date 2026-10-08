@@ -65,10 +65,10 @@ public examples. The systemd templates assume the checkout is `~/homelab-portal`
 Choose another directory if that path already exists, and adjust the templates.
 
 ```sh
-git clone https://github.com/hhb-coding/homelab-portal.git
+git clone --branch docs/v0.1-release-prep https://github.com/hhb-coding/homelab-portal.git
 cd homelab-portal
-# Explicitly select the currently verified application baseline.
-git checkout --detach f261de40280dfd9cbd57a1c9ef24bf83e4fbd347
+# This preparation branch contains the verified application plus release docs.
+git log -1 --format='%H %s'
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -77,7 +77,12 @@ test -e .env || cp .env.example .env
 chmod 600 .env
 ```
 
-No `v0.1.0` tag exists yet. After release, choose the approved release revision.
+No `v0.1.0` tag exists yet. `main` does not yet include all the prepared features;
+the preparation branch is used explicitly above and can advance during review.
+For a reproducible deployment, record and select an approved immutable commit
+that includes both the application and release documentation. Checking out only
+the earlier application baseline removes the newer documentation and example
+configuration. After release, choose the approved release revision.
 Edit `.env` before starting. Importing `app.py` initializes the configured SQLite
 schema; no separate database-initialization command is required.
 
@@ -119,7 +124,7 @@ python tools/link_beszel_devices.py
 This tool **writes device links**: it automatically matches unambiguous normalized
 names, then asks about unresolved devices. Review assignments and back up your
 local database first; it does not match devices by their IP address.
-`tools/beszel_probe.py --url http://127.0.0.1:8090` is an optional interactive
+`python tools/beszel_probe.py --url http://127.0.0.1:8090` is an optional interactive
 connectivity probe. Its operational output can contain private device details;
 do not upload that output publicly.
 
@@ -313,6 +318,10 @@ Beszel or production credentials. Automated logic/syntax tests do not replace
 layout validation on real devices. A basic manual HTML/CSS/JS page is retained
 at `docs/legacy-browser-test/helloworld.html`.
 
+See [fresh installation acceptance](docs/installation-validation.md) for the
+tested environment, dependency/configuration results, mocked API checks and
+explicitly unverified physical-device/service cases.
+
 ## Security notes
 
 - Keep `.env`, real client configs, passwords, tokens, private keys, databases,
@@ -389,9 +398,11 @@ Node.js 22，运行服务器不需要 Node.js；其他版本尚未完整认证�
 
 ### 安装步骤
 
-在新目录按英文 Installation 的命令克隆、选择验证过的 Commit、创建 `.venv`、
+在新目录按英文 Installation 的命令显式克隆发布准备分支、记录 Commit、创建 `.venv`、
 安装 `requirements.txt` 并仅在 `.env` 不存在时复制示例。不覆盖现有实例、
 配置或数据库。当前没有 `v0.1.0` Tag，不要使用尚不存在的版本安装命令。
+main 尚未包含完整待发布功能，发布准备分支还可能推进；正式部署应选择包含应用与
+文档的最终不可变 Commit，不能仅回退到旧应用基线而丢失新版文档和示例配置。
 `app.py` 导入时会初始化配置路径下的 SQLite，无需另一个初始化命令。
 
 ### 配置方法
@@ -463,6 +474,8 @@ ES5/XHR 面向老设备，但 **Lite 尚未在 iOS 9 Safari 实测**。Full 曾�
 测试使用临时数据库、不读取 `.env`、禁止真实外部 HTTP；前端使用模拟 DOM/XHR。
 GitHub Actions 不需要生产凭据或真实 Beszel；自动测试不能替代真实设备布局验收。
 保留 `docs/legacy-browser-test/helloworld.html` 基础手工兼容性测试页面。
+本次 [全新安装验收](docs/installation-validation.md) 记录测试环境、依赖与配置结果、
+模拟 API 检查及尚未进行的实体设备/服务验收。
 
 ### 安全注意事项
 

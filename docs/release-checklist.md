@@ -19,6 +19,9 @@ items unchecked until verified for the actual release candidate.
 - [ ] Verify installation from a fresh checkout with private configuration,
   a temporary database and no existing production service. Include both clients
   and Beszel linking, documenting versions tested. / 新目录验证安装及客户端与 Beszel 关联。
+  Core fresh-clone acceptance is recorded in [installation validation](installation-validation.md);
+  live clients/Beszel and service installation remain pending, so this item stays unchecked.
+  / 核心新安装检查已记录，真实客户端、Beszel 与服务安装未完成，整体项目不勾选通过。
 - [ ] Execute the [browser checklist](legacy-browser-validation.md), including
   real iOS 9 Safari for Lite/Network, or explicitly retain the unverified limitation.
   / 完成浏览器验收，未实测时如实保留限制说明。
