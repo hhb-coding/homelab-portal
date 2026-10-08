@@ -91,6 +91,20 @@
     assert(requests.every(function (request) {
       return request.url.indexOf("/api/dashboard?") === 0 || request.url.indexOf("/api/history?") === 0;
     }), "No extra network APIs");
+    assert(num(null, 1) === "—" && num("", 1) === "—" && num("  ", 1) === "—" && num(false, 1) === "—" && num(Infinity, 1) === "—", "Missing and invalid numbers are not zero");
+    assert(num(0, 1) === "0.0", "Real zero remains zero");
+    assert(historyValue(false) === null && historyValue(Infinity) === null, "Invalid chart samples remain gaps");
+    assert(metric("CPU", null).indexOf("—%") < 0 && metric("CPU", null).indexOf('class="fill"') < 0, "Missing metric has no percent or filled bar");
+    assert(miniCard({device_id: "unknown", metrics_available: true}).indexOf("UNKNOWN") >= 0, "Unknown Mini Card status");
+    assert(card({device_id: "unknown"}).indexOf("UNKNOWN") >= 0, "Unknown Device Details status");
+    assert(miniCard({device_id: "partial", metrics_available: true}).indexOf("—%") < 0, "Missing mini metrics have no percent");
+    assert(chartBox("CPU", [null, null], 100, "%").indexOf("—%") < 0, "Missing chart value has no percent");
+    render({status: "ok", sources: {metrics_status: "ok"}, devices: [null, [], "bad", {device_id: "partial", beszel_status: "up", metrics_available: true}]});
+    assert(document.getElementById("device-count").innerHTML === 1, "Malformed entries do not hide valid device");
+    assert(document.getElementById("devices").innerHTML.indexOf("partial") >= 0, "Partial device details render");
+    document.getElementById("tab-network").onclick();
+    document.getElementById("tab-device").onclick();
+    assert(selectedDeviceId === "partial", "Tab switch uses sanitized records");
     console.log("Network tab behavior: " + checks + " assertions passed");
   }
   vm.runInNewContext(fs.readFileSync("static/dashboard.js", "utf8") + "\n(" + exercise.toString() + ")();", {

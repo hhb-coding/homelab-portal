@@ -1,5 +1,53 @@
 # HomeLab Portal
 
+## Stage 6-E UI cleanup / 界面整理
+
+Full, Network and Lite use consistent status colors and button spacing.
+Long names and addresses wrap; narrow screens move the view switch above the
+title. Unknown status is distinct from offline on all views. Missing metrics
+use a dash without a percent sign or filled bar, while a real zero stays zero.
+Malformed device entries are skipped so other devices remain visible.
+No APIs, database changes, scanners or services are added; existing tabs,
+device selection, SVG history and polling intervals are retained.
+
+完整视图、Network 和 Lite 统一状态颜色和按钮间距；长名称与地址换行，
+窄屏下切换按钮移至标题上方。未知状态与离线状态区分显示，缺失指标显示横线，
+不附加百分号或填充条，真实零值仍显示零。跳过无效设备条目，避免影响其他设备。
+不增加 API、不改变数据库或服务；保留标签、设备选择、SVG 历史图和刷新间隔。
+
+### Manual acceptance checklist / 手工验收清单
+
+The Full page was previously confirmed to display correctly on real iOS 9
+Safari. That historical result does not certify these new UI changes.
+Lite and the new Network view have **not** been tested on real iOS 9 Safari.
+The items below remain pending until someone performs and records the checks.
+
+完整视图此前已确认在真实 iOS 9 Safari 正常显示，但不代表本次改动已完成实测。
+Lite 和新版 Network **尚未**进行 iOS 9 实机测试。以下项目需实际验收后记录，
+不能用自动化测试替代或直接标记通过。
+
+- [ ] Desktop, tablet and phone at 320/375, 768/1024 and 1280 px: no horizontal
+  page scrolling, overlapping buttons, clipped names or unreadable addresses.
+  / 桌面、平板、手机对应宽度下无页面横向滚动、按钮重叠或文字截断。
+- [ ] Real old iPad, iOS 9 Safari, portrait and landscape: repeat layout checks
+  for Full Device, Network and Lite; record device, OS, date and result.
+  / 旧 iPad 竖屏和横屏验证三种视图，记录设备、系统、日期和结果。
+- [ ] Device Mini Card selection, details, live/persistent SVG charts and
+  Device/Network switching retain the selected device through refreshes.
+  / 设备选择、详情、实时和历史 SVG 图表及标签切换在刷新后保持正常。
+- [ ] Lite Style and Full View links work; Lite loads no history or charts.
+  / 双向导航正常，Lite 不加载历史或图表。
+- [ ] Empty registry, offline/unknown devices, optional missing addresses,
+  missing metrics and real zero values display distinct, understandable states.
+  / 空列表、离线、未知、可选地址缺失、缺失指标和真实零值显示准确。
+- [ ] In a development test environment, simulate API errors, timeout and
+  recovery: retained data is marked stale and successful refresh clears errors.
+  / 在开发测试环境模拟 API 失败、超时和恢复，旧数据提示与恢复正常。
+
+Automated checks use temporary SQLite and mock requests; they verify behavior
+and syntax, not real-device rendering. / 自动化测试使用临时数据库和模拟请求，
+验证逻辑与语法，不代表真实设备视觉验收。
+
 ## Stage 6-D Network Tab / 网络标签
 
 The Full dashboard (`/`) starts on **Device**, preserving Mini Cards, selected

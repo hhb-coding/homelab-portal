@@ -58,5 +58,10 @@
   timers[0].callback(); reply(200, { status: "ok", devices: null });
   assert(elements["lite-error"].className === "", "Invalid payload handled");
   assert(requests.every(function (request) { return request.url.indexOf("/api/dashboard?") === 0; }), "Only dashboard requested");
+  timers[0].callback(); reply(200, data([null, [], "bad", {device_id: "partial", beszel_status: "up", metrics_available: true, cpu_percent: 0}]));
+  assert(elements["lite-devices"].innerHTML.indexOf("partial") >= 0, "Incomplete valid device survives malformed neighbors");
+  assert(elements["lite-summary"].innerHTML.indexOf("设备: 1") >= 0, "Count only valid records");
+  assert(elements["lite-devices"].innerHTML.indexOf("RAM: —") >= 0 && elements["lite-devices"].innerHTML.indexOf("CPU: 0.0%") >= 0, "Missing metrics differ from zero");
+  assert(elements["lite-error"].className === "hidden", "Partial data recovery clears error");
   console.log("Lite browser behavior: " + checks + " assertions passed");
 }());

@@ -44,13 +44,13 @@ function historyValue(value) {
 
     var numberValue;
 
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined || (typeof value === "string" && /^\s*$/.test(value))) {
         return null;
     }
 
     numberValue = Number(value);
 
-    if (isNaN(numberValue)) {
+    if (typeof value === "boolean" || typeof value === "object" || !isFinite(numberValue)) {
         return null;
     }
 
@@ -126,9 +126,9 @@ function esc(v) {
 
 function num(v, digits) {
   var n;
-  if (v === null || v === undefined || v === "") { return "—"; }
+  if (v === null || v === undefined || (typeof v === "string" && /^\s*$/.test(v))) { return "—"; }
   n = Number(v);
-  return isNaN(n) ? "—" : n.toFixed(digits);
+  return typeof v === "boolean" || typeof v === "object" || !isFinite(n) ? "—" : n.toFixed(digits);
 }
 
 function pct(v) {
@@ -138,16 +138,18 @@ function pct(v) {
 }
 
 function metric(label, value) {
+  var display = num(value, 1);
+  /* Missing values have no percentage or filled bar / 缺失指标不显示百分号或填充条。 */
   return '<div class="metric">'
     + '<span class="mlabel">' + esc(label) + '</span>'
-    + '<span class="mvalue">' + num(value,1) + '%</span>'
-    + '<span class="bar"><span class="fill" style="width:' + pct(value) + '%"></span></span>'
+    + '<span class="mvalue">' + display + (display === "—" ? "" : "%") + '</span>'
+    + '<span class="bar">' + (display === "—" ? "" : '<span class="fill" style="width:' + pct(value) + '%"></span>') + '</span>'
     + '</div>';
 }
 
 function uptime(seconds) {
   var s, d, h, m;
-  if (seconds === null || seconds === undefined) { return "—"; }
+  if (num(seconds, 0) === "—") { return "—"; }
   s = Math.floor(Number(seconds));
   if (isNaN(s) || s < 0) { return "—"; }
   d = Math.floor(s / 86400);
@@ -160,7 +162,7 @@ function uptime(seconds) {
 
 function temp(v) {
   var n = Number(v);
-  if (v === null || v === undefined || isNaN(n) || n <= 0) { return "—"; }
+  if (num(v, 1) === "—" || n <= 0) { return "—"; }
   return n.toFixed(1) + " °C";
 }
 
@@ -296,7 +298,7 @@ function chartBox(label, values, fixedMax, unit) {
 
   return '<div class="chart-box">'
     + '<div class="chart-title">' + esc(label)
-    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + '<span>' + num(latest, 1) + (num(latest, 1) === "—" ? "" : esc(unit || "")) + '</span></div>'
     + sparkline(values, fixedMax)
     + '<div class="chart-axis"><span>older</span><span>now</span></div>'
     + '</div>';
@@ -408,7 +410,7 @@ function liveChartBox(label, values, minSpan, unit, hardMin, hardMax) {
 
   return '<div class="chart-box">'
     + '<div class="chart-title">' + esc(label)
-    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + '<span>' + num(latest, 1) + (num(latest, 1) === "—" ? "" : esc(unit || "")) + '</span></div>'
     + sparklineZoom(values, minSpan, hardMin, hardMax)
     + '<div class="chart-axis"><span>older</span><span>now</span></div>'
     + '</div>';
@@ -488,7 +490,7 @@ function deviceKey(d) {
 }
 
 function miniCard(d) {
-  var online = d.beszel_status === "up";
+  var state = networkState(d);
   var metrics = d.metrics_available === true;
   var key = deviceKey(d);
   var selectedClass = key === selectedDeviceId ? " selected-mini-card" : "";
@@ -496,15 +498,15 @@ function miniCard(d) {
     + '" onclick="selectDeviceCard(this)">';
 
   h += '<div class="mini-card-head"><strong>' + esc(nameOf(d)) + '</strong>'
-    + '<span class="' + (online ? "ok" : "bad") + '">'
-    + (online ? "ONLINE" : "OFFLINE") + '</span></div>';
+    + '<span class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
+    + state.toUpperCase() + '</span></div>';
 
   h += '<div class="mini-card-body">'
     + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
 
   if (metrics) {
-    h += '<div><span>CPU</span><b>' + num(d.cpu_percent,1) + '%</b></div>'
-      + '<div><span>RAM</span><b>' + num(d.memory_percent,1) + '%</b></div>';
+    h += '<div><span>CPU</span><b>' + num(d.cpu_percent,1) + (num(d.cpu_percent,1) === "—" ? "" : "%") + '</b></div>'
+      + '<div><span>RAM</span><b>' + num(d.memory_percent,1) + (num(d.memory_percent,1) === "—" ? "" : "%") + '</b></div>';
   } else {
     h += '<div><span>CPU</span><b>—</b></div>'
       + '<div><span>RAM</span><b>—</b></div>';
@@ -549,11 +551,11 @@ function selectDeviceCard(element) {
 }
 
 function card(d) {
-  var online = d.beszel_status === "up";
+  var state = networkState(d);
   var h = '<div class="card">';
   h += '<div class="title"><h2>' + esc(nameOf(d)) + '</h2>'
-    + '<b class="' + (online ? "ok" : "bad") + '">'
-    + (online ? "ONLINE" : "OFFLINE") + '</b></div>';
+    + '<b class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
+    + state.toUpperCase() + '</b></div>';
 
   h += '<table><tr><td>LAN IP</td><td>' + esc(d.lan_ip || "—") + '</td></tr>'
     + '<tr><td>ZeroTier</td><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
@@ -638,15 +640,16 @@ function render(data) {
   if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
     throw new Error("Invalid dashboard response");
   }
-  var list = data.devices || [];
+  var list = [];
   var i;
-  for (i = 0; i < list.length; i += 1) {
-    if (!list[i] || typeof list[i] !== "object" || Array.isArray(list[i])) {
-      throw new Error("Invalid device record");
+  /* Ignore malformed entries; valid devices still render / 跳过无效条目，正常设备仍可显示。 */
+  for (i = 0; i < data.devices.length; i += 1) {
+    if (data.devices[i] && typeof data.devices[i] === "object" && !Array.isArray(data.devices[i])) {
+      list.push(data.devices[i]);
     }
   }
   appendHistory(list);
-  latestDashboardData = data;
+  latestDashboardData = { devices: list, sources: data.sources };
   document.getElementById("device-count").innerHTML = list.length;
 
   if (data.sources && data.sources.metrics_status === "ok") {

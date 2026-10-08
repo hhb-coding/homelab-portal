@@ -39,16 +39,18 @@
   }
 
   function render(data) {
-    var html = "", i;
+    var html = "", i, count = 0;
     if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
       throw new Error("Invalid dashboard response");
     }
     for (i = 0; i < data.devices.length; i += 1) {
-      if (!data.devices[i] || typeof data.devices[i] !== "object") { throw new Error("Invalid device"); }
+      /* One invalid record must not hide other devices / 单条无效数据不影响其他设备。 */
+      if (!data.devices[i] || typeof data.devices[i] !== "object" || Array.isArray(data.devices[i])) { continue; }
       html += card(data.devices[i]);
+      count += 1;
     }
     document.getElementById("lite-devices").innerHTML = html || '<p>No devices registered / 暂无设备。</p>';
-    document.getElementById("lite-summary").innerHTML = 'Devices / 设备: ' + data.devices.length
+    document.getElementById("lite-summary").innerHTML = 'Devices / 设备: ' + count
       + ' · Updated / 更新: ' + esc(new Date().toLocaleTimeString())
       + (data.sources && data.sources.metrics_status !== "ok" ? ' · Metrics unavailable / 指标不可用' : '');
     document.getElementById("lite-error").className = "hidden";

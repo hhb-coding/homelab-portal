@@ -4,6 +4,7 @@ Run in a fresh process: python -B -m unittest discover -s tests -v
 在独立进程中运行；导入应用前切换到临时数据库，禁止网络请求。
 """
 import importlib
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -73,6 +74,18 @@ class PortalSmokeTests(unittest.TestCase):
         dashboard = self.client.get("/api/dashboard")
         self.assertEqual(dashboard.status_code, 200)
         self.assertEqual(dashboard.json["devices"], [])
+
+    def test_legacy_frontend_guards(self):
+        """Guard known iOS 9 incompatibilities / 防止引入已知的 iOS 9 不兼容语法。"""
+        root = Path(__file__).resolve().parents[1]
+        for name in ("dashboard.js", "lite.js"):
+            source = (root / "static" / name).read_text()
+            code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
+            self.assertNotRegex(code, r"\b(?:const|let)\s+\w|=>|\?\.|\bfetch\s*\(")
+            self.assertIn("XMLHttpRequest", source)
+        for name in ("style.css", "lite.css"):
+            css = re.sub(r"/\*.*?\*/", "", (root / "static" / name).read_text(), flags=re.S)
+            self.assertNotRegex(css, r"display\s*:\s*(?:inline-)?grid|\bvar\s*\(|(?:^|[;{])\s*(?:gap|row-gap|column-gap|--[\w-]+)\s*:")
 
     def test_heartbeat_validation(self):
         self.assertEqual(self.client.post("/api/heartbeat", json={}).status_code, 401)
