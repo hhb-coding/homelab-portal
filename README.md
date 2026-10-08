@@ -1,5 +1,41 @@
 # HomeLab Portal
 
+## Stage 6-D Network Tab / 网络标签
+
+The Full dashboard (`/`) starts on **Device**, preserving Mini Cards, selected
+Device Details, and SVG charts. Select **Network** to hide the Device panel
+and show device totals, online/offline/unknown counts, LAN/ZeroTier address
+coverage, and per-device address cards with last heartbeat time. Switching
+tabs retains the selected device and does not make extra requests. Both views
+refresh from the existing `/api/dashboard` response every 5 seconds.
+
+完整视图默认进入 **Device**，保留设备摘要卡、选中设备详情和 SVG 图表。
+选择 **Network** 后隐藏设备详情，显示设备总数、在线/离线/未知数量、
+LAN/ZeroTier 地址上报数量以及每台设备的地址和最后心跳时间。
+切换保留已选设备，不发起额外请求；两种视图共享每 5 秒刷新的数据。
+
+Addresses are reported by Heartbeat; status is provided by Beszel (`up` is
+online, `down`/`paused` are offline, other or missing status is unknown).
+Registered addresses do not prove reachability. No scanning, ping checks,
+topology inference, new backend services, or new API endpoints are introduced.
+Missing LAN addresses and optional ZeroTier addresses are explained; Beszel
+outages retain registry addresses. API failures retain previous data with a
+stale-data warning. Lite is unchanged.
+
+地址来自 Heartbeat，状态来自 Beszel；`up` 为在线，`down`/`paused` 为离线，
+其他或缺失状态为未知。登记地址不代表连通性；不进行扫描、Ping 或拓扑推断，
+不增加后台服务或 API。缺失地址有提示，指标不可用时仍显示登记地址；
+API 失败时保留旧数据并提示可能过期。Lite 页面保持不变。
+
+Run `node tests/test_network.js` for automated tab switching, selection,
+charts, counts, missing-data and API-error checks. The Network view follows
+ES5/XHR and legacy CSS conventions; iOS 9 Safari still needs real-device
+verification for this new view.
+
+运行 `node tests/test_network.js` 验证标签切换、设备选择、图表、摘要统计、
+缺失数据和 API 错误处理。新视图使用 ES5/XHR 和兼容旧浏览器的 CSS，
+尚需 iOS 9 Safari 实机验证。
+
 ## Stage 6-C Lite Style / 轻量视图
 
 Open `/lite` directly or use **Lite Style** at the top right of the Full

@@ -575,8 +575,76 @@ function card(d) {
   return h + '</div>';
 }
 
+/* Switching panels never fetches data or resets selection / 切换不请求数据、不重置设备选择。 */
+function selectDashboardTab(tab) {
+  var network = tab === "network";
+  document.getElementById("device-panel").className = network ? "hidden" : "";
+  document.getElementById("network-panel").className = network ? "" : "hidden";
+  document.getElementById("tab-device").className = "dashboard-tab" + (network ? "" : " active-tab");
+  document.getElementById("tab-network").className = "dashboard-tab" + (network ? " active-tab" : "");
+  document.getElementById("tab-device").setAttribute("aria-pressed", network ? "false" : "true");
+  document.getElementById("tab-network").setAttribute("aria-pressed", network ? "true" : "false");
+}
+
+/* Missing status is unknown, not a failed LAN check / 缺失状态为未知，并非 LAN 检测失败。 */
+function networkState(device) {
+  if (device.beszel_status === "up") { return "online"; }
+  if (device.beszel_status === "down" || device.beszel_status === "paused") { return "offline"; }
+  return "unknown";
+}
+
+function networkSummaryCard(label, value) {
+  return '<div class="network-summary-card"><span>' + label + '</span><strong>' + value + '</strong></div>';
+}
+
+function renderNetworkPanels(list, sources) {
+  var online = 0, offline = 0, unknown = 0, lan = 0, zerotier = 0;
+  var cards = "", summary = "", i, device, state;
+  var labels = { online: "ONLINE / 在线", offline: "OFFLINE / 离线", unknown: "UNKNOWN / 未知" };
+  for (i = 0; i < list.length; i += 1) {
+    device = list[i];
+    state = networkState(device);
+    if (state === "online") { online += 1; }
+    else if (state === "offline") { offline += 1; }
+    else { unknown += 1; }
+    if (device.lan_ip) { lan += 1; }
+    if (device.zerotier_ip) { zerotier += 1; }
+    cards += '<div class="network-device-card"><h2>' + esc(nameOf(device)) + '</h2>'
+      + '<p class="network-state ' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown")
+      + '">' + labels[state] + '</p><table><tr><td>LAN IP</td><td>' + esc(device.lan_ip || "—")
+      + '</td></tr><tr><td>ZeroTier IP</td><td>' + esc(device.zerotier_ip || "—")
+      + '</td></tr><tr><td>Last Seen / 最后心跳</td><td>' + localTime(device.last_seen) + '</td></tr></table>';
+    if (!device.lan_ip) { cards += '<p class="network-note">LAN address unavailable / LAN 地址缺失</p>'; }
+    if (!device.zerotier_ip) { cards += '<p class="network-note">No ZeroTier address reported (optional) / 未上报 ZeroTier 地址（可选）</p>'; }
+    cards += '</div>';
+  }
+  summary += '<div class="network-summary-grid">'
+    + networkSummaryCard("Devices / 设备总数", list.length)
+    + networkSummaryCard("Online / 在线", online)
+    + networkSummaryCard("Offline / 离线", offline)
+    + networkSummaryCard("Unknown / 未知", unknown)
+    + networkSummaryCard("LAN IP reported / 已上报", lan + " / " + list.length)
+    + networkSummaryCard("ZeroTier IP reported / 已上报", zerotier + " / " + list.length)
+    + '</div>';
+  if (!sources || sources.metrics_status !== "ok") {
+    summary += '<p class="network-note">Beszel status unavailable; addresses remain visible / Beszel 状态不可用，仍显示登记地址。</p>';
+  }
+  document.getElementById("network-summary").innerHTML = summary;
+  document.getElementById("network-devices").innerHTML = cards || '<div class="loading">No devices registered / 暂无设备。</div>';
+}
+
 function render(data) {
+  /* Reject broken payloads before replacing retained data / 替换旧数据前验证响应。 */
+  if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
+    throw new Error("Invalid dashboard response");
+  }
   var list = data.devices || [];
+  var i;
+  for (i = 0; i < list.length; i += 1) {
+    if (!list[i] || typeof list[i] !== "object" || Array.isArray(list[i])) {
+      throw new Error("Invalid device record");
+    }
+  }
   appendHistory(list);
   latestDashboardData = data;
   document.getElementById("device-count").innerHTML = list.length;
@@ -588,6 +656,7 @@ function render(data) {
   }
 
   renderDevicePanels(list);
+  renderNetworkPanels(list, data.sources);
   document.getElementById("dashboard-error").className = "error hidden";
   document.getElementById("last-updated").innerHTML =
     "Updated: " + new Date().toLocaleTimeString();
@@ -596,7 +665,7 @@ function render(data) {
 function fail() {
   document.getElementById("dashboard-error").className = "error";
   document.getElementById("dashboard-error").innerHTML =
-    "Refresh failed. Existing data remains on screen.";
+    "Refresh failed. Displayed data may be stale; retrying automatically. / 刷新失败，显示数据可能过期，将自动重试。";
 }
 
 function installHistory(data) {
@@ -692,8 +761,13 @@ function loadDashboard() {
     } else { fail(); }
   };
   x.open("GET", DASHBOARD_URL + "?_=" + new Date().getTime(), true);
+  x.onerror = x.ontimeout = fail;
+  x.timeout = 15000;
   x.send(null);
 }
+
+document.getElementById("tab-device").onclick = function () { selectDashboardTab("device"); };
+document.getElementById("tab-network").onclick = function () { selectDashboardTab("network"); };
 
 loadHistory();
 loadDashboard();

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ app_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6c1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6d1">
 </head>
 <body>
 <div class="container">
@@ -24,10 +24,11 @@
 
   <div id="dashboard-error" class="error hidden">Unable to load dashboard data.</div>
   <div class="dashboard-tabs">
-    <button type="button" class="dashboard-tab active-tab" id="tab-device">Device</button>
-    <button type="button" class="dashboard-tab disabled-tab" id="tab-network" disabled="disabled">Network</button>
+    <button type="button" class="dashboard-tab active-tab" id="tab-device" aria-pressed="true" aria-controls="device-panel">Device</button>
+    <button type="button" class="dashboard-tab" id="tab-network" aria-pressed="false" aria-controls="network-panel">Network</button>
   </div>
 
+  <div id="device-panel">
   <div class="section-block">
     <div class="section-heading">
       <span>Device Overview</span>
@@ -46,8 +47,20 @@
     <div id="devices"><div class="loading">Loading HomeLab devices...</div></div>
   </div>
 
+  </div>
+
+  <!-- Registry addresses and Beszel status only / 仅显示登记地址和 Beszel 状态。 -->
+  <div id="network-panel" class="hidden">
+    <div class="section-heading">Network Overview / 网络摘要</div>
+    <p class="network-note">Addresses come from Heartbeat; device status comes from Beszel.
+      These are registered addresses, not connectivity checks or a network topology.
+      / 地址来自 Heartbeat，设备状态来自 Beszel；不代表连通性检测或网络拓扑。</p>
+    <div id="network-summary"><div class="loading">Loading network summary / 正在加载网络摘要…</div></div>
+    <div id="network-devices"><div class="loading">Loading device addresses / 正在加载设备地址…</div></div>
+  </div>
+
   <p class="footer">HomeLab Portal - Legacy-compatible live dashboard</p>
 </div>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=6b1"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=6d1"></script>
 </body>
 </html>

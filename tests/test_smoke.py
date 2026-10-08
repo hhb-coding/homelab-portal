@@ -48,6 +48,9 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(full.status_code, 200)
         for marker in (b'href="/lite"', b'id="mini-devices"', b'id="devices"', b'dashboard.js'):
             self.assertIn(marker, full.data)
+        for marker in (b'id="device-panel"', b'id="network-panel" class="hidden"', b'id="network-summary"', b'id="network-devices"'):
+            self.assertIn(marker, full.data)
+        self.assertNotIn(b'disabled="disabled"', full.data)
         lite = self.client.get("/lite")
         self.assertEqual(lite.status_code, 200)
         for marker in (b'href="/"', b'Full View', b'lite.js', b'lite.css'):
