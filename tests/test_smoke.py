@@ -52,6 +52,8 @@ class PortalSmokeTests(unittest.TestCase):
         for marker in (b'id="device-panel"', b'id="network-panel" class="hidden"', b'id="network-summary"', b'id="network-devices"'):
             self.assertIn(marker, full.data)
         self.assertNotIn(b'disabled="disabled"', full.data)
+        self.assertNotIn(b'Select a mini card above', full.data)
+        self.assertNotIn(b'Device Details', full.data)
         lite = self.client.get("/lite")
         self.assertEqual(lite.status_code, 200)
         for marker in (b'href="/"', b'Full View', b'lite.js', b'lite.css'):
@@ -87,6 +89,18 @@ class PortalSmokeTests(unittest.TestCase):
             css = re.sub(r"/\*.*?\*/", "", (root / "static" / name).read_text(), flags=re.S)
             self.assertNotRegex(css, r"display\s*:\s*(?:inline-)?grid|\bvar\s*\(|(?:^|[;{])\s*(?:gap|row-gap|column-gap|--[\w-]+)\s*:")
 
+    def test_equal_progress_bar_heights(self):
+        """Bar height and label centering regression / 横条等高与文字垂直居中回归。"""
+        source = (Path(__file__).resolve().parents[1] / "static/style.css").read_text()
+        def rule(selector):
+            return re.search(re.escape(selector) + r"\s*\{([^}]+)\}", source).group(1)
+        self.assertRegex(rule(".bar"), r"height:24px")
+        self.assertRegex(rule(".fill"), r"height:100%")
+        self.assertNotIn("height:", rule(".disk-bar"))
+        self.assertRegex(rule(".disk-used, .disk-free"), r"height:100%")
+        self.assertRegex(rule(".disk-label"), r"line-height:22px")
+        self.assertRegex(rule(".metric"), r"line-height:24px")
+
     def test_heartbeat_validation(self):
         self.assertEqual(self.client.post("/api/heartbeat", json={}).status_code, 401)
         headers = {"X-Heartbeat-Token": "smoke-test-only"}
@@ -110,6 +124,8 @@ class PortalSmokeTests(unittest.TestCase):
         with self.db.get_connection() as connection:
             connection.execute("UPDATE devices SET beszel_system_id = 'test-system'")
         snapshot = [{"beszel_system_id": "test-system", "status": "up", "host": "203.0.113.99", "cpu_percent": 0, "memory_percent": 42, "disk_percent": 18, "load_1": 0.25}]
+        snapshot[0].update(memory_total=8, disk_total=100, disk_used=18,
+                           disk_available=82, disk_available_estimated=True, disk_usage_percent=18, capacity_unit="GiB")
         with patch("dashboard_service._get_beszel_snapshot", return_value=snapshot):
             data = self.client.get("/api/dashboard").json
         device = data["devices"][0]
@@ -118,6 +134,8 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(device["beszel_status"], "up")
         self.assertTrue(device["metrics_available"])
         self.assertEqual(device["cpu_percent"], 0)
+        for key in ("memory_total", "disk_total", "disk_used", "disk_available", "disk_available_estimated", "disk_usage_percent", "capacity_unit"):
+            self.assertEqual(device[key], snapshot[0][key])
         self.assertIsNone(device["zerotier_ip"])
         snapshot[0]["status"] = "down"
         with patch("dashboard_service._get_beszel_snapshot", return_value=snapshot):
@@ -126,6 +144,7 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(data["sources"]["metrics_status"], "unavailable")
         self.assertFalse(data["devices"][0]["metrics_available"])
         self.assertIsNone(data["devices"][0]["cpu_percent"])
+        self.assertIsNone(data["devices"][0]["disk_total"])
         self.assertEqual(data["devices"][0]["lan_ip"], "192.0.2.10")
 
     def test_metrics_and_history_without_credentials(self):

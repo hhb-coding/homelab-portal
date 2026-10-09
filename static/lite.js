@@ -16,6 +16,26 @@
     return value.toFixed(digits) + suffix;
   }
 
+  /* Only trusted scheme-A samples yield an available percentage.
+   * 仅可信方案 A 样本显示可用比例，分母为已用+估算可用，等价于 100-dp。 */
+  function diskText(device, available) {
+    var total = device.disk_total, used = device.disk_used, free = device.disk_available;
+    var percent = device.disk_usage_percent;
+    var validTotal = available && device.capacity_unit === "GiB"
+      && typeof total === "number" && isFinite(total) && total > 0;
+    var capacity = validTotal ? number(total >= 1024 ? total / 1024 : total, 1, total >= 1024 ? "T" : "G") : "—";
+    var trusted = validTotal && device.disk_available_estimated === true
+      && typeof used === "number" && isFinite(used) && used > 0 && used <= total
+      && typeof free === "number" && isFinite(free) && free >= 0 && free <= total
+      && typeof percent === "number" && isFinite(percent) && percent > 0 && percent <= 100;
+    if (trusted) {
+      var highPercent = Math.min(100, percent + 0.005);
+      var lower = Math.max(0, used - 0.005) * ((100 - highPercent) / highPercent);
+      trusted = isFinite(lower) && lower <= total - used + 0.01;
+    }
+    return 'Disk (' + capacity + ') 可用' + (trusted ? "≈" + number(100 - percent, 1, "%") : "—");
+  }
+
   function card(device) {
     var status = device.beszel_status;
     var online = status === "up";
@@ -31,7 +51,7 @@
     html += '</p><div class="metrics">';
     html += '<span class="metric">CPU: ' + number(available ? device.cpu_percent : null, 1, "%") + '</span>';
     html += '<span class="metric">RAM: ' + number(available ? device.memory_percent : null, 1, "%") + '</span>';
-    html += '<span class="metric">Disk / 磁盘: ' + number(available ? device.disk_percent : null, 1, "%") + '</span>';
+    html += '<span class="metric">' + diskText(device, available) + '</span>';
     html += '<span class="metric">Load 1m / 负载: ' + number(available ? device.load_1 : null, 2, "") + '</span></div>';
     /* Offline values can be stale / 离线设备的指标可能过期，因此不显示。 */
     if (!available) { html += '<p class="note">Current metrics unavailable / 当前指标不可用</p>'; }

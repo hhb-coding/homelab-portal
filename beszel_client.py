@@ -12,6 +12,7 @@ future Beszel API changes only need to be handled in one place.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -164,6 +165,76 @@ class BeszelClient:
         return items[0]
 
     @staticmethod
+    def _capacity(value: Any, positive: bool = False) -> Optional[float]:
+        """Validate GiB metrics without coercing strings/bools / 严格验证 GiB 容量。"""
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            number = float(value)
+        except (OverflowError, ValueError):
+            return None
+        if not math.isfinite(number) or number < 0 or (positive and number == 0):
+            return None
+        return number
+
+    @classmethod
+    def _available_estimate(
+        cls, total: Optional[float], used: Optional[float], percent: Optional[float]
+    ) -> Optional[float]:
+        """Estimate from one rounded Beszel sample / 从同一舍入后的 Beszel 样本估算。"""
+        if total is None or used is None or percent is None or used <= 0 or percent <= 0:
+            return None
+        if total <= 0 or used > total or percent > 100:
+            return None
+        estimate = used * ((100 - percent) / percent)
+        if not math.isfinite(estimate) or estimate < 0 or estimate > total:
+            return None
+        # Beszel rounds du/dp to 2 decimals. Reject ill-conditioned inversion
+        # if rounding uncertainty exceeds 0.1 GiB or 5% (whichever is larger).
+        # Beszel 的 du/dp 保留两位小数；舍入误差超过 0.1 GiB 或 5% 中较大者时拒绝反推。
+        low_percent = percent - 0.005
+        if low_percent <= 0:
+            return None
+        high_percent = min(100, percent + 0.005)
+        lower = max(0, used - 0.005) * ((100 - high_percent) / high_percent)
+        upper = (used + 0.005) * ((100 - low_percent) / low_percent)
+        # A rounded dp can put the point estimate slightly above d-du (Dell).
+        # Require the rounding interval to intersect the physical bound instead;
+        # d-du is only a bound, never the returned availability.
+        # dp 舍入可使点估算略高于 d-du（Dell）；校验舍入区间与物理上限有交集，
+        # d-du 仅作上限检查，绝不作为可用空间返回值。
+        if lower > total - used + 0.01:
+            return None
+        if not math.isfinite(upper) or max(estimate - lower, upper - estimate) > max(0.1, estimate * 0.05):
+            return None
+        return estimate
+
+    @classmethod
+    def capacity_metrics(cls, stats: Dict[str, Any]) -> Dict[str, Any]:
+        """Use one primary-filesystem sample, never sum efs / 仅使用同一主文件系统样本。"""
+        total = cls._capacity(stats.get("d"), positive=True)
+        used = cls._capacity(stats.get("du"))
+        percent = cls._capacity(stats.get("dp"))
+        if total is None or (used is not None and used > total):
+            used = None
+            percent = None
+        if percent is not None and percent > 100:
+            percent = None
+        if used is None:
+            percent = None
+        available = cls._available_estimate(total, used, percent)
+        return {
+            "memory_total": cls._capacity(stats.get("m"), positive=True),
+            "disk_total": total,
+            "disk_used": used,
+            # Approximation, not statvfs Free/Bavail / 估算值，并非 statvfs 精确可用空间。
+            "disk_available": available,
+            "disk_available_estimated": available is not None,
+            "disk_usage_percent": percent,
+            "capacity_unit": "GiB",
+        }
+
+    @staticmethod
     def _metric(
         info: Dict[str, Any],
         key: str,
@@ -200,8 +271,12 @@ class BeszelClient:
                 stats = latest.get("stats") or {}
                 stats_created = latest.get("created")
 
+            if not isinstance(stats, dict):
+                stats = {}
+
             result.append(
                 {
+                    **self.capacity_metrics(stats),
                     "beszel_system_id": system_id,
                     "name": system.get("name"),
                     "status": system.get("status"),
