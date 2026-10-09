@@ -163,8 +163,11 @@ function capacityOf(d, key) {
     if (display === "—" || d.disk_available_estimated !== true
         || percentText(d.disk_usage_percent) === "—" || Number(d.disk_usage_percent) <= 0
         || capacity(d.disk_used) === "—" || Number(d.disk_used) <= 0
-        || Number(d.disk_used) > Number(d.disk_total)
-        || Number(d[key]) > Number(d.disk_total) - Number(d.disk_used) + 0.02) { return "—"; }
+        || Number(d.disk_used) > Number(d.disk_total)) { return "—"; }
+    /* Match the backend's rounded-sample feasibility check / 与后端的舍入区间合理性检查一致。 */
+    var highPercent = Math.min(100, Number(d.disk_usage_percent) + 0.005);
+    var lower = Math.max(0, Number(d.disk_used) - 0.005) * ((100 - highPercent) / highPercent);
+    if (!isFinite(lower) || lower > Number(d.disk_total) - Number(d.disk_used) + 0.01) { return "—"; }
     return "≈" + display;
   }
   return display;
@@ -574,7 +577,7 @@ function miniCard(d) {
     + '<div><span>RAM (' + capacityOf(d, "memory_total") + ')</span><b>'
     + (metrics ? percentText(d.memory_percent) : "—") + '</b></div>'
     + '<div><span>DISK (' + capacityOf(d, "disk_total") + ')</span><b>'
-    + capacityOf(d, "disk_available") + '</b></div>';
+    + (capacityOf(d, "disk_available") === "—" ? "—" : num(d.disk_available, 1) + "G") + '</b></div>';
   return h + '</div></div>';
 }
 

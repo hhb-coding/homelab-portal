@@ -7,6 +7,20 @@ from beszel_client import BeszelClient
 
 
 class CapacityTests(unittest.TestCase):
+    def test_dell_rounding_interval_not_fixed_slack(self):
+        # Captured Dell Host sample / 已核实的 Dell Host 原始样本。
+        stats = {"d": 953.87, "du": 223.62, "dp": 23.44,
+                 "efs": {"data": {"d": 10000, "du": 5000}}}
+        result = BeszelClient.capacity_metrics(stats)
+        self.assertAlmostEqual(result["disk_available"], 730.3902389, places=6)
+        self.assertGreater(result["disk_available"], stats["d"] - stats["du"] + 0.02)
+        self.assertTrue(result["disk_available_estimated"])
+        # No physical intersection: still reject / 与物理区间无交集时仍拒绝。
+        stats["dp"] = 23.43
+        self.assertIsNone(BeszelClient.capacity_metrics(stats)["disk_available"])
+        stats["dp"] = None
+        self.assertIsNone(BeszelClient.capacity_metrics(stats)["disk_available"])
+
     def test_primary_filesystem_and_units(self):
         # Reserved space means dp need not equal du/d / 保留空间使 dp 不等于 du/d。
         stats = {"m": 15.08, "d": 116.34, "du": 52.94, "dp": 47.96,

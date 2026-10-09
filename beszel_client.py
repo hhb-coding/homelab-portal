@@ -187,9 +187,7 @@ class BeszelClient:
         if total <= 0 or used > total or percent > 100:
             return None
         estimate = used * ((100 - percent) / percent)
-        # Only allow 0.02 GiB rounding slack, never replace with total-used.
-        # 仅容许 0.02 GiB 的舍入偏差，绝不以 total-used 替代估算值。
-        if not math.isfinite(estimate) or estimate < 0 or estimate > total - used + 0.02:
+        if not math.isfinite(estimate) or estimate < 0 or estimate > total:
             return None
         # Beszel rounds du/dp to 2 decimals. Reject ill-conditioned inversion
         # if rounding uncertainty exceeds 0.1 GiB or 5% (whichever is larger).
@@ -200,6 +198,13 @@ class BeszelClient:
         high_percent = min(100, percent + 0.005)
         lower = max(0, used - 0.005) * ((100 - high_percent) / high_percent)
         upper = (used + 0.005) * ((100 - low_percent) / low_percent)
+        # A rounded dp can put the point estimate slightly above d-du (Dell).
+        # Require the rounding interval to intersect the physical bound instead;
+        # d-du is only a bound, never the returned availability.
+        # dp 舍入可使点估算略高于 d-du（Dell）；校验舍入区间与物理上限有交集，
+        # d-du 仅作上限检查，绝不作为可用空间返回值。
+        if lower > total - used + 0.01:
+            return None
         if not math.isfinite(upper) or max(estimate - lower, upper - estimate) > max(0.1, estimate * 0.05):
             return None
         return estimate

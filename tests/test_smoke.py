@@ -89,6 +89,18 @@ class PortalSmokeTests(unittest.TestCase):
             css = re.sub(r"/\*.*?\*/", "", (root / "static" / name).read_text(), flags=re.S)
             self.assertNotRegex(css, r"display\s*:\s*(?:inline-)?grid|\bvar\s*\(|(?:^|[;{])\s*(?:gap|row-gap|column-gap|--[\w-]+)\s*:")
 
+    def test_equal_progress_bar_heights(self):
+        """Bar height and label centering regression / 横条等高与文字垂直居中回归。"""
+        source = (Path(__file__).resolve().parents[1] / "static/style.css").read_text()
+        def rule(selector):
+            return re.search(re.escape(selector) + r"\s*\{([^}]+)\}", source).group(1)
+        self.assertRegex(rule(".bar"), r"height:24px")
+        self.assertRegex(rule(".fill"), r"height:100%")
+        self.assertNotIn("height:", rule(".disk-bar"))
+        self.assertRegex(rule(".disk-used, .disk-free"), r"height:100%")
+        self.assertRegex(rule(".disk-label"), r"line-height:22px")
+        self.assertRegex(rule(".metric"), r"line-height:24px")
+
     def test_heartbeat_validation(self):
         self.assertEqual(self.client.post("/api/heartbeat", json={}).status_code, 401)
         headers = {"X-Heartbeat-Token": "smoke-test-only"}

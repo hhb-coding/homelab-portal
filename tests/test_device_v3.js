@@ -45,7 +45,15 @@
   device.disk_available = 52.94 * (100 - 47.96) / 47.96;
   device.disk_available_estimated = true;
   assert(c.diskMetric(device).indexOf("≈57.4G") >= 0);
-  assert(c.miniCard(device).indexOf('DISK (116.3G)</span><b>≈57.4G') >= 0);
+  assert(c.miniCard(device).indexOf('DISK (116.3G)</span><b>57.4G') >= 0);
+  assert(c.miniCard(device).indexOf("≈") < 0);
+  var dell = {device_id: "dell", metrics_available: true, capacity_unit: "GiB",
+    disk_total: 953.87, disk_used: 223.62, disk_usage_percent: 23.44,
+    disk_available: 730.3902389078498, disk_available_estimated: true};
+  assert(c.miniCard(dell).indexOf('DISK (953.9G)</span><b>730.4G') >= 0);
+  assert(c.diskMetric(dell).indexOf('≈730.4G') >= 0);
+  dell.disk_usage_percent = 23.43;
+  assert.strictEqual(c.capacityOf(dell, "disk_available"), "—");
   assert(c.card(device).indexOf("not exact statvfs availability") >= 0);
   device.disk_available_estimated = false;
   assert.strictEqual(c.capacityOf(device, "disk_available"), "—");

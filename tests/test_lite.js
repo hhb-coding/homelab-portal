@@ -41,7 +41,7 @@
   var html = elements["lite-devices"].innerHTML;
   assert(html.indexOf("&lt;script&gt;") >= 0 && html.indexOf("<script>") < 0, "Escape untrusted names");
   assert(html.indexOf("CPU: 0.0%") >= 0, "Zero metric is valid");
-  assert(html.indexOf("Disk / 磁盘: —") >= 0, "Null metric is missing");
+  assert(html.indexOf("Disk (—) 可用—") >= 0, "Null disk metrics are missing");
   assert(html.indexOf("Load 1m / 负载: 0.25") >= 0, "Render load");
   assert(html.indexOf("ZeroTier IP:") >= 0, "Optional overlay address");
   assert(html.indexOf("OFFLINE") >= 0 && html.indexOf("99.0%") < 0, "Hide offline metrics");
@@ -63,5 +63,33 @@
   assert(elements["lite-summary"].innerHTML.indexOf("设备: 1") >= 0, "Count only valid records");
   assert(elements["lite-devices"].innerHTML.indexOf("RAM: —") >= 0 && elements["lite-devices"].innerHTML.indexOf("CPU: 0.0%") >= 0, "Missing metrics differ from zero");
   assert(elements["lite-error"].className === "hidden", "Partial data recovery clears error");
+  /* Available is 100-dp, not the old used percentage / 可用比例为 100-dp，而非旧已用比例。 */
+  var sample = {device_id: "disk", beszel_status: "up", metrics_available: true, capacity_unit: "GiB",
+    disk_total: 99.29, disk_used: 45.4, disk_usage_percent: 45.73, disk_percent: 90,
+    disk_available: 45.4 * (100 - 45.73) / 45.73, disk_available_estimated: true};
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("Disk (99.3G) 可用≈54.3%") >= 0, "Actual filesystem total and available percentage");
+  assert(elements["lite-devices"].innerHTML.indexOf("可用≈90.0%") < 0, "Do not relabel old used percentage");
+  sample.disk_usage_percent = 100; sample.disk_available = 0;
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("可用≈0.0%") >= 0, "Full disk has zero estimated availability");
+  [0, null, -1, 101, "50"].forEach(function (percent) {
+    sample.disk_usage_percent = percent;
+    timers[0].callback(); reply(200, data([sample]));
+    assert(elements["lite-devices"].innerHTML.indexOf("Disk (99.3G) 可用—") >= 0, "Invalid/missing percentage remains unknown");
+  });
+  sample.disk_usage_percent = 45.73; sample.disk_available_estimated = false;
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("可用—") >= 0, "Untrusted estimate hidden");
+  sample.beszel_status = "down";
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("Disk (—) 可用—") >= 0, "Offline disk metrics hidden");
+  sample.beszel_status = "up"; sample.disk_total = 953.87; sample.disk_used = 223.62;
+  sample.disk_usage_percent = 23.44; sample.disk_available = 730.3902389078498; sample.disk_available_estimated = true;
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("Disk (953.9G) 可用≈76.6%") >= 0, "Dell rounded estimate survives in Lite");
+  sample.disk_usage_percent = 23.43;
+  timers[0].callback(); reply(200, data([sample]));
+  assert(elements["lite-devices"].innerHTML.indexOf("可用—") >= 0, "Infeasible rounding interval rejected");
   console.log("Lite browser behavior: " + checks + " assertions passed");
 }());
