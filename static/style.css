@@ -253,15 +253,6 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
   font-weight: normal;
 }
 
-.detail-block #devices {
-  padding: 12px 12px 0 12px;
-  border: 1px solid #cccccc;
-  border-top: none;
-}
-
-.detail-block .card {
-  margin-bottom: 16px;
-}
 
 @media screen and (max-width: 800px) {
   .mini-card {
@@ -329,6 +320,23 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 @media screen and (max-width:400px) {
   .view-switch { float:none; display:inline-block; margin:0 0 12px; }
   td:first-child { width:85px; }
-  .detail-block #devices { padding:8px 8px 0; }
   .card { padding:10px; }
+}
+
+/* V3 aligned details and bounded disk labels / V3 对齐详情与限制在区段内的磁盘文字。 */
+.device-info { table-layout:fixed; }
+.device-info .info-label { width:20%; }
+.device-info .info-value { width:30%; }
+.device-info th, .device-info td { padding:6px 8px; border:1px solid #ddd; font-size:13px; text-align:left; word-wrap:break-word; }
+.device-info th { background:#f7f7f7; font-weight:bold; }
+.device-info td { background:#fff; font-weight:normal; }
+.disk-bar { height:24px; overflow:hidden; }
+.disk-used, .disk-free { float:left; height:24px; position:relative; overflow:hidden; text-align:center; }
+.disk-used { background:#555; color:#fff; }
+.disk-free { background:#eee; color:#222; }
+.disk-label { display:inline-block; line-height:24px; font-size:12px; white-space:nowrap; visibility:hidden; }
+.capacity-note { font-size:11px; color:#777; }
+.mini-card-body b { max-width:58%; }
+@media screen and (max-width:400px) {
+  .device-info th, .device-info td { padding:5px 4px; font-size:11px; }
 }

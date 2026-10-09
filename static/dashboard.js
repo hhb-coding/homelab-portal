@@ -133,18 +133,75 @@ function num(v, digits) {
 
 function pct(v) {
   var n = Number(v);
-  if (isNaN(n) || n < 0) { return 0; }
+  if (!isFinite(n) || n < 0) { return 0; }
   return n > 100 ? 100 : n;
 }
 
 function metric(label, value) {
-  var display = num(value, 1);
+  var display = percentText(value);
   /* Missing values have no percentage or filled bar / 缺失指标不显示百分号或填充条。 */
   return '<div class="metric">'
     + '<span class="mlabel">' + esc(label) + '</span>'
-    + '<span class="mvalue">' + display + (display === "—" ? "" : "%") + '</span>'
+    + '<span class="mvalue">' + display + '</span>'
     + '<span class="bar">' + (display === "—" ? "" : '<span class="fill" style="width:' + pct(value) + '%"></span>') + '</span>'
     + '</div>';
+}
+
+/* G/T abbreviate GiB/TiB, never nominal GB / G/T 表示 GiB/TiB，并非标称 GB。 */
+function capacity(v) {
+  if (num(v, 1) === "—" || Number(v) < 0) { return "—"; }
+  return Number(v) >= 1024 ? (Number(v) / 1024).toFixed(1) + "T" : Number(v).toFixed(1) + "G";
+}
+
+function capacityOf(d, key) {
+  var display = d.metrics_available === true && d.capacity_unit === "GiB" ? capacity(d[key]) : "—";
+  if ((key === "disk_total" || key === "memory_total") && Number(d[key]) <= 0) { return "—"; }
+  if ((key === "disk_used" || key === "disk_available")
+      && (capacity(d.disk_total) === "—" || Number(d.disk_total) <= 0 || Number(d[key]) > Number(d.disk_total))) { return "—"; }
+  return display;
+}
+
+function percentText(v) {
+  return num(v, 1) === "—" || Number(v) < 0 || Number(v) > 100 ? "—" : num(v, 1) + "%";
+}
+
+/* Keep labels inside each segment; hide when measured space is too narrow.
+ * 容量文字限制在各自区段内；实测空间不足时隐藏，完整数值保留在无障碍说明中。 */
+function fitDiskLabels() {
+  var labels = document.querySelectorAll ? document.querySelectorAll(".disk-label") : [];
+  var i, label;
+  for (i = 0; i < labels.length; i += 1) {
+    label = labels[i];
+    label.style.visibility = label.parentNode.clientWidth >= label.offsetWidth + 12 ? "visible" : "hidden";
+  }
+}
+
+function diskMetric(d) {
+  var hasSample = d.capacity_unit === "GiB";
+  var value = hasSample ? d.disk_usage_percent : d.disk_percent;
+  var display = d.metrics_available === true ? percentText(value) : "—";
+  if (hasSample && capacityOf(d, "disk_used") === "—") { display = "—"; }
+  var width = display === "—" ? 0 : Number(value);
+  var used = capacityOf(d, "disk_used"), available = capacityOf(d, "disk_available");
+  var description = "Used / 已用: " + used + "; Available / 可用: " + available;
+  /* A missing percentage cannot assign capacities to bar segments / 缺失比例时不定位容量。 */
+  if (display === "—") { used = "—"; available = "—"; }
+  return '<div class="metric disk-metric"><span class="mlabel">Disk</span>'
+    + '<span class="mvalue">' + display + '</span>'
+    + '<span class="bar disk-bar" role="img" aria-label="' + esc(description) + '" title="' + esc(description) + '">'
+    + '<span class="disk-used" style="width:' + width + '%"><span class="disk-label">' + used + '</span></span>'
+    + '<span class="disk-free" style="width:' + (100 - width) + '%"><span class="disk-label">' + available + '</span></span>'
+    + '</span></div>';
+}
+
+/* Time only in device details; Network retains its full timestamp / 详情仅显示时间，Network 保留完整时间戳。 */
+function seenTime(value) {
+  var parts = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if (!parts) { return "—"; }
+  var date = new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]),
+    Number(parts[4]), Number(parts[5]), Number(parts[6])));
+  function pad(v) { return v < 10 ? "0" + v : String(v); }
+  return pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
 }
 
 function uptime(seconds) {
@@ -504,13 +561,11 @@ function miniCard(d) {
   h += '<div class="mini-card-body">'
     + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
 
-  if (metrics) {
-    h += '<div><span>CPU</span><b>' + num(d.cpu_percent,1) + (num(d.cpu_percent,1) === "—" ? "" : "%") + '</b></div>'
-      + '<div><span>RAM</span><b>' + num(d.memory_percent,1) + (num(d.memory_percent,1) === "—" ? "" : "%") + '</b></div>';
-  } else {
-    h += '<div><span>CPU</span><b>—</b></div>'
-      + '<div><span>RAM</span><b>—</b></div>';
-  }
+  h += '<div><span>CPU</span><b>' + (metrics ? percentText(d.cpu_percent) : "—") + '</b></div>'
+    + '<div><span>RAM (' + capacityOf(d, "memory_total") + ')</span><b>'
+    + (metrics ? percentText(d.memory_percent) : "—") + '</b></div>'
+    + '<div><span>DISK (' + capacityOf(d, "disk_total") + ')</span><b>'
+    + capacityOf(d, "disk_available") + '</b></div>';
   return h + '</div></div>';
 }
 
@@ -537,6 +592,7 @@ function renderDevicePanels(list) {
   }
   document.getElementById("mini-devices").innerHTML = mini;
   document.getElementById("devices").innerHTML = detail;
+  fitDiskLabels();
 }
 
 function selectDeviceCard(element) {
@@ -557,17 +613,22 @@ function card(d) {
     + '<b class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
     + state.toUpperCase() + '</b></div>';
 
-  h += '<table><tr><td>LAN IP</td><td>' + esc(d.lan_ip || "—") + '</td></tr>'
-    + '<tr><td>ZeroTier</td><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
-    + '<tr><td>Last Seen</td><td>' + localTime(d.last_seen) + '</td></tr></table>';
+  /* Three rows share four aligned columns / 三行共用四列，标签与值对齐。 */
+  h += '<table class="device-info"><colgroup><col class="info-label"><col class="info-value">'
+    + '<col class="info-label"><col class="info-value"></colgroup><tbody>'
+    + '<tr><th scope="row">LAN IP</th><td>' + esc(d.lan_ip || "—")
+    + '</td><th scope="row">ZeroTier</th><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
+    + '<tr><th scope="row">Last Seen</th><td>' + seenTime(d.last_seen)
+    + '</td><th scope="row">Uptime</th><td>' + esc(uptime(d.uptime_seconds)) + '</td></tr>'
+    + '<tr><th scope="row">Temperature</th><td>' + temp(d.temperature)
+    + '</td><th scope="row">Load 1m / 5m</th><td>' + num(d.load_1,2) + ' / ' + num(d.load_5,2)
+    + '</td></tr></tbody></table>';
 
   if (d.metrics_available === true) {
     h += '<div class="metrics">' + metric("CPU",d.cpu_percent)
-      + metric("RAM",d.memory_percent) + metric("Disk",d.disk_percent) + '</div>';
-    h += '<table><tr><td>Load 1m</td><td>' + num(d.load_1,2) + '</td></tr>'
-      + '<tr><td>Load 5m</td><td>' + num(d.load_5,2) + '</td></tr>'
-      + '<tr><td>Temperature</td><td>' + temp(d.temperature) + '</td></tr>'
-      + '<tr><td>Uptime</td><td>' + esc(uptime(d.uptime_seconds)) + '</td></tr></table>';
+      + metric("RAM",d.memory_percent) + diskMetric(d) + '</div>'
+      + '<p class="capacity-note">G = GiB; T = TiB. System filesystem / 系统文件系统。'
+      + (capacityOf(d, "disk_available") === "—" ? ' Available space not reported / 未上报可用空间。' : '') + '</p>';
   } else {
     h += '<div class="unavailable">Beszel metrics unavailable</div>';
   }
@@ -586,6 +647,7 @@ function selectDashboardTab(tab) {
   document.getElementById("tab-network").className = "dashboard-tab" + (network ? " active-tab" : "");
   document.getElementById("tab-device").setAttribute("aria-pressed", network ? "false" : "true");
   document.getElementById("tab-network").setAttribute("aria-pressed", network ? "true" : "false");
+  if (!network) { fitDiskLabels(); }
 }
 
 /* Missing status is unknown, not a failed LAN check / 缺失状态为未知，并非 LAN 检测失败。 */
@@ -776,3 +838,6 @@ loadHistory();
 loadDashboard();
 setInterval(loadDashboard, REFRESH_MS);
 setInterval(loadHistory, HISTORY_REFRESH_MS);
+
+/* Re-measure after rotation or tab changes / 旋转或标签切换后重新测量。 */
+if (typeof window !== "undefined") { window.addEventListener("resize", fitDiskLabels, false); }

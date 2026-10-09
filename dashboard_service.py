@@ -179,6 +179,15 @@ def build_dashboard() -> Dict[str, Any]:
                 # ------------------------------------------------
                 "metrics_available": bool(metric),
 
+                # Additive API fields; existing percentages stay compatible.
+                # 新增容量字段，保留旧百分比字段以兼容现有客户端。
+                "memory_total": metric.get("memory_total"),
+                "disk_total": metric.get("disk_total"),
+                "disk_used": metric.get("disk_used"),
+                "disk_available": metric.get("disk_available"),
+                "disk_usage_percent": metric.get("disk_usage_percent"),
+                "capacity_unit": metric.get("capacity_unit"),
+
                 "cpu_percent": metric.get(
                     "cpu_percent"
                 ),

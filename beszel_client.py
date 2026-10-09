@@ -12,6 +12,7 @@ future Beszel API changes only need to be handled in one place.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -164,6 +165,43 @@ class BeszelClient:
         return items[0]
 
     @staticmethod
+    def _capacity(value: Any, positive: bool = False) -> Optional[float]:
+        """Validate GiB metrics without coercing strings/bools / 严格验证 GiB 容量。"""
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return None
+        try:
+            number = float(value)
+        except (OverflowError, ValueError):
+            return None
+        if not math.isfinite(number) or number < 0 or (positive and number == 0):
+            return None
+        return number
+
+    @classmethod
+    def capacity_metrics(cls, stats: Dict[str, Any]) -> Dict[str, Any]:
+        """Use one primary-filesystem sample, never sum efs / 仅使用同一主文件系统样本。"""
+        total = cls._capacity(stats.get("d"), positive=True)
+        used = cls._capacity(stats.get("du"))
+        percent = cls._capacity(stats.get("dp"))
+        if total is None or (used is not None and used > total):
+            used = None
+            percent = None
+        if percent is not None and percent > 100:
+            percent = None
+        if used is None:
+            percent = None
+        return {
+            "memory_total": cls._capacity(stats.get("m"), positive=True),
+            "disk_total": total,
+            "disk_used": used,
+            # Beszel does not export Free/Bavail; reserved blocks matter.
+            # Beszel 未导出 Free/Bavail；保留块使 total-used 不等于可用空间。
+            "disk_available": None,
+            "disk_usage_percent": percent,
+            "capacity_unit": "GiB",
+        }
+
+    @staticmethod
     def _metric(
         info: Dict[str, Any],
         key: str,
@@ -200,8 +238,12 @@ class BeszelClient:
                 stats = latest.get("stats") or {}
                 stats_created = latest.get("created")
 
+            if not isinstance(stats, dict):
+                stats = {}
+
             result.append(
                 {
+                    **self.capacity_metrics(stats),
                     "beszel_system_id": system_id,
                     "name": system.get("name"),
                     "status": system.get("status"),
