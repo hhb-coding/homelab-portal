@@ -44,14 +44,16 @@
   assert(bar.indexOf("52.9G") >= 0 && bar.indexOf("63.4G") < 0); // No total-used / 不伪造可用容量
   device.disk_available = 52.94 * (100 - 47.96) / 47.96;
   device.disk_available_estimated = true;
-  assert(c.diskMetric(device).indexOf("≈57.4G") >= 0);
+  assert(c.diskMetric(device).indexOf('class="disk-label">USED: 52.9G</span>') >= 0);
+  assert(c.diskMetric(device).indexOf('class="disk-label">FREE: 57.4G</span>') >= 0);
+  assert(c.diskMetric(device).indexOf('FREE: ≈') < 0);
   assert(c.miniCard(device).indexOf('DISK (116.3G)</span><b>57.4G') >= 0);
   assert(c.miniCard(device).indexOf("≈") < 0);
   var dell = {device_id: "dell", metrics_available: true, capacity_unit: "GiB",
     disk_total: 953.87, disk_used: 223.62, disk_usage_percent: 23.44,
     disk_available: 730.3902389078498, disk_available_estimated: true};
   assert(c.miniCard(dell).indexOf('DISK (953.9G)</span><b>730.4G') >= 0);
-  assert(c.diskMetric(dell).indexOf('≈730.4G') >= 0);
+  assert(c.diskMetric(dell).indexOf('class="disk-label">FREE: 730.4G') >= 0);
   dell.disk_usage_percent = 23.43;
   assert.strictEqual(c.capacityOf(dell, "disk_available"), "—");
   assert(c.card(device).indexOf("not exact statvfs availability") >= 0);
@@ -61,7 +63,7 @@
   device.disk_usage_percent = 100;
   device.disk_available = 0;
   assert.strictEqual(c.capacityOf(device, "disk_available"), "≈0.0G");
-  assert(c.diskMetric(device).indexOf("≈0.0G") >= 0);
+  assert(c.diskMetric(device).indexOf('class="disk-label">FREE: 0.0G') >= 0);
   device.disk_usage_percent = 0;
   assert.strictEqual(c.capacityOf(device, "disk_available"), "—");
   device.disk_usage_percent = 47.96;
@@ -77,6 +79,8 @@
     device.disk_usage_percent = percent;
     var html = c.diskMetric(device);
     assert(!/NaN|Infinity|width:-/.test(html));
+    assert(html.indexOf('class="disk-label">USED: ') >= 0 && html.indexOf('class="disk-label">FREE: ') >= 0);
+    assert(html.indexOf('FREE: ≈') < 0);
   });
   device.disk_usage_percent = 50;
   device.disk_used = 200;
@@ -98,6 +102,9 @@
   labels[1].parentNode.clientWidth = 100;
   resize();
   assert.strictEqual(labels[1].style.visibility, "visible");
+  labels[1].offsetWidth = 90; labels[1].parentNode.clientWidth = 100;
+  c.fitDiskLabels();
+  assert.strictEqual(labels[1].style.visibility, "hidden"); // Prefix needs room / 前缀也需要空间
   c.render({status: "ok", sources: {metrics_status: "ok"}, devices: [device, {device_id: "b"}]});
   c.selectDeviceCard({getAttribute: function () { return "b"; }});
   c.render({status: "ok", sources: {metrics_status: "ok"}, devices: [device, {device_id: "b"}]});

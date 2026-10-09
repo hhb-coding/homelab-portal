@@ -198,11 +198,15 @@ function diskMetric(d) {
   var description = "Used / 已用: " + used + "; Available / 可用: " + available;
   /* A missing percentage cannot assign capacities to bar segments / 缺失比例时不定位容量。 */
   if (display === "—") { used = "—"; available = "—"; }
+  /* Prefixes are measured with the full label; approximation stays in the note.
+   * 按完整前缀文字测量区段宽度；近似含义保留在下方说明中。 */
+  var usedLabel = "USED: " + used;
+  var freeLabel = "FREE: " + available.replace(/^≈/, "");
   return '<div class="metric disk-metric"><span class="mlabel">Disk</span>'
     + '<span class="mvalue">' + display + '</span>'
     + '<span class="bar disk-bar" role="img" aria-label="' + esc(description) + '" title="' + esc(description) + '">'
-    + '<span class="disk-used" style="width:' + width + '%"><span class="disk-label">' + used + '</span></span>'
-    + '<span class="disk-free" style="width:' + (100 - width) + '%"><span class="disk-label">' + available + '</span></span>'
+    + '<span class="disk-used" style="width:' + width + '%"><span class="disk-label">' + usedLabel + '</span></span>'
+    + '<span class="disk-free" style="width:' + (100 - width) + '%"><span class="disk-label">' + freeLabel + '</span></span>'
     + '</span></div>';
 }
 
@@ -640,7 +644,7 @@ function card(d) {
     h += '<div class="metrics">' + metric("CPU",d.cpu_percent)
       + metric("RAM",d.memory_percent) + diskMetric(d) + '</div>'
       + '<p class="capacity-note">G = GiB; T = TiB. System filesystem / 系统文件系统。'
-      + ' ≈ Available space estimated from Beszel; not exact statvfs availability / ≈ 为 Beszel 估算可用空间，非 statvfs 精确值。'
+      + ' FREE is estimated from Beszel; not exact statvfs availability / FREE 为 Beszel 估算可用空间，非 statvfs 精确值。'
       + (capacityOf(d, "disk_available") === "—" ? ' Estimate unavailable / 无可靠估算。' : '') + '</p>';
   } else {
     h += '<div class="unavailable">Beszel metrics unavailable</div>';
