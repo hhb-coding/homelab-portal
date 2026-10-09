@@ -22,9 +22,16 @@ items unchecked until verified for the actual release candidate.
   Core fresh-clone acceptance is recorded in [installation validation](installation-validation.md);
   live clients/Beszel and service installation remain pending, so this item stays unchecked.
   / 核心新安装检查已记录，真实客户端、Beszel 与服务安装未完成，整体项目不勾选通过。
-- [ ] Execute the [browser checklist](legacy-browser-validation.md), including
-  real iOS 9 Safari for Lite/Network, or explicitly retain the unverified limitation.
-  / 完成浏览器验收，未实测时如实保留限制说明。
+- [x] User confirmed that Lite works normally in Safari on a real iPad mini 1
+  running iOS 9.1.3. This records only that device and reported OS version,
+  not guaranteed compatibility with all iOS 9 devices.
+  / 用户已确认 iPad mini 1（iOS 9.1.3）使用 Safari 访问 Lite 页面正常；
+  仅记录该设备及用户报告的系统版本，不保证所有 iOS 9 设备兼容。
+- [ ] Complete the remaining [browser checklist](legacy-browser-validation.md)
+  checks, including the new Network view and latest Full UI changes.
+  Long-duration Lite refresh testing was not explicitly confirmed and remains pending.
+  / 其余浏览器验收仍待完成，包括新版 Network 和最近 Full UI 改动；
+  用户未明确确认 Lite 长时间刷新测试，该项仍待验证。
 - [ ] Review bilingual changelog/release notes, installation revision and optional
   sanitized screenshots. / 核对双语发布说明、安装版本和可选脱敏截图。
 - [ ] Obtain separate authorization to create the `v0.1.0` tag and publish the

@@ -262,9 +262,13 @@ LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. **Full View** returns 
 Lite polls every 5 seconds, has no history requests or charts, and hides current
 metrics for offline/unknown devices. Invalid individual entries are skipped.
 
-Lite targets older devices using ES5 and XMLHttpRequest. **Real iOS 9 Safari
-validation is still pending**. Earlier Full-page iPad mini 1 / iOS 9 Safari testing
-was successful, but does not certify Lite, the new Network view or the 6-E changes.
+Lite targets older devices using ES5 and XMLHttpRequest. **The user confirmed
+that Lite works normally in Safari on a real iPad mini 1 running iOS 9.1.3**.
+This result is limited to that device and reported OS version; it does not
+guarantee compatibility with all iOS 9 devices. Long-duration refresh testing
+was not explicitly confirmed. Earlier Full-page iPad mini 1 / iOS 9 Safari
+testing was successful; the new Network view and latest Full UI changes
+still need real-device acceptance.
 See [browser validation](docs/legacy-browser-validation.md).
 
 ## Network tab
@@ -344,8 +348,9 @@ explicitly unverified physical-device/service cases.
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device
 management editor and a hardened public deployment guide. These are possible
-future directions, not commitments or v0.1.0 features. Real-device Lite/Network
-validation and dependency/Beszel-version compatibility testing remain pending.
+future directions, not commitments or v0.1.0 features. Real-device Network and
+latest Full UI validation, long-duration Lite refresh testing and
+dependency/Beszel-version compatibility testing remain pending.
 
 ## License
 
@@ -446,8 +451,10 @@ Windows 私有 JSON 默认位于 `%USERPROFILE%\.config\homelab-portal\heartbeat
 
 `/lite` 显示名称、状态、LAN/可选 ZeroTier、CPU、RAM、磁盘和一分钟负载。
 每 5 秒刷新，不请求历史或显示图表；离线/未知设备不展示当前指标，支持双向导航。
-ES5/XHR 面向老设备，但 **Lite 尚未在 iOS 9 Safari 实测**。Full 曾在 iPad mini 1
-的 iOS 9 Safari 成功显示；不代表本次整理、新版 Network 或 Lite 已完成实测。
+ES5/XHR 面向老设备。**用户已确认 iPad mini 1（iOS 9.1.3）使用 Safari 访问
+Lite 页面正常**。此结果仅适用于该设备及用户报告的系统版本，不保证所有 iOS 9
+设备兼容；用户未明确确认长时间刷新测试。Full 曾在 iPad mini 1 的 iOS 9 Safari
+成功显示；新版 Network 和最近 Full UI 改动仍待实机验收。
 见 [浏览器验收](docs/legacy-browser-validation.md)，待验收项目不标记 PASS。
 
 ### Network Tab / 网络信息页面
@@ -485,7 +492,7 @@ HTTP 不加密信息，调试必须关闭；Flask 内置服务器不是公网部
 
 严格的心跳数据校验、Portal 用户认证、连通性检测、拓扑发现、IP 事件浏览界面、
 设备管理编辑和加固部署指南均未实现，只是潜在方向，不属于 v0.1.0。
-Lite/Network 实机验证及 Beszel/依赖版本兼容性测试待完成。
+Network 和最近 Full UI 实机验证、Lite 长时间刷新测试及 Beszel/依赖版本兼容性测试待完成。
 
 ### 许可证信息
 
