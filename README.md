@@ -1,393 +1,505 @@
 # HomeLab Portal
 
-A lightweight self-hosted dashboard for HomeLab device discovery,
-IP tracking, heartbeat monitoring, and system metrics.
+A lightweight self-hosted device registry and monitoring dashboard for a home lab.
+Python, Flask, SQLite, vanilla JavaScript and native SVG; no frontend framework.
 
-一个轻量级的自托管 HomeLab 设备、IP 与系统监控门户。
+**v0.1.0 release preparation:** application baseline
+`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347` (Stages 6-C, 6-D and 6-E).
+A version tag and GitHub Release have not been created. The project uses the
+[MIT License](LICENSE); see [License](#license). [中文说明](#中文说明) follows the English guide.
 
-## Project Goals
+## Project overview
 
-HomeLab Portal combines:
+Devices report identity and addresses through Heartbeat. Beszel supplies system
+metrics and persistent history. HomeLab Portal combines them without using
+Beszel's configured host address as the authoritative LAN address.
 
-- LAN IP tracking
-- Optional ZeroTier IP tracking
-- Device heartbeat monitoring
-- Beszel system metrics
-- Lightweight dynamic dashboard
-- Legacy browser compatibility
+## Features
 
-Future dashboard metrics include:
-
-- CPU usage
-- Memory usage
-- Disk usage
-- Load average
-- Device online/offline state
-- LAN IP address
-- Optional ZeroTier IP address
-- Last seen time
+- Linux/Python and Windows/PowerShell Heartbeat clients with shared-token authentication.
+- Separate LAN and optional ZeroTier IPv4 addresses, last-seen time and SQLite IP-change events.
+- Beszel CPU, RAM, disk, load averages, temperature, uptime and device status.
+- Full dashboard: Mini Cards, selected Device Details, live and historical SVG trends.
+- Lite Style: compact live device cards, without charts or history requests.
+- Network tab: counts and reported device addresses; no scanner or topology discovery.
+- ES5 JavaScript, XMLHttpRequest, responsive legacy CSS, missing-data placeholders
+  and retained-data warnings after request failures.
+- Isolated Flask smoke tests, mocked frontend behavior tests and GitHub Actions CI.
 
 ## Architecture
 
-HomeLab devices send lightweight heartbeat information to HomeLab Portal.
-
-Beszel continues to collect system performance metrics.
-
-HomeLab Portal combines both data sources into one lightweight web interface.
-
-Architecture overview:
-
-    HomeLab Devices
-          |
-          | Heartbeat
-          v
-    HomeLab Portal
-    Flask + SQLite
-          |
-          | REST API
-          v
-      Beszel Hub
-
-## Legacy Browser Support
-
-The frontend intentionally avoids unnecessary modern JavaScript frameworks
-and modern browser-only features.
-
-The goal is to remain usable on older devices and browsers where practical,
-including legacy Safari.
-
-## Development Status
-
-Current phase:
-
-Step 1 - Project Foundation
-
-Completed:
-
-- Python virtual environment
-- Flask installation
-- SQLite schema
-- Basic HTML dashboard
-- Legacy browser compatibility test
-
-Planned:
-
-- Device heartbeat
-- Beszel integration
-- Live metrics
-- Dynamic charts
-- Production systemd service
-
-## Security and Configuration
-
-Environment-specific configuration, passwords, API tokens, private URLs,
-and other secrets must never be committed to Git.
-
-The public repository provides:
-
-    .env.example
-
-Each installation should create its own private:
-
-    .env
-
-The private .env file is excluded by .gitignore.
-
-## Technology Stack
-
-- Python 3
-- Flask
-- SQLite
-- HTML
-- CSS
-- Vanilla JavaScript
-- Beszel REST API
-
-## License
-
-A license will be selected before the first public release.
-
-
----
-
-## Device Heartbeat and IP Registry
-
-HomeLab Portal includes a lightweight heartbeat system for tracking devices across a home lab.
-
-HomeLab Portal 包含一个轻量级设备 Heartbeat 系统，用于记录家庭实验室中的设备地址和在线状态。
-
-### Features
-
-- Linux heartbeat client written in Python
-- Windows heartbeat client written in PowerShell
-- Automatic LAN IPv4 detection
-- Optional ZeroTier IPv4 detection
-- LAN and ZeroTier addresses are stored separately
-- Device `last_seen` tracking
-- LAN and ZeroTier IP change history
-- Shared-token authentication for heartbeat clients
-- Linux automation with a systemd user timer
-- Windows automation with Task Scheduler
-
-### Architecture
-
 ```text
-Linux / Windows devices
-        |
-        | heartbeat
-        v
-+-----------------------+
-| HomeLab Portal        |
-| Flask REST API        |
-+-----------+-----------+
-            |
-            v
-+-----------------------+
-| SQLite                |
-|                       |
-| devices               |
-| ip_events             |
-+-----------------------+
+Linux / Windows clients -- POST /api/heartbeat --> Flask --> SQLite
+                                                   |
+                                      Beszel / PocketBase REST API
+                                                   |
+Browser <--- /api/dashboard and optional /api/history
 ```
 
-### Device Address Model
+`app.py` defines routes; `config.py` loads `.env`; `db.py` and `schema.sql` manage
+`devices` and `ip_events`. `beszel_client.py` normalizes metrics;
+`dashboard_service.py` joins them to local devices using `beszel_system_id`;
+`history_service.py` reads Beszel one-minute `system_stats` records.
 
-HomeLab Portal treats LAN and ZeroTier addresses as separate network identities.
+One Beszel system can be linked to at most one Portal device. Heartbeat is
+responsible for identity, LAN/ZeroTier addresses and `last_seen`; Beszel supplies
+status and metrics. No IP-change history API or editor is currently provided.
 
-- `lan_ip`: primary local-network IPv4 address
-- `zerotier_ip`: optional ZeroTier overlay address
+## Requirements
 
-A ZeroTier address never overwrites or replaces the LAN address.
+- Python **3.12** is the tested CI baseline; Git, pip and Python venv support.
+  Other Python versions have not been certified by this project's CI.
+- SQLite support in Python, a writable configured database directory and a browser.
+- A Beszel Hub/account or token is required for metrics and persistent history;
+  the device registry can still be used without configured Beszel credentials.
+- Linux clients require Python 3 and `ip` (iproute2); the bundled scheduling units
+  require systemd user services. ZeroTier is optional.
+- Windows clients require PowerShell and the `Get-NetAdapter`, `Get-NetIPAddress`
+  and `Get-NetRoute` networking cmdlets; scheduling uses Windows Task Scheduler.
+- Node.js **22** is the CI baseline for frontend tests, not a runtime server dependency.
 
-局域网地址是设备的主要本地地址；ZeroTier 地址作为独立的可选地址保存，不会覆盖或替代 LAN IP。
+## Installation
 
-### Heartbeat API
+Use a new checkout; do not copy production databases or private `.env` files into
+public examples. The systemd templates assume the checkout is `~/homelab-portal`.
+Choose another directory if that path already exists, and adjust the templates.
 
-Heartbeat clients send device information to:
-
-```text
-POST /api/heartbeat
+```sh
+git clone --branch docs/v0.1-release-prep https://github.com/hhb-coding/homelab-portal.git
+cd homelab-portal
+# This preparation branch contains the verified application plus release docs.
+git log -1 --format='%H %s'
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+# Copy only if a local configuration does not already exist.
+test -e .env || cp .env.example .env
+chmod 600 .env
 ```
 
-Example payload:
+No `v0.1.0` tag exists yet. `main` does not yet include all the prepared features;
+the preparation branch is used explicitly above and can advance during review.
+For a reproducible deployment, record and select an approved immutable commit
+that includes both the application and release documentation. Checking out only
+the earlier application baseline removes the newer documentation and example
+configuration. After release, choose the approved release revision.
+Edit `.env` before starting. Importing `app.py` initializes the configured SQLite
+schema; no separate database-initialization command is required.
+
+## Configuration
+
+Only these server configuration fields are currently read by `config.py`:
+
+| Field | Code default | Purpose |
+|---|---|---|
+| `APP_NAME` | `HomeLab Portal` | Page/service name |
+| `HOST` | `0.0.0.0` | Listen address; use `127.0.0.1` for local-only access |
+| `PORT` | `8088` | HTTP port |
+| `DEBUG` | `false` | Keep disabled on shared/live instances |
+| `DATABASE_PATH` | `data/homelab.db` | Absolute path or path relative to project root |
+| `HEARTBEAT_TOKEN` | empty | Shared secret; an empty value disables Heartbeat requests |
+| `BESZEL_URL` | `http://127.0.0.1:8090` | Your Beszel Hub URL |
+| `BESZEL_TOKEN` | empty | Preferred authentication method when provided |
+| `BESZEL_EMAIL`, `BESZEL_PASSWORD` | empty | Used together if no token is provided |
+| `BESZEL_TIMEOUT` | `10` | Per-request timeout in seconds |
+
+Generate a new private Heartbeat token locally, put it in the server `.env` and
+the clients' private configurations, and never publish the result:
+
+```sh
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
+Replace every `change-me`/example host in client examples. OS environment values
+already set take precedence over `.env` values through python-dotenv's default
+behavior. A client on another device needs a reachable Portal address; enabling
+remote access requires deliberate listen-address, firewall and access-control setup.
+
+To link registered devices to Beszel after the first Heartbeat:
+
+```sh
+python tools/link_beszel_devices.py
+```
+
+This tool **writes device links**: it automatically matches unambiguous normalized
+names, then asks about unresolved devices. Review assignments and back up your
+local database first; it does not match devices by their IP address.
+`python tools/beszel_probe.py --url http://127.0.0.1:8090` is an optional interactive
+connectivity probe. Its operational output can contain private device details;
+do not upload that output publicly.
+
+## Running the server
+
+With the virtual environment active and `.env` configured:
+
+```sh
+python app.py
+```
+
+Open `http://127.0.0.1:8088/` locally (adjust the port if configured differently).
+`app.py` starts Flask's built-in server; this is a small trusted-network prototype,
+not a hardened public-internet service.
+
+Optional Linux user service, for a **new installation** at `~/homelab-portal`:
+
+```sh
+mkdir -p ~/.config/systemd/user
+# Do not overwrite an existing local unit without reviewing it.
+test -e ~/.config/systemd/user/homelab-portal.service || cp systemd/user/homelab-portal.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now homelab-portal.service
+systemctl --user status homelab-portal.service
+```
+
+This is an installation example, not an instruction to change an existing
+production service. User-service startup at boot depends on your host's user-session
+configuration; configure that separately if needed.
+
+## Client Heartbeat
+
+Each client invocation sends **one** Heartbeat; it is not a resident collector.
+
+### Linux
+
+Store a private copy of `clients/heartbeat.env.example` outside the checkout at
+`~/.config/homelab-portal/heartbeat.env`. Set `HOMELAB_PORTAL_URL`,
+`HOMELAB_HEARTBEAT_TOKEN`, a unique stable `HOMELAB_DEVICE_ID` and optional
+`HOMELAB_DISPLAY_NAME`. The client uses the default route for LAN IPv4 and the
+first `zt` interface address for optional ZeroTier IPv4.
+
+```sh
+mkdir -p ~/.config/homelab-portal
+test -e ~/.config/homelab-portal/heartbeat.env || cp clients/heartbeat.env.example ~/.config/homelab-portal/heartbeat.env
+chmod 600 ~/.config/homelab-portal/heartbeat.env
+# Edit the private copy before running the client.
+```
+
+To run it once, load the trusted private environment file in your shell:
+
+```sh
+set -a
+. ~/.config/homelab-portal/heartbeat.env
+set +a
+python3 clients/linux-heartbeat.py
+```
+
+For periodic execution, install the provided `systemd/user/homelab-heartbeat.service`
+and `.timer` in your user systemd directory, review their `%h/homelab-portal`
+paths and enable `homelab-heartbeat.timer`. The timer starts after about 30 seconds
+and runs again **5 minutes after the previous invocation finishes** (with
+`AccuracySec=30s`). This is separate from the browser's 5-second polling interval.
+Protect the environment file with owner-only permissions.
+
+For a new client installation at the template's expected path:
+
+```sh
+mkdir -p ~/.config/systemd/user
+test -e ~/.config/systemd/user/homelab-heartbeat.service || cp systemd/user/homelab-heartbeat.service ~/.config/systemd/user/
+test -e ~/.config/systemd/user/homelab-heartbeat.timer || cp systemd/user/homelab-heartbeat.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now homelab-heartbeat.timer
+systemctl --user list-timers homelab-heartbeat.timer
+```
+
+### Windows
+
+Store a private copy of `clients/heartbeat.windows.example.json` at
+`%USERPROFILE%\.config\homelab-portal\heartbeat.json`. Configure `portal_url`,
+`heartbeat_token`, `device_id` and `display_name`. From the checkout:
+
+```powershell
+powershell.exe -File .\clients\windows-heartbeat.ps1
+# A custom private config path is also supported:
+# powershell.exe -File .\clients\windows-heartbeat.ps1 -ConfigPath <path>
+```
+
+The script reports hostname, default-route LAN IPv4 and optional ZeroTier adapter
+IPv4. Configure a recurring Windows Task Scheduler task; the script imposes
+**no fixed scheduling interval**. No Windows task installer is bundled.
+
+Example Heartbeat payload (documentation-only addresses, not real device data):
 
 ```json
 {
   "device_id": "example-device",
   "hostname": "example-host",
   "display_name": "Example Device",
-  "lan_ip": "192.168.1.10",
-  "zerotier_ip": "10.0.0.10"
+  "lan_ip": "192.0.2.10",
+  "zerotier_ip": "198.51.100.10"
 }
 ```
 
-Authentication uses the HTTP header:
+Send it to `POST /api/heartbeat` with `X-Heartbeat-Token`. Use a different stable
+`device_id` per device. LAN and ZeroTier addresses are never merged. IP changes
+on existing devices are logged independently to SQLite `ip_events`.
 
-```text
-X-Heartbeat-Token
+## Dashboard
+
+`/` opens the Full dashboard with Device selected. Mini Cards choose the device
+shown in Device Details; Device/Network switching retains that selection.
+Addresses, local-time last-seen, CPU/RAM/disk, load, temperature and uptime are
+shown when available. Missing numbers use a dash; genuine zero values remain zero.
+
+- Live CPU/RAM/Load 1m SVG trends retain up to **120 browser-memory samples**, about
+  10 minutes at 5-second polling. Reloading resets live samples.
+- Persistent CPU/RAM/Load 1m trends request `/api/history?minutes=60` every
+  **60 seconds**, using the latest Beszel one-minute records. The API accepts
+  `minutes` clamped to 10–360 as a sample limit; it does not time-filter records,
+  so gaps can make the displayed data span more than the nominal window.
+- Both views reuse `/api/dashboard`, normally refreshed every **5 seconds**;
+  history completion also triggers a dashboard refresh on Full.
+- Beszel `up` is online, `down`/`paused` offline, other/missing status unknown.
+  Status is not derived from Heartbeat age or a ping check.
+
+Handled API failures keep old displayed data and show a stale-data warning.
+Missing monitoring credentials leave the registry usable. Not every transport
+failure is normalized by the backend; some errors can return HTTP 500.
+
+## Lite Style
+
+`/lite` or the Full page's **Lite Style** link opens compact cards: name, status,
+LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. **Full View** returns to `/`.
+Lite polls every 5 seconds, has no history requests or charts, and hides current
+metrics for offline/unknown devices. Invalid individual entries are skipped.
+
+Lite targets older devices using ES5 and XMLHttpRequest. **The user confirmed
+that Lite works normally in Safari on a real iPad mini 1 running iOS 9.1.3**.
+This result is limited to that device and reported OS version; it does not
+guarantee compatibility with all iOS 9 devices. Long-duration refresh testing
+was not explicitly confirmed. Earlier Full-page iPad mini 1 / iOS 9 Safari
+testing was successful; the new Network view and latest Full UI changes
+still need real-device acceptance.
+See [browser validation](docs/legacy-browser-validation.md).
+
+## Network tab
+
+Full's **Network** tab hides Device Details and shows device totals,
+online/offline/unknown counts, LAN/ZeroTier address-reporting counts, and
+per-device registered addresses and last Heartbeat. Missing LAN addresses and
+optional missing ZeroTier addresses have explanatory placeholders.
+
+This is a **summary of device-reported network information**, not a network
+scanner, ping sweep, link map or automatic topology discovery. A recorded
+address does not establish reachability. No extra network service or API is used.
+
+## API endpoints
+
+Read endpoints currently have **no Portal login/access-control layer**.
+
+| Method | Path | Behavior |
+|---|---|---|
+| GET | `/` | Full dashboard HTML |
+| GET | `/lite` | Lite HTML |
+| GET | `/api/health` | Service status and database readiness; inspect the JSON database field, not only HTTP 200 |
+| GET | `/api/devices` | `{ "devices": [...] }` registered devices |
+| GET | `/api/devices/<device_id>` | One device or HTTP 404 |
+| POST | `/api/heartbeat` | Token-authenticated registration/update and address-change flags; 400 invalid body/ID, 401 invalid token, 503 no server token |
+| GET | `/api/metrics` | Beszel normalized systems; 503 missing credentials, 502 handled Beszel API errors |
+| GET | `/api/dashboard` | Registry + metrics: status, count, sources, metrics_error, devices |
+| GET | `/api/history?minutes=60` | One-minute historical samples, 10–360 sample limit, default 60; handled global failures return 502 |
+
+For precise payload fields see `app.py`, `dashboard_service.py` and
+`history_service.py`. No IP-event endpoint, scan endpoint or topology API exists.
+
+## Testing
+
+With the virtual environment active:
+
+```sh
+python -B -m unittest discover -s tests -v
+python -B -c "import ast, pathlib; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '.venv' not in p.parts]"
+node --check static/dashboard.js
+node --check static/lite.js
+node tests/test_lite.js
+node tests/test_network.js
 ```
 
-The real token must never be committed to Git.
+Current coverage: **8 Flask/static compatibility tests**, **21 Lite assertions**
+and **45 Full/Network assertions**. Flask tests skip `.env`, initialize temporary
+SQLite before importing the app and block outgoing HTTP. JavaScript tests use
+mock DOM/XHR. GitHub Actions runs these suites and syntax checks without live
+Beszel or production credentials. Automated logic/syntax tests do not replace
+layout validation on real devices. A basic manual HTML/CSS/JS page is retained
+at `docs/legacy-browser-test/helloworld.html`.
+
+See [fresh installation acceptance](docs/installation-validation.md) for the
+tested environment, dependency/configuration results, mocked API checks and
+explicitly unverified physical-device/service cases.
+
+## Security notes
+
+- Keep `.env`, real client configs, passwords, tokens, private keys, databases,
+  screenshots with private details, venvs and caches out of Git. Examples contain
+  placeholders; replace them locally. `.gitignore` is not a secrets scanner.
+- Heartbeat uses a shared token but read APIs and dashboard have no built-in login;
+  expose the service only within a trusted network or behind external access
+  control. Plain HTTP does not encrypt tokens or private device information.
+- Leave `DEBUG=false`. Flask's built-in server is not a public-internet deployment
+  solution. No public deployment or reverse-proxy configuration is bundled.
+- Protect and back up your SQLite database and private configuration independently.
+  Beszel history stays in Beszel, not the Portal database.
+- Tokens/configuration should not be pasted into issue reports; sanitize probe
+  output, logs and screenshots. Device display data is HTML-escaped by the UI,
+  but Heartbeat only validates JSON object and nonempty string device ID;
+  optional fields have no strict type/IPv4 schema validation yet.
+
+## Roadmap
+
+Not implemented: strict Heartbeat payload validation, Portal user authentication,
+network reachability checks, topology discovery, IP-event browsing UI, a device
+management editor and a hardened public deployment guide. These are possible
+future directions, not commitments or v0.1.0 features. Real-device Network and
+latest Full UI validation, long-duration Lite refresh testing and
+dependency/Beszel-version compatibility testing remain pending.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Hongbin He
+
+Release material: [changelog](CHANGELOG.md), [draft release notes](docs/releases/v0.1.0.md),
+[release checklist](docs/release-checklist.md). Sanitized screenshots of Full,
+Network and Lite could be added here later; no screenshots are fabricated.
+
+---
+
+## 中文说明
+
+### 项目简介
+
+HomeLab Portal 是基于 Python、Flask、SQLite、原生 JavaScript 和 SVG 的轻量
+自托管设备登记与监控仪表盘。v0.1.0 正在准备，应用基线为
+`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347`；尚未创建版本 Tag 或 Release，许可证已确认为 [MIT License](LICENSE)。
+
+### 已实现功能
+
+- Linux Python 与 Windows PowerShell 心跳客户端，使用共享 Token 鉴权。
+- 分别记录 LAN、可选 ZeroTier IPv4、最后心跳和 IP 变更事件。
+- Beszel CPU、内存、磁盘、负载、温度、运行时间和设备状态。
+- Full 的 Mini Card、选中设备详情、实时与持久 SVG 趋势图。
+- Lite 轻量实时卡片；Network 上报地址与状态摘要。
+- ES5/XHR、响应式旧式 CSS、缺失数据提示、失败保留旧数据及自动测试/CI。
+
+### 系统架构
+
+客户端通过 `POST /api/heartbeat` 写入 Flask/SQLite，Portal 调用 Beszel REST API
+获取指标和历史，再由 `/api/dashboard` 与 `/api/history` 提供给浏览器。
+设备通过唯一的 `beszel_system_id` 关联；Heartbeat 是设备身份、地址和最后心跳
+的来源，Beszel 是状态与指标的来源，不把 Beszel host 当成真实 LAN 地址。
+SQLite 表为 `devices`、`ip_events`，目前没有 IP 事件查询 API。
+
+### 系统要求
+
+服务器 CI 基线为 Python 3.12，需 Git、pip、venv、Python SQLite 和可写数据目录。
+指标/历史需要 Beszel Hub 账号或 Token；无 Beszel 时仍可使用设备登记。
+Linux 客户端需要 Python 3 与 iproute2，systemd 用于可选定时运行；Windows
+客户端需要 PowerShell 与相应网络 cmdlet。ZeroTier 可选。前端测试 CI 使用
+Node.js 22，运行服务器不需要 Node.js；其他版本尚未完整认证。
+
+### 安装步骤
+
+在新目录按英文 Installation 的命令显式克隆发布准备分支、记录 Commit、创建 `.venv`、
+安装 `requirements.txt` 并仅在 `.env` 不存在时复制示例。不覆盖现有实例、
+配置或数据库。当前没有 `v0.1.0` Tag，不要使用尚不存在的版本安装命令。
+main 尚未包含完整待发布功能，发布准备分支还可能推进；正式部署应选择包含应用与
+文档的最终不可变 Commit，不能仅回退到旧应用基线而丢失新版文档和示例配置。
+`app.py` 导入时会初始化配置路径下的 SQLite，无需另一个初始化命令。
+
+### 配置方法
+
+完整字段及代码默认值见上方 Configuration 表。`.env` 配置名称、监听地址、
+端口、调试开关、数据库路径、Heartbeat Token 和 Beszel URL/认证/超时。
+空 `HEARTBEAT_TOKEN` 会禁用上报；本地生成随机 Token，在服务器与客户端保持一致。
+Beszel 优先使用 Token，否则使用邮箱和密码。环境变量优先于 `.env`。
+本机访问建议 `HOST=127.0.0.1`，其他设备访问需明确配置监听与防火墙。
+首次心跳后运行 `python tools/link_beszel_devices.py` 建立关联；该工具会写入数据库，
+先备份并核对名称自动匹配和人工选择。探测工具输出可能包含私有设备信息，不应公开。
 
-### Linux Client
+### 启动服务
 
-Linux client:
+激活虚拟环境后运行 `python app.py`，本机访问 `http://127.0.0.1:8088/`。
+提供的可选 systemd 用户服务默认安装位置为 `~/homelab-portal`；其他位置需
+自行调整模板，不覆盖已有本地 unit。服务使用 Flask 内置服务器，适合可信网络
+原型；不是面向公网的加固方案。不要将新安装示例直接用于变更既有生产实例。
 
-```text
-clients/linux-heartbeat.py
-```
+### 客户端心跳上报
 
-Public example configuration:
+Linux 私有配置位于 `~/.config/homelab-portal/heartbeat.env`，字段为
+`HOMELAB_PORTAL_URL`、`HOMELAB_HEARTBEAT_TOKEN`、`HOMELAB_DEVICE_ID`、
+`HOMELAB_DISPLAY_NAME`。加载可信环境文件后运行 `python3 clients/linux-heartbeat.py`。
+示例 systemd timer 约 30 秒后首次运行，前次完成约 **5 分钟后**再次上报，
+`AccuracySec=30s`。客户端每次执行只发送一次心跳。
 
-```text
-clients/heartbeat.env.example
-```
+Windows 私有 JSON 默认位于 `%USERPROFILE%\.config\homelab-portal\heartbeat.json`，
+字段为 `portal_url`、`heartbeat_token`、`device_id`、`display_name`。
+用 `powershell.exe -File .\clients\windows-heartbeat.ps1` 运行，支持 `-ConfigPath`。
+定时任务需用户在 Task Scheduler 配置；脚本没有固定上报周期或任务安装器。
+每台设备使用稳定且唯一的 ID；LAN 和 ZeroTier 地址独立保存，变更记录在 SQLite。
 
-Example systemd user units:
+### 仪表盘
 
-```text
-systemd/user/homelab-heartbeat.service
-systemd/user/homelab-heartbeat.timer
-```
+`/` 默认显示 Device，保留 Mini Card 选择、详情和 SVG 图表，切换 Network
+保留选中设备。网页每 **5 秒**刷新，与客户端约 5 分钟上报无关。
+实时趋势保留最多 120 个浏览器内样本（约 10 分钟），刷新页面重置。
+历史趋势每 **60 秒**读取 Beszel 的最新 60 条一分钟记录；`minutes` 为 10–360
+条样本上限，未按时间过滤，因此缺测时可能跨越更长时间。历史保存在 Beszel。
+在线状态来自 Beszel，不通过心跳年龄或 Ping 推断。缺失指标显示横线，零值显示零；
+处理过的请求失败保留旧数据显示过期提示，部分传输错误仍可能返回 HTTP 500。
 
-Device-specific configuration should be stored outside the repository, for example:
+### Lite Style / 旧设备兼容页面
 
-```text
-~/.config/homelab-portal/heartbeat.env
-```
+`/lite` 显示名称、状态、LAN/可选 ZeroTier、CPU、RAM、磁盘和一分钟负载。
+每 5 秒刷新，不请求历史或显示图表；离线/未知设备不展示当前指标，支持双向导航。
+ES5/XHR 面向老设备。**用户已确认 iPad mini 1（iOS 9.1.3）使用 Safari 访问
+Lite 页面正常**。此结果仅适用于该设备及用户报告的系统版本，不保证所有 iOS 9
+设备兼容；用户未明确确认长时间刷新测试。Full 曾在 iPad mini 1 的 iOS 9 Safari
+成功显示；新版 Network 和最近 Full UI 改动仍待实机验收。
+见 [浏览器验收](docs/legacy-browser-validation.md)，待验收项目不标记 PASS。
 
-### Windows Client
+### Network Tab / 网络信息页面
 
-Windows heartbeat client:
+显示设备总数、在线/离线/未知数量、LAN/ZeroTier 上报数量、登记地址和最后心跳，
+隐藏 Device Details。仅汇总客户端上报的信息，**不是网络扫描器或自动拓扑发现**，
+不进行 Ping、不推断连接关系。登记地址不代表可达性，不新增后台服务或 API。
 
-```text
-clients/windows-heartbeat.ps1
-```
+### API 接口
 
-Example configuration:
+方法、路径、主要返回行为和错误码见英文 API endpoints 表：`/`、`/lite`、
+`/api/health`、`/api/devices`、`/api/devices/<device_id>`、`POST /api/heartbeat`、
+`/api/metrics`、`/api/dashboard`、`/api/history?minutes=60`。读取 API 没有 Portal 登录，
+只有心跳写接口使用共享 Token。健康端点的 HTTP 200 不替代 JSON 数据库状态检查。
 
-```text
-clients/heartbeat.windows.example.json
-```
+### 测试方法
 
-A device-specific configuration can be stored at:
+按英文 Testing 命令运行 unittest、Python AST、Node 语法检查和两套前端测试。
+当前为 8 项 Flask/静态兼容性测试、21 项 Lite 断言、45 项 Full/Network 断言。
+测试使用临时数据库、不读取 `.env`、禁止真实外部 HTTP；前端使用模拟 DOM/XHR。
+GitHub Actions 不需要生产凭据或真实 Beszel；自动测试不能替代真实设备布局验收。
+保留 `docs/legacy-browser-test/helloworld.html` 基础手工兼容性测试页面。
+本次 [全新安装验收](docs/installation-validation.md) 记录测试环境、依赖与配置结果、
+模拟 API 检查及尚未进行的实体设备/服务验收。
 
-```text
-%USERPROFILE%\.config\homelab-portal\heartbeat.json
-```
+### 安全注意事项
 
-The Windows client can be executed periodically using Windows Task Scheduler.
+不提交 `.env`、真实客户端配置、密码/Token/私钥、数据库、私有截图、虚拟环境或缓存。
+共享 Token 不等于读取权限控制；页面/API 需仅向可信网络开放，或配置外部访问控制。
+HTTP 不加密信息，调试必须关闭；Flask 内置服务器不是公网部署方案。
+数据库和配置独立备份；严格的可选字段类型与 IPv4 验证尚未实现，提交日志、
+探测结果或截图前先脱敏。`.gitignore` 不等于密钥扫描工具。
 
-### Security
+### 后续规划
 
-Do not commit:
+严格的心跳数据校验、Portal 用户认证、连通性检测、拓扑发现、IP 事件浏览界面、
+设备管理编辑和加固部署指南均未实现，只是潜在方向，不属于 v0.1.0。
+Network 和最近 Full UI 实机验证、Lite 长时间刷新测试及 Beszel/依赖版本兼容性测试待完成。
 
-- `.env`
-- heartbeat tokens
-- passwords
-- private credentials
-- runtime databases
-- environment-specific configuration
+### 许可证信息
 
-Only example configuration files should be committed.
+本项目采用 [MIT License](LICENSE)。
 
-### Current Development Status
+Copyright (c) 2026 Hongbin He
 
-Implemented:
-
-- Project skeleton
-- Flask application
-- SQLite database
-- Device heartbeat API
-- Linux heartbeat client
-- Windows heartbeat client
-- LAN / ZeroTier address tracking
-- IP change history
-- Automatic Linux heartbeat scheduling
-- Automatic Windows heartbeat scheduling
-
-Planned next:
-
-- Beszel API integration
-- CPU / memory / disk / load metrics
-- Unified dashboard API
-- Legacy-browser-compatible live dashboard
-
-## Beszel Metrics Integration
-
-HomeLab Portal combines two data sources:
-
-- **Heartbeat / SQLite**: device identity, LAN IP, optional ZeroTier IP, and last-seen time.
-- **Beszel**: CPU, memory, disk, load average, temperature, uptime, and status.
-
-Devices are linked using `beszel_system_id`. A database-level unique index prevents one Beszel system from being assigned to multiple Portal devices.
-
-### IP design rule
-
-Beszel's configured host/IP is not treated as the authoritative LAN IP because DHCP addresses may change. HomeLab Portal uses Heartbeat for LAN/ZeroTier addresses and Beszel for performance metrics.
-
-APIs:
-
-- `GET /api/metrics` — normalized Beszel metrics.
-- `GET /api/dashboard` — unified device registry + metrics.
-
-### 中文说明
-
-HomeLab Portal 将 Heartbeat/SQLite 与 Beszel 合并：前者负责设备身份、LAN IP、可选 ZeroTier IP 和 Last Seen；后者负责 CPU、内存、磁盘、Load、温度、Uptime 和在线状态。
-
-两套数据通过 `beszel_system_id` 关联，并通过数据库唯一索引避免一个 Beszel 设备被重复绑定。Beszel 中配置的 host/IP 不作为真实 LAN IP；真实 LAN/ZeroTier 地址始终来自 Heartbeat。
-
-## Live Dashboard UI
-
-Step 4 adds a lightweight browser dashboard powered by the unified `/api/dashboard` endpoint.
-
-Features:
-
-- shows registered HomeLab devices in one page
-- displays LAN IP and optional ZeroTier IP
-- shows Beszel online/offline status
-- displays CPU, memory, disk, load average, temperature, and uptime
-- refreshes automatically every 5 seconds
-- converts UTC heartbeat timestamps to the browser's local time
-- uses ES5-style JavaScript and `XMLHttpRequest` for legacy Safari / iOS 9 compatibility
-- has been tested successfully on a legacy iPad mini running iOS 9
-
-### 中文说明
-
-第四步加入了轻量级动态 Dashboard 首页，并使用统一的 `/api/dashboard` 作为数据源。
-
-主要功能：
-
-- 在一个页面显示所有 HomeLab 设备
-- 显示 LAN IP 和可选 ZeroTier IP
-- 显示 Beszel 在线/离线状态
-- 显示 CPU、内存、磁盘、Load Average、温度和 Uptime
-- 每 5 秒自动刷新
-- 将数据库中的 UTC Heartbeat 时间转换为浏览器本地时间
-- 使用 ES5 风格 JavaScript 和 `XMLHttpRequest`，兼容旧版 Safari / iOS 9
-- 已在运行 iOS 9 的老款 iPad mini 上实机测试通过
-
-<!-- DASHBOARD-HISTORY-SECTION -->
-
-## Dashboard monitoring / 仪表盘监控
-
-HomeLab Portal provides two complementary metric timelines for each device.
-
-HomeLab Portal 为每台设备提供两种互补的监控时间尺度。
-
-### Live trends / 实时趋势
-
-- Polls the unified dashboard API every 5 seconds.
-- Keeps up to 120 samples in browser memory.
-- Represents approximately the latest 10 minutes.
-- Displays CPU, RAM and Load 1m.
-- Uses lightweight native SVG charts without Chart.js or other front-end frameworks.
-- Live samples are intentionally browser-local and reset when the page is reloaded.
-
-- 每 5 秒轮询一次统一 Dashboard API。
-- 浏览器内最多保留 120 个采样点。
-- 大约表示最近 10 分钟。
-- 展示 CPU、RAM 和 Load 1m。
-- 使用原生 SVG，不依赖 Chart.js 或其他前端框架。
-- Live 数据保存在浏览器内存中，刷新页面后会重新采集。
-
-### Historical trends / 历史趋势
-
-- Reads persistent Beszel `system_stats` data.
-- Uses Beszel 1-minute samples.
-- Shows the latest 60 minutes by default.
-- Historical data survives browser refreshes.
-- Available through `/api/history?minutes=60`.
-
-- 读取 Beszel 持久化的 `system_stats` 数据。
-- 使用 Beszel 的 1 分钟历史采样。
-- 默认展示最近 60 分钟。
-- 浏览器刷新后历史数据不会丢失。
-- API 地址为 `/api/history?minutes=60`。
-
-### Legacy browser compatibility / 老设备兼容
-
-The dashboard intentionally uses simple HTML, CSS, ES5-style JavaScript,
-`XMLHttpRequest`, and native SVG so that it can run on much older browsers.
-
-The current dashboard has been successfully tested on an iPad mini 1 running
-iOS 9 Safari.
-
-Dashboard 有意采用简单 HTML、CSS、ES5 风格 JavaScript、`XMLHttpRequest`
-和原生 SVG，以提高老浏览器兼容性。
-
-当前版本已经在运行 iOS 9 Safari 的 iPad mini 1 上实际测试通过。
-
-### Metric source separation / 数据来源分离
-
-HomeLab Portal treats heartbeat and monitoring data as separate sources:
-
-- Heartbeat data is authoritative for device identity, LAN IP, ZeroTier IP and `last_seen`.
-- Beszel supplies CPU, memory, disk, load, temperature, uptime and persistent history.
-- Beszel host addresses are not treated as authoritative LAN IP addresses.
-
-HomeLab Portal 将设备心跳数据和监控数据分开处理：
-
-- Heartbeat 负责设备身份、LAN IP、ZeroTier IP 和 `last_seen`。
-- Beszel 负责 CPU、内存、磁盘、Load、温度、Uptime 和持久历史。
-- Beszel 中记录的 host 地址不会被当作权威 LAN IP。
+发布资料：[CHANGELOG](CHANGELOG.md)、[双语 Release Notes 草稿](docs/releases/v0.1.0.md)、
+[发布前检查清单](docs/release-checklist.md)。之后可在 README 加入已脱敏的真实
+Full/Network/Lite 截图，当前不伪造或添加截图。

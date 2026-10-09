@@ -35,18 +35,22 @@ var beszelHistory = {};
 var HISTORY_MAX_POINTS = 120;
 var metricHistory = {};
 
+/* Step 6B selected device / 设备选择 */
+var selectedDeviceId = null;
+var latestDashboardData = null;
+
 
 function historyValue(value) {
 
     var numberValue;
 
-    if (value === null || value === undefined || value === "") {
+    if (value === null || value === undefined || (typeof value === "string" && /^\s*$/.test(value))) {
         return null;
     }
 
     numberValue = Number(value);
 
-    if (isNaN(numberValue)) {
+    if (typeof value === "boolean" || typeof value === "object" || !isFinite(numberValue)) {
         return null;
     }
 
@@ -122,9 +126,9 @@ function esc(v) {
 
 function num(v, digits) {
   var n;
-  if (v === null || v === undefined || v === "") { return "—"; }
+  if (v === null || v === undefined || (typeof v === "string" && /^\s*$/.test(v))) { return "—"; }
   n = Number(v);
-  return isNaN(n) ? "—" : n.toFixed(digits);
+  return typeof v === "boolean" || typeof v === "object" || !isFinite(n) ? "—" : n.toFixed(digits);
 }
 
 function pct(v) {
@@ -134,16 +138,18 @@ function pct(v) {
 }
 
 function metric(label, value) {
+  var display = num(value, 1);
+  /* Missing values have no percentage or filled bar / 缺失指标不显示百分号或填充条。 */
   return '<div class="metric">'
     + '<span class="mlabel">' + esc(label) + '</span>'
-    + '<span class="mvalue">' + num(value,1) + '%</span>'
-    + '<span class="bar"><span class="fill" style="width:' + pct(value) + '%"></span></span>'
+    + '<span class="mvalue">' + display + (display === "—" ? "" : "%") + '</span>'
+    + '<span class="bar">' + (display === "—" ? "" : '<span class="fill" style="width:' + pct(value) + '%"></span>') + '</span>'
     + '</div>';
 }
 
 function uptime(seconds) {
   var s, d, h, m;
-  if (seconds === null || seconds === undefined) { return "—"; }
+  if (num(seconds, 0) === "—") { return "—"; }
   s = Math.floor(Number(seconds));
   if (isNaN(s) || s < 0) { return "—"; }
   d = Math.floor(s / 86400);
@@ -156,7 +162,7 @@ function uptime(seconds) {
 
 function temp(v) {
   var n = Number(v);
-  if (v === null || v === undefined || isNaN(n) || n <= 0) { return "—"; }
+  if (num(v, 1) === "—" || n <= 0) { return "—"; }
   return n.toFixed(1) + " °C";
 }
 
@@ -292,7 +298,7 @@ function chartBox(label, values, fixedMax, unit) {
 
   return '<div class="chart-box">'
     + '<div class="chart-title">' + esc(label)
-    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + '<span>' + num(latest, 1) + (num(latest, 1) === "—" ? "" : esc(unit || "")) + '</span></div>'
     + sparkline(values, fixedMax)
     + '<div class="chart-axis"><span>older</span><span>now</span></div>'
     + '</div>';
@@ -404,7 +410,7 @@ function liveChartBox(label, values, minSpan, unit, hardMin, hardMax) {
 
   return '<div class="chart-box">'
     + '<div class="chart-title">' + esc(label)
-    + '<span>' + num(latest, 1) + esc(unit || "") + '</span></div>'
+    + '<span>' + num(latest, 1) + (num(latest, 1) === "—" ? "" : esc(unit || "")) + '</span></div>'
     + sparklineZoom(values, minSpan, hardMin, hardMax)
     + '<div class="chart-axis"><span>older</span><span>now</span></div>'
     + '</div>';
@@ -478,12 +484,78 @@ function chartSection(d) {
 }
 
 
+
+function deviceKey(d) {
+  return d.device_id || d.hostname || d.display_name || "";
+}
+
+function miniCard(d) {
+  var state = networkState(d);
+  var metrics = d.metrics_available === true;
+  var key = deviceKey(d);
+  var selectedClass = key === selectedDeviceId ? " selected-mini-card" : "";
+  var h = '<div class="mini-card' + selectedClass + '" data-device="' + esc(key)
+    + '" onclick="selectDeviceCard(this)">';
+
+  h += '<div class="mini-card-head"><strong>' + esc(nameOf(d)) + '</strong>'
+    + '<span class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
+    + state.toUpperCase() + '</span></div>';
+
+  h += '<div class="mini-card-body">'
+    + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
+
+  if (metrics) {
+    h += '<div><span>CPU</span><b>' + num(d.cpu_percent,1) + (num(d.cpu_percent,1) === "—" ? "" : "%") + '</b></div>'
+      + '<div><span>RAM</span><b>' + num(d.memory_percent,1) + (num(d.memory_percent,1) === "—" ? "" : "%") + '</b></div>';
+  } else {
+    h += '<div><span>CPU</span><b>—</b></div>'
+      + '<div><span>RAM</span><b>—</b></div>';
+  }
+  return h + '</div></div>';
+}
+
+function selectedDevice(list) {
+  var i;
+  if (!list || list.length === 0) { selectedDeviceId = null; return null; }
+  if (selectedDeviceId) {
+    for (i=0; i<list.length; i=i+1) {
+      if (deviceKey(list[i]) === selectedDeviceId) { return list[i]; }
+    }
+  }
+  selectedDeviceId = deviceKey(list[0]);
+  return list[0];
+}
+
+function renderDevicePanels(list) {
+  var mini="", detail="", chosen=selectedDevice(list), i;
+  if (!list || list.length === 0) {
+    mini = '<div class="loading">No devices registered.</div>';
+    detail = mini;
+  } else {
+    for (i=0; i<list.length; i=i+1) { mini += miniCard(list[i]); }
+    if (chosen) { detail = card(chosen); }
+  }
+  document.getElementById("mini-devices").innerHTML = mini;
+  document.getElementById("devices").innerHTML = detail;
+}
+
+function selectDeviceCard(element) {
+  var key;
+  if (!element) { return; }
+  key = element.getAttribute("data-device");
+  if (!key) { return; }
+  selectedDeviceId = key;
+  if (latestDashboardData) {
+    renderDevicePanels(latestDashboardData.devices || []);
+  }
+}
+
 function card(d) {
-  var online = d.beszel_status === "up";
+  var state = networkState(d);
   var h = '<div class="card">';
   h += '<div class="title"><h2>' + esc(nameOf(d)) + '</h2>'
-    + '<b class="' + (online ? "ok" : "bad") + '">'
-    + (online ? "ONLINE" : "OFFLINE") + '</b></div>';
+    + '<b class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
+    + state.toUpperCase() + '</b></div>';
 
   h += '<table><tr><td>LAN IP</td><td>' + esc(d.lan_ip || "—") + '</td></tr>'
     + '<tr><td>ZeroTier</td><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
@@ -505,14 +577,79 @@ function card(d) {
   return h + '</div>';
 }
 
-function render(data) {
-  var list = data.devices || [], h = "", i;
+/* Switching panels never fetches data or resets selection / 切换不请求数据、不重置设备选择。 */
+function selectDashboardTab(tab) {
+  var network = tab === "network";
+  document.getElementById("device-panel").className = network ? "hidden" : "";
+  document.getElementById("network-panel").className = network ? "" : "hidden";
+  document.getElementById("tab-device").className = "dashboard-tab" + (network ? "" : " active-tab");
+  document.getElementById("tab-network").className = "dashboard-tab" + (network ? " active-tab" : "");
+  document.getElementById("tab-device").setAttribute("aria-pressed", network ? "false" : "true");
+  document.getElementById("tab-network").setAttribute("aria-pressed", network ? "true" : "false");
+}
 
-  /*
-   * Store the newest sample before rendering.
-   * 在页面渲染前先保存本轮最新指标。
-   */
+/* Missing status is unknown, not a failed LAN check / 缺失状态为未知，并非 LAN 检测失败。 */
+function networkState(device) {
+  if (device.beszel_status === "up") { return "online"; }
+  if (device.beszel_status === "down" || device.beszel_status === "paused") { return "offline"; }
+  return "unknown";
+}
+
+function networkSummaryCard(label, value) {
+  return '<div class="network-summary-card"><span>' + label + '</span><strong>' + value + '</strong></div>';
+}
+
+function renderNetworkPanels(list, sources) {
+  var online = 0, offline = 0, unknown = 0, lan = 0, zerotier = 0;
+  var cards = "", summary = "", i, device, state;
+  var labels = { online: "ONLINE / 在线", offline: "OFFLINE / 离线", unknown: "UNKNOWN / 未知" };
+  for (i = 0; i < list.length; i += 1) {
+    device = list[i];
+    state = networkState(device);
+    if (state === "online") { online += 1; }
+    else if (state === "offline") { offline += 1; }
+    else { unknown += 1; }
+    if (device.lan_ip) { lan += 1; }
+    if (device.zerotier_ip) { zerotier += 1; }
+    cards += '<div class="network-device-card"><h2>' + esc(nameOf(device)) + '</h2>'
+      + '<p class="network-state ' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown")
+      + '">' + labels[state] + '</p><table><tr><td>LAN IP</td><td>' + esc(device.lan_ip || "—")
+      + '</td></tr><tr><td>ZeroTier IP</td><td>' + esc(device.zerotier_ip || "—")
+      + '</td></tr><tr><td>Last Seen / 最后心跳</td><td>' + localTime(device.last_seen) + '</td></tr></table>';
+    if (!device.lan_ip) { cards += '<p class="network-note">LAN address unavailable / LAN 地址缺失</p>'; }
+    if (!device.zerotier_ip) { cards += '<p class="network-note">No ZeroTier address reported (optional) / 未上报 ZeroTier 地址（可选）</p>'; }
+    cards += '</div>';
+  }
+  summary += '<div class="network-summary-grid">'
+    + networkSummaryCard("Devices / 设备总数", list.length)
+    + networkSummaryCard("Online / 在线", online)
+    + networkSummaryCard("Offline / 离线", offline)
+    + networkSummaryCard("Unknown / 未知", unknown)
+    + networkSummaryCard("LAN IP reported / 已上报", lan + " / " + list.length)
+    + networkSummaryCard("ZeroTier IP reported / 已上报", zerotier + " / " + list.length)
+    + '</div>';
+  if (!sources || sources.metrics_status !== "ok") {
+    summary += '<p class="network-note">Beszel status unavailable; addresses remain visible / Beszel 状态不可用，仍显示登记地址。</p>';
+  }
+  document.getElementById("network-summary").innerHTML = summary;
+  document.getElementById("network-devices").innerHTML = cards || '<div class="loading">No devices registered / 暂无设备。</div>';
+}
+
+function render(data) {
+  /* Reject broken payloads before replacing retained data / 替换旧数据前验证响应。 */
+  if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
+    throw new Error("Invalid dashboard response");
+  }
+  var list = [];
+  var i;
+  /* Ignore malformed entries; valid devices still render / 跳过无效条目，正常设备仍可显示。 */
+  for (i = 0; i < data.devices.length; i += 1) {
+    if (data.devices[i] && typeof data.devices[i] === "object" && !Array.isArray(data.devices[i])) {
+      list.push(data.devices[i]);
+    }
+  }
   appendHistory(list);
+  latestDashboardData = { devices: list, sources: data.sources };
   document.getElementById("device-count").innerHTML = list.length;
 
   if (data.sources && data.sources.metrics_status === "ok") {
@@ -521,13 +658,8 @@ function render(data) {
     document.getElementById("metrics-status").innerHTML = '<span class="bad">UNAVAILABLE</span>';
   }
 
-  if (list.length === 0) {
-    h = '<div class="loading">No devices registered.</div>';
-  } else {
-    for (i = 0; i < list.length; i = i + 1) { h += card(list[i]); }
-  }
-
-  document.getElementById("devices").innerHTML = h;
+  renderDevicePanels(list);
+  renderNetworkPanels(list, data.sources);
   document.getElementById("dashboard-error").className = "error hidden";
   document.getElementById("last-updated").innerHTML =
     "Updated: " + new Date().toLocaleTimeString();
@@ -536,7 +668,7 @@ function render(data) {
 function fail() {
   document.getElementById("dashboard-error").className = "error";
   document.getElementById("dashboard-error").innerHTML =
-    "Refresh failed. Existing data remains on screen.";
+    "Refresh failed. Displayed data may be stale; retrying automatically. / 刷新失败，显示数据可能过期，将自动重试。";
 }
 
 function installHistory(data) {
@@ -632,8 +764,13 @@ function loadDashboard() {
     } else { fail(); }
   };
   x.open("GET", DASHBOARD_URL + "?_=" + new Date().getTime(), true);
+  x.onerror = x.ontimeout = fail;
+  x.timeout = 15000;
   x.send(null);
 }
+
+document.getElementById("tab-device").onclick = function () { selectDashboardTab("device"); };
+document.getElementById("tab-network").onclick = function () { selectDashboardTab("network"); };
 
 loadHistory();
 loadDashboard();

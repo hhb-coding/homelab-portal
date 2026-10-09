@@ -1,0 +1,28 @@
+/* No grid or CSS variables: legacy Safari support / 不使用网格和 CSS 变量以兼容旧 Safari。 */
+body { margin:0; padding:18px; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.5; color:#222; background:#eee; }
+.container { max-width:980px; margin:0 auto; }
+header { overflow:hidden; margin-bottom:18px; }
+h1 { margin:0 0 6px; font-size:26px; word-wrap:break-word; }
+header p, #lite-summary { color:#555; line-height:1.5; }
+.view-switch { float:right; margin:0 0 10px 12px; padding:8px 12px; border:1px solid #aaa; background:#f7f7f7; color:#222; text-decoration:none; white-space:nowrap; }
+.view-switch:focus { outline:2px solid #555; }
+.lite-card { padding:14px; margin-bottom:12px; background:#fff; border:1px solid #ccc; }
+.lite-card h2 { margin:0 0 10px; font-size:18px; word-wrap:break-word; }
+.status { display:block; margin-bottom:4px; font-size:12px; }
+.online { color:#176b27; }
+.offline { color:#a00020; }
+.unknown { color:#666; }
+.addresses { margin:0 0 10px; line-height:1.6; word-wrap:break-word; }
+.metric { display:inline-block; margin:4px 22px 4px 0; }
+.note { color:#666; font-size:12px; }
+#lite-error { padding:12px; color:#8a0018; background:#fff2f2; border:1px solid #b00020; }
+.hidden { display:none; }
+.container, header p, #lite-summary, #lite-error { word-wrap:break-word; }
+@media screen and (max-width:600px) {
+  body { padding:8px; }
+  h1 { font-size:22px; }
+  .metric { margin-right:14px; }
+}
+@media screen and (max-width:400px) {
+  .view-switch { float:none; display:inline-block; margin:0 0 12px; }
+}

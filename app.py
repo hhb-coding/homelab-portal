@@ -43,6 +43,12 @@ def index():
     )
 
 
+@app.route("/lite")
+def lite():
+    """Compact live view without history / 无历史图表的轻量实时视图。"""
+    return render_template("lite.html", app_name=config.APP_NAME)
+
+
 @app.route("/api/health")
 def health():
     """

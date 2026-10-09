@@ -1,0 +1,27 @@
+name: Smoke tests
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      # Temporary SQLite + blocked HTTP; no secrets / 临时数据库且禁用网络，不需要密钥。
+      - run: python -B -m unittest discover -s tests -v
+      - run: node tests/test_lite.js
+      - run: node tests/test_network.js
+      - name: Python syntax / Python 语法
+        run: python -B -c "import ast, pathlib; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '.venv' not in p.parts]"
+      - name: JavaScript syntax / JavaScript 语法
+        run: |
+          node --check static/dashboard.js
+          node --check static/lite.js
+          node --check tests/test_network.js
