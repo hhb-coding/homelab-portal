@@ -178,6 +178,33 @@ class BeszelClient:
         return number
 
     @classmethod
+    def _available_estimate(
+        cls, total: Optional[float], used: Optional[float], percent: Optional[float]
+    ) -> Optional[float]:
+        """Estimate from one rounded Beszel sample / 从同一舍入后的 Beszel 样本估算。"""
+        if total is None or used is None or percent is None or used <= 0 or percent <= 0:
+            return None
+        if total <= 0 or used > total or percent > 100:
+            return None
+        estimate = used * ((100 - percent) / percent)
+        # Only allow 0.02 GiB rounding slack, never replace with total-used.
+        # 仅容许 0.02 GiB 的舍入偏差，绝不以 total-used 替代估算值。
+        if not math.isfinite(estimate) or estimate < 0 or estimate > total - used + 0.02:
+            return None
+        # Beszel rounds du/dp to 2 decimals. Reject ill-conditioned inversion
+        # if rounding uncertainty exceeds 0.1 GiB or 5% (whichever is larger).
+        # Beszel 的 du/dp 保留两位小数；舍入误差超过 0.1 GiB 或 5% 中较大者时拒绝反推。
+        low_percent = percent - 0.005
+        if low_percent <= 0:
+            return None
+        high_percent = min(100, percent + 0.005)
+        lower = max(0, used - 0.005) * ((100 - high_percent) / high_percent)
+        upper = (used + 0.005) * ((100 - low_percent) / low_percent)
+        if not math.isfinite(upper) or max(estimate - lower, upper - estimate) > max(0.1, estimate * 0.05):
+            return None
+        return estimate
+
+    @classmethod
     def capacity_metrics(cls, stats: Dict[str, Any]) -> Dict[str, Any]:
         """Use one primary-filesystem sample, never sum efs / 仅使用同一主文件系统样本。"""
         total = cls._capacity(stats.get("d"), positive=True)
@@ -190,13 +217,14 @@ class BeszelClient:
             percent = None
         if used is None:
             percent = None
+        available = cls._available_estimate(total, used, percent)
         return {
             "memory_total": cls._capacity(stats.get("m"), positive=True),
             "disk_total": total,
             "disk_used": used,
-            # Beszel does not export Free/Bavail; reserved blocks matter.
-            # Beszel 未导出 Free/Bavail；保留块使 total-used 不等于可用空间。
-            "disk_available": None,
+            # Approximation, not statvfs Free/Bavail / 估算值，并非 statvfs 精确可用空间。
+            "disk_available": available,
+            "disk_available_estimated": available is not None,
             "disk_usage_percent": percent,
             "capacity_unit": "GiB",
         }

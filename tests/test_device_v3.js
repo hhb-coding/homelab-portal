@@ -42,8 +42,29 @@
   var bar = c.diskMetric(device);
   assert(bar.indexOf("47.96%") >= 0 && bar.indexOf("48.0%") >= 0);
   assert(bar.indexOf("52.9G") >= 0 && bar.indexOf("63.4G") < 0); // No total-used / 不伪造可用容量
-  device.disk_available = 57.44; // Future normalized source fixture / 未来真实可用空间源的测试样本
-  assert(c.diskMetric(device).indexOf("57.4G") >= 0);
+  device.disk_available = 52.94 * (100 - 47.96) / 47.96;
+  device.disk_available_estimated = true;
+  assert(c.diskMetric(device).indexOf("≈57.4G") >= 0);
+  assert(c.miniCard(device).indexOf('DISK (116.3G)</span><b>≈57.4G') >= 0);
+  assert(c.card(device).indexOf("not exact statvfs availability") >= 0);
+  device.disk_available_estimated = false;
+  assert.strictEqual(c.capacityOf(device, "disk_available"), "—");
+  device.disk_available_estimated = true;
+  device.disk_usage_percent = 100;
+  device.disk_available = 0;
+  assert.strictEqual(c.capacityOf(device, "disk_available"), "≈0.0G");
+  assert(c.diskMetric(device).indexOf("≈0.0G") >= 0);
+  device.disk_usage_percent = 0;
+  assert.strictEqual(c.capacityOf(device, "disk_available"), "—");
+  device.disk_usage_percent = 47.96;
+  [null, -1, Infinity, NaN, 1000].forEach(function (available) {
+    device.disk_available = available;
+    assert.strictEqual(c.capacityOf(device, "disk_available"), "—");
+  });
+  device.disk_available = 57.44;
+  var large = {metrics_available: true, capacity_unit: "GiB", disk_total: 2048,
+    disk_used: 1024, disk_usage_percent: 50, disk_available: 1024, disk_available_estimated: true};
+  assert.strictEqual(c.capacityOf(large, "disk_available"), "≈1.0T");
   [0, 100, 0.01, 99.99, null, -1, 101, Infinity, NaN].forEach(function (percent) {
     device.disk_usage_percent = percent;
     var html = c.diskMetric(device);

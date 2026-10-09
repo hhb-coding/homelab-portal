@@ -158,6 +158,15 @@ function capacityOf(d, key) {
   if ((key === "disk_total" || key === "memory_total") && Number(d[key]) <= 0) { return "—"; }
   if ((key === "disk_used" || key === "disk_available")
       && (capacity(d.disk_total) === "—" || Number(d.disk_total) <= 0 || Number(d[key]) > Number(d.disk_total))) { return "—"; }
+  /* Estimated space always carries ≈, including zero / 估算可用空间始终标注 ≈，包括零。 */
+  if (key === "disk_available") {
+    if (display === "—" || d.disk_available_estimated !== true
+        || percentText(d.disk_usage_percent) === "—" || Number(d.disk_usage_percent) <= 0
+        || capacity(d.disk_used) === "—" || Number(d.disk_used) <= 0
+        || Number(d.disk_used) > Number(d.disk_total)
+        || Number(d[key]) > Number(d.disk_total) - Number(d.disk_used) + 0.02) { return "—"; }
+    return "≈" + display;
+  }
   return display;
 }
 
@@ -628,7 +637,8 @@ function card(d) {
     h += '<div class="metrics">' + metric("CPU",d.cpu_percent)
       + metric("RAM",d.memory_percent) + diskMetric(d) + '</div>'
       + '<p class="capacity-note">G = GiB; T = TiB. System filesystem / 系统文件系统。'
-      + (capacityOf(d, "disk_available") === "—" ? ' Available space not reported / 未上报可用空间。' : '') + '</p>';
+      + ' ≈ Available space estimated from Beszel; not exact statvfs availability / ≈ 为 Beszel 估算可用空间，非 statvfs 精确值。'
+      + (capacityOf(d, "disk_available") === "—" ? ' Estimate unavailable / 无可靠估算。' : '') + '</p>';
   } else {
     h += '<div class="unavailable">Beszel metrics unavailable</div>';
   }

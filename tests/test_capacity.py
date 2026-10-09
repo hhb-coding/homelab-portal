@@ -21,7 +21,9 @@ class CapacityTests(unittest.TestCase):
         self.assertEqual(result["disk_used"], 52.94)
         self.assertEqual(result["disk_usage_percent"], 47.96)
         self.assertEqual(result["disk_percent"], 20)  # Existing API / 旧接口
-        self.assertIsNone(result["disk_available"])
+        self.assertAlmostEqual(result["disk_available"], 52.94 * (100 - 47.96) / 47.96)
+        self.assertTrue(result["disk_available_estimated"])
+        self.assertNotAlmostEqual(result["disk_available"], 116.34 - 52.94)
         self.assertEqual(result["capacity_unit"], "GiB")
         self.assertEqual(result["beszel_system_id"], "linked")
 
@@ -33,6 +35,8 @@ class CapacityTests(unittest.TestCase):
                                                        "du": value, "dp": value})
                 for key in ["memory_total", "disk_total", "disk_used", "disk_usage_percent"]:
                     self.assertIsNone(result[key])
+                self.assertIsNone(result["disk_available"])
+                self.assertFalse(result["disk_available_estimated"])
                 json.dumps(result, allow_nan=False)
 
     def test_empty_full_and_partial_samples(self):
@@ -41,6 +45,7 @@ class CapacityTests(unittest.TestCase):
             self.assertEqual(result["disk_used"], used)
             self.assertEqual(result["disk_usage_percent"], percent)
             self.assertIsNone(result["memory_total"])
+            self.assertEqual(result["disk_available"], None if percent == 0 else 0)
         for stats in [{}, {"d": 0, "du": 0, "dp": 0}, {"d": 10, "du": 11, "dp": 80},
                       {"d": 10}, {"d": 10, "du": 1, "dp": 101}]:
             self.assertIsNone(BeszelClient.capacity_metrics(stats)["disk_usage_percent"])
@@ -53,3 +58,31 @@ class CapacityTests(unittest.TestCase):
                 result = client.get_snapshot()[0]
             self.assertEqual(result["beszel_system_id"], "linked")
             self.assertIsNone(result["disk_total"])
+
+    def test_estimate_boundaries_and_reliability(self):
+        # Linux/Windows share the same normalized sample / Linux 与 Windows 采用同一统计口径。
+        for total, used, percent, expected in [(116.34, 53.14, 48.14, 57.24637308),
+                                               (100, 50, 50, 50), (100, 90, 100, 0),
+                                               (2048, 1024, 50, 1024)]:
+            with self.subTest(percent=percent, used=used):
+                result = BeszelClient.capacity_metrics({"d": total, "du": used, "dp": percent})
+                self.assertAlmostEqual(result["disk_available"], expected, places=5)
+                self.assertTrue(result["disk_available_estimated"])
+        for stats in [{"d": 100, "du": 0, "dp": 0}, {"d": 100, "du": 1, "dp": 0},
+                      {"d": 100, "du": 0, "dp": 100}, {"d": 100, "du": 50, "dp": 1},
+                      {"d": 100, "du": 0.01, "dp": 0.01},
+                      {"d": 1e308, "du": 1e307, "dp": 0.01},
+                      {"d": 100, "du": 50}, {"d": 100, "dp": 50}, {"du": 50, "dp": 50}]:
+            with self.subTest(stats=stats):
+                result = BeszelClient.capacity_metrics(stats)
+                self.assertIsNone(result["disk_available"])
+                self.assertFalse(result["disk_available_estimated"])
+                json.dumps(result, allow_nan=False)
+        for key in ["d", "du", "dp"]:
+            for invalid in [None, False, "50", -1, float("nan"), float("inf")]:
+                stats = {"d": 100, "du": 50, "dp": 50}
+                stats[key] = invalid
+                with self.subTest(key=key, invalid=invalid):
+                    result = BeszelClient.capacity_metrics(stats)
+                    self.assertIsNone(result["disk_available"])
+                    json.dumps(result, allow_nan=False)

@@ -113,7 +113,7 @@ class PortalSmokeTests(unittest.TestCase):
             connection.execute("UPDATE devices SET beszel_system_id = 'test-system'")
         snapshot = [{"beszel_system_id": "test-system", "status": "up", "host": "203.0.113.99", "cpu_percent": 0, "memory_percent": 42, "disk_percent": 18, "load_1": 0.25}]
         snapshot[0].update(memory_total=8, disk_total=100, disk_used=18,
-                           disk_available=None, disk_usage_percent=18, capacity_unit="GiB")
+                           disk_available=82, disk_available_estimated=True, disk_usage_percent=18, capacity_unit="GiB")
         with patch("dashboard_service._get_beszel_snapshot", return_value=snapshot):
             data = self.client.get("/api/dashboard").json
         device = data["devices"][0]
@@ -122,7 +122,7 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(device["beszel_status"], "up")
         self.assertTrue(device["metrics_available"])
         self.assertEqual(device["cpu_percent"], 0)
-        for key in ("memory_total", "disk_total", "disk_used", "disk_available", "disk_usage_percent", "capacity_unit"):
+        for key in ("memory_total", "disk_total", "disk_used", "disk_available", "disk_available_estimated", "disk_usage_percent", "capacity_unit"):
             self.assertEqual(device[key], snapshot[0][key])
         self.assertIsNone(device["zerotier_ip"])
         snapshot[0]["status"] = "down"

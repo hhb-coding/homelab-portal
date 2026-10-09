@@ -185,6 +185,7 @@ def build_dashboard() -> Dict[str, Any]:
                 "disk_total": metric.get("disk_total"),
                 "disk_used": metric.get("disk_used"),
                 "disk_available": metric.get("disk_available"),
+                "disk_available_estimated": metric.get("disk_available_estimated", False),
                 "disk_usage_percent": metric.get("disk_usage_percent"),
                 "capacity_unit": metric.get("capacity_unit"),
 
