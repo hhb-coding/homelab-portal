@@ -45,7 +45,7 @@
     var name = device.display_name || device.hostname || device.device_id || "Unnamed device / 未命名设备";
     var html = '<article class="lite-card"><h2><span class="status '
       + (online ? "online" : offline ? "offline" : "unknown") + '">' + label
-      + (offline ? OfflineSeen.html(device.last_seen) : '') + '</span>' + esc(name) + '</h2><p class="addresses">LAN IP: '
+      + '</span>' + (offline ? OfflineSeen.html(device.last_seen) : '') + esc(name) + '</h2><p class="addresses">LAN IP: '
       + esc(device.lan_ip || "—");
     if (device.zerotier_ip) { html += '<br>ZeroTier IP: ' + esc(device.zerotier_ip); }
     html += '</p><div class="metrics">';

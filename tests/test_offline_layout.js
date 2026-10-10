@@ -9,7 +9,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let online = false;
 const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_status:'ok'},devices:[
   {device_id:'a',display_name:'Offline Device',beszel_status:online?'up':'down',last_seen:new Date(Date.now()-3720000).toISOString()},
-  {device_id:'b',display_name:'Multi-day Offline',beszel_status:online?'up':'paused',last_seen:new Date(Date.now()-7*86400000-3720000).toISOString()},
+  {device_id:'b',display_name:'Multi-day Offline Device With A Very Long Name That Wraps',beszel_status:online?'up':'paused',last_seen:new Date(Date.now()-7*86400000-3720000).toISOString()},
   {device_id:'c',display_name:'Missing Time',beszel_status:online?'up':'down'},
   {device_id:'d',display_name:'Online Device',beszel_status:'up'}]});
 (async () => {
@@ -44,16 +44,50 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 3'));
   for(const width of [320,375,768,1024]) {
    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
-   const layout=await evalJS(`(function(){var items=document.querySelectorAll('.offline-seen'),ok=true,aligned=true;for(var i=0;i<items.length;i++){var r=items[i].getBoundingClientRect(),p=items[i].parentNode.getBoundingClientRect();ok=ok&&r.right<=innerWidth&&items[i].scrollWidth<=items[i].clientWidth+1;if(document.querySelector('.mini-card')){var s=items[i].previousSibling.getBoundingClientRect();aligned=aligned&&r.left>=s.right-1&&Math.abs(r.top-s.top)<=1;}}return {width:innerWidth,scroll:document.documentElement.scrollWidth,ok:ok,aligned:aligned};}())`);
-   assert(layout.ok&&layout.aligned&&layout.scroll<=layout.width+1,JSON.stringify(layout));
+   const layout=await evalJS(`(function(){
+     var items=document.querySelectorAll('.offline-seen'),ok=true,aligned=true,styles=true;
+     function textRect(node){var range=document.createRange();range.selectNodeContents(node);return range.getClientRects()[0];}
+     for(var i=0;i<items.length;i++){
+       var note=items[i],r=note.getBoundingClientRect(),style=getComputedStyle(note);
+       ok=ok&&r.right<=innerWidth&&note.scrollWidth<=note.clientWidth+1;
+       styles=styles&&style.fontSize==='13px'&&style.color==='rgb(85, 85, 85)'&&style.fontWeight==='400';
+       var isFull=!!document.querySelector('.mini-card');
+       var status=note.previousSibling;
+       var a=textRect(status),b=textRect(note);
+       if(a&&b){aligned=aligned&&(b.top>=a.bottom+3);}
+       styles=styles&&style.display==='block'&&parseFloat(style.marginLeft)===0;
+       var name=isFull?note.parentNode.firstChild:note.nextSibling;
+       var n=textRect(name);
+       aligned=aligned&&(isFull?n.bottom<=a.top:n.top>=b.bottom+5);
+       if(isFull){aligned=aligned&&note.parentNode.nextSibling.getBoundingClientRect().top>=r.bottom;}
+       var red=getComputedStyle(isFull?status.firstChild:status);
+       styles=styles&&red.fontWeight==='700'&&(red.color==='rgb(160, 0, 32)');
+       if(i===0){ok=ok&&/^Last seen: (?:\\d{4}-\\d{2}-\\d{2} )?\\d{2}:\\d{2} \\(1h 2m ago\\)$/.test(note.textContent);}
+       if(i===1){ok=ok&&/^Last seen: \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} \\(7d 1h 2m ago\\)$/.test(note.textContent);}
+       if(i===2){ok=ok&&note.textContent==='Last seen: —';}
+     }
+     var cards=document.querySelectorAll('.mini-card'),grid=true;
+     if(cards.length===4){
+       var expected=innerWidth>800?4:innerWidth>600?2:1;
+       for(var j=0;j<cards.length;j++){
+         var c=cards[j].getBoundingClientRect();
+         grid=grid&&Math.abs(c.height-cards[0].getBoundingClientRect().height)<=1&&cards[j].scrollHeight<=cards[j].clientHeight+1;
+         if(j%expected){var prev=cards[j-1].getBoundingClientRect();grid=grid&&Math.abs(c.top-prev.top)<=1&&c.left>=prev.right;}
+         else if(j){grid=grid&&c.top>=cards[j-expected].getBoundingClientRect().bottom;}
+       }
+     }
+     return {width:innerWidth,scroll:document.documentElement.scrollWidth,ok:ok,aligned:aligned,styles:styles,grid:grid};
+   }())`);
+   assert(layout.ok&&layout.aligned&&layout.styles&&layout.grid&&layout.scroll<=layout.width+1,JSON.stringify(layout));
    console.log(path,'offline layout PASS',width);
   }
   // Tick retained DOM without a request; then confirm actual online polling removes hints.
   await evalJS('OfflineSeen.sync(Date.now()/1000+120); OfflineSeen.update()');
-  assert(await evalJS('document.querySelector(".offline-seen").textContent.indexOf("1h 04m ago") >= 0'));
+  assert(await evalJS('document.querySelector(".offline-seen").textContent.indexOf("(1h 4m ago)") >= 0'));
   online=true;
   for(let i=0;i<70;i++){if(await evalJS('document.querySelectorAll(".offline-seen").length === 0'))break;await sleep(100);}
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 0'));
+  assert(await evalJS('Array.prototype.every.call(document.querySelectorAll(".mini-card"),function(c){return c.style.height === "";})'));
   console.log(path,'ONLINE recovery hides all hints PASS');
  }
 })().then(()=>{if(ws)ws.close();if(chrome)chrome.kill('SIGTERM');if(server)server.close();}).catch(e=>{console.error(e);if(ws)ws.close();if(chrome)chrome.kill('SIGTERM');if(server)server.close();process.exitCode=1;});

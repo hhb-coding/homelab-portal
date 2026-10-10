@@ -8,7 +8,7 @@
   }
   function XHR() {}
   XHR.prototype.open = XHR.prototype.send = function () {};
-  var c = {document: {getElementById: element, querySelectorAll: function () { return labels; }},
+  var c = {document: {getElementById: element, querySelectorAll: function (selector) { return selector === ".disk-label" ? labels : []; }},
     XMLHttpRequest: XHR, setInterval: function () {},
     window: {addEventListener: function (name, callback) { resize = callback; }}};
   vm.createContext(c);

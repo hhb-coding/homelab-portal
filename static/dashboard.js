@@ -574,7 +574,7 @@ function miniCard(d) {
     + (state === "offline" ? '<span class="offline-status-row">' : '')
     + '<span class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
     + state.toUpperCase() + '</span>'
-    + (state === "offline" ? OfflineSeen.html(d.last_seen) + '</span>' : '') + '</div>';
+    + (state === "offline" ? '</span>' + OfflineSeen.html(d.last_seen) : '') + '</div>';
 
   h += '<div class="mini-card-body">'
     + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
@@ -599,6 +599,16 @@ function selectedDevice(list) {
   return list[0];
 }
 
+/* Keep the float layout on iOS 9; only reserve extra height when hints exist. */
+function equalMiniCards() {
+  var cards = document.querySelectorAll ? document.querySelectorAll(".mini-card") : [], i, height = 0;
+  for (i = 0; i < cards.length; i += 1) { cards[i].style.height = ""; }
+  if (!document.querySelectorAll || !document.querySelectorAll(".mini-card .offline-seen").length) { return; }
+  for (i = 0; i < cards.length; i += 1) { height = Math.max(height, cards[i].getBoundingClientRect().height); }
+  for (i = 0; i < cards.length; i += 1) { cards[i].style.height = Math.ceil(height) + "px"; }
+}
+if (typeof window !== "undefined" && window.addEventListener) { window.addEventListener("resize", equalMiniCards, false); }
+
 function renderDevicePanels(list) {
   var mini="", detail="", chosen=selectedDevice(list), i;
   if (!list || list.length === 0) {
@@ -611,6 +621,7 @@ function renderDevicePanels(list) {
   document.getElementById("mini-devices").innerHTML = mini;
   document.getElementById("devices").innerHTML = detail;
   fitDiskLabels();
+  equalMiniCards();
 }
 
 function selectDeviceCard(element) {
