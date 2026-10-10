@@ -1,27 +1,34 @@
 # HomeLab Portal
 
-A lightweight self-hosted device registry and monitoring dashboard for a home lab.
-Python, Flask, SQLite, vanilla JavaScript and native SVG; no frontend framework.
+**Give Old Devices a Second Life.** HomeLab Portal is a lightweight,
+self-hosted HomeLab monitoring dashboard and device registry built with Python,
+Flask, SQLite, vanilla JavaScript and SVG. It combines Heartbeat-reported device
+addresses with Beszel system metrics and history, without a frontend framework.
 
-**v0.1.0 release preparation:** application baseline
-`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347` (Stages 6-C, 6-D and 6-E).
-A version tag and GitHub Release have not been created. The project uses the
-[MIT License](LICENSE); see [License](#license). [中文说明](#中文说明) follows the English guide.
+Try an unused iPad, Android phone or tablet as a lightweight HomeLab monitoring
+screen. Safari on an iPad mini 1 (user-reported iOS 9.1.3) has been used successfully;
+Android and other older browsers have not all been tested on real devices.
+See [browser compatibility](#browser-compatibility) for the confirmed scope.
 
-## Project overview
-
-Devices report identity and addresses through Heartbeat. Beszel supplies system
-metrics and persistent history. HomeLab Portal combines them without using
-Beszel's configured host address as the authoritative LAN address.
+This README describes current `main`, including merged
+[PR #2](https://github.com/hhb-coding/homelab-portal/pull/2) (Device UI V3),
+[PR #3](https://github.com/hhb-coding/homelab-portal/pull/3) (Network and Updated),
+[PR #4](https://github.com/hhb-coding/homelab-portal/pull/4) (offline Last seen) and
+[PR #5](https://github.com/hhb-coding/homelab-portal/pull/5) (readable offline layout).
+**v0.2.0 is planned**; this is not a tag or Release announcement.
+[中文说明](#中文说明) follows the English guide. Licensed under [MIT](LICENSE).
 
 ## Features
 
 - Linux/Python and Windows/PowerShell Heartbeat clients with shared-token authentication.
 - Separate LAN and optional ZeroTier IPv4 addresses, last-seen time and SQLite IP-change events.
 - Beszel CPU, RAM, disk, load averages, temperature, uptime and device status.
-- Full dashboard: Mini Cards, selected Device Details, live and historical SVG trends.
+- Device UI V3: selectable Mini Cards, capacity-aware details, CPU/RAM/disk bars,
+  and live/historical SVG trends.
 - Lite Style: compact live device cards, without charts or history requests.
-- Network tab: counts and reported device addresses; no scanner or topology discovery.
+- Network tab: status/address counts, reported LAN/ZeroTier addresses and last Heartbeat.
+- Updated warning when the latest valid source observation is over 30 minutes old.
+- Offline-only Last seen with a readable separate line and an automatically updated age.
 - ES5 JavaScript, XMLHttpRequest, responsive legacy CSS, missing-data placeholders
   and retained-data warnings after request failures.
 - Isolated Flask smoke tests, mocked frontend behavior tests and GitHub Actions CI.
@@ -65,9 +72,9 @@ public examples. The systemd templates assume the checkout is `~/homelab-portal`
 Choose another directory if that path already exists, and adjust the templates.
 
 ```sh
-git clone --branch docs/v0.1-release-prep https://github.com/hhb-coding/homelab-portal.git
+git clone --branch main https://github.com/hhb-coding/homelab-portal.git
 cd homelab-portal
-# This preparation branch contains the verified application plus release docs.
+# Record the complete revision used for this installation.
 git log -1 --format='%H %s'
 python3 -m venv .venv
 . .venv/bin/activate
@@ -77,12 +84,11 @@ test -e .env || cp .env.example .env
 chmod 600 .env
 ```
 
-No `v0.1.0` tag exists yet. `main` does not yet include all the prepared features;
-the preparation branch is used explicitly above and can advance during review.
-For a reproducible deployment, record and select an approved immutable commit
-that includes both the application and release documentation. Checking out only
-the earlier application baseline removes the newer documentation and example
-configuration. After release, choose the approved release revision.
+The commands install current `main`, which includes the features described here.
+For a reproducible installation, record and select an approved complete commit.
+For the planned v0.2.0 release, use its published revision once available; these
+instructions do not require a future tag to exist. Existing installations should
+back up the database and private configuration before reviewing any upgrade.
 Edit `.env` before starting. Importing `app.py` initializes the configured SQLite
 schema; no separate database-initialization command is required.
 
@@ -257,19 +263,32 @@ failure is normalized by the backend; some errors can return HTTP 500.
 
 ## Lite Style
 
-`/lite` or the Full page's **Lite Style** link opens compact cards: name, status,
-LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. **Full View** returns to `/`.
-Lite polls every 5 seconds, has no history requests or charts, and hides current
-metrics for offline/unknown devices. Invalid individual entries are skipped.
+`/lite` or the Full page's **Lite Style** link opens compact cards with status,
+name, LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. On offline cards,
+the order is OFFLINE / 离线, Last seen, then the device name and metrics.
+**Full View** returns to `/`. Lite polls every 5 seconds, has no history requests
+or charts, and hides current metrics for offline/unknown devices. Invalid
+individual entries are skipped. Its summary shows the browser refresh time;
+it does not use Full's source-age Updated warning.
 
-Lite targets older devices using ES5 and XMLHttpRequest. **The user confirmed
-that Lite works normally in Safari on a real iPad mini 1 running iOS 9.1.3**.
-This result is limited to that device and reported OS version; it does not
-guarantee compatibility with all iOS 9 devices. Long-duration refresh testing
-was not explicitly confirmed. Earlier Full-page iPad mini 1 / iOS 9 Safari
-testing was successful; the new Network view and latest Full UI changes
-still need real-device acceptance.
-See [browser validation](docs/legacy-browser-validation.md).
+## Browser compatibility
+
+The UI uses ES5 JavaScript, XMLHttpRequest and responsive CSS without CSS Grid
+or CSS variables. Full provides details and SVG charts; Lite reduces rendering
+and request work for older screens.
+
+The user previously confirmed Lite working in Safari on a real **iPad mini 1
+with user-reported iOS 9.1.3**; an earlier Full page was also confirmed on iOS 9 Safari.
+These reports do not certify every later UI change. Latest Device UI V3,
+Network, Updated and offline layout changes have automated behavior and Chrome
+layout checks; they are not a recorded complete iOS 9.1.3 acceptance test.
+Long-duration Lite refresh testing has not been explicitly confirmed.
+
+Unused Android phones, tablets and other old browsers are candidates to try,
+not a fully tested compatibility list. Check layout, refresh, navigation and
+sleep/resume on your own device. Historical [browser validation notes](docs/legacy-browser-validation.md)
+contain a manual checklist; their original pending statements predate the
+user-confirmed Lite result described above.
 
 ## Network tab
 
@@ -281,6 +300,78 @@ optional missing ZeroTier addresses have explanatory placeholders.
 This is a **summary of device-reported network information**, not a network
 scanner, ping sweep, link map or automatic topology discovery. A recorded
 address does not establish reachability. No extra network service or API is used.
+Desktop label columns are 180px; at 600px and below, labels and values stack
+vertically and long addresses wrap.
+
+## Beszel metrics and disk estimates
+
+CPU/RAM percentages, load averages (when supplied), temperature and uptime come
+from Beszel `systems.info`; capacities come from the latest `system_stats`
+sample (`m`, `d`, `du`, `dp`). Missing metrics remain `—`. Status comes from
+Beszel, while device identity, LAN/ZeroTier addresses and Last seen come from
+Heartbeat. Versions and platforms may omit fields; no new collector is bundled.
+
+Device UI V3 Mini Cards show LAN, CPU, RAM capacity/usage and disk
+capacity/estimated available space. The selected device uses a three-row,
+four-column information table on desktop and equal-height 24px CPU/RAM/disk
+bars. Disk segments read `USED:` and `FREE:`; narrow labels are hidden to avoid
+overlap while accessible descriptions retain values and the estimate meaning.
+
+- G and T mean GiB and TiB, with one decimal; 1024 GiB becomes 1.0T.
+- Disk total is Beszel's monitored **primary filesystem**, not nominal hardware
+  capacity. Extra `efs` filesystems are not summed. Verify the configured
+  filesystem in Beszel; the API fields used here do not identify its mount point.
+- Available space is estimated from the **same** `d/du/dp` sample using
+  `du × (100 - dp) / dp`. It is not an exact `statvfs` value or simply `d - du`.
+- Invalid, missing or unreliable samples, including zero `du` or `dp`, show `—`.
+  Rounding intervals must pass feasibility and error checks; very small
+  percentages can amplify rounding error. A valid 100% sample can estimate zero.
+- Mini Cards display estimated available GiB without an `≈` prefix. Full disk
+  segments retain an explicit estimate explanation; Lite labels trusted available
+  percentage as `可用≈`, calculated as `100 - dp`. The legacy `disk_percent`
+  remains a used percentage and is not Lite's available percentage.
+
+See [Device UI V3 development notes](docs/device-ui-v3.md) for data-source and
+rounding details. Those notes also contain intermediate layouts; this README
+and current code describe the final behavior.
+
+## Updated source-age warning
+
+Full's Updated uses `/api/dashboard.data_updated_at`: the newest valid timestamp
+among registered Heartbeat receipts and linked nonempty Beszel samples.
+`server_time` anchors elapsed age; polling does not make old observations new.
+It is an aggregate timestamp, not a guarantee that every device or metric is fresh.
+
+When age is **strictly greater than 30 minutes**, a red bold
+`已断开更新 XX 分钟` warning appears, with whole minutes rounded down.
+A one-second timer continues after request failures and checks again on resume.
+Missing, invalid or future times do not create a new warning or overwrite an
+existing valid observation; older responses cannot rewind its timestamp.
+Portal ONLINE, Database READY and Beszel status keep their separate meanings.
+
+## Offline Last seen
+
+Beszel `down`/`paused` devices show an offline-only hint; ONLINE and UNKNOWN do
+not. Full Mini Cards show the name first, bold red OFFLINE second, and
+`Last seen: 21:30 (1h 37m ago)` third, followed by the divider and LAN/CPU/RAM/DISK.
+Lite shows bold red OFFLINE / 离线, then Last seen, then the name and metrics.
+Last seen is a separate **13px, normal-weight, dark gray** line. Mini Cards are
+kept equal in height when offline hints are present and resize with the window.
+
+Both views share `static/offline-seen.js`. The source is the last valid Heartbeat
+receipt (`last_seen`, SQLite UTC), not the exact shutdown/disconnection time or
+the length of an outage. Heartbeat can remain recent while Beszel reports offline.
+Times display in the browser's local timezone. Crossing a local calendar date
+adds the full date; multi-day ages include days, hours and minutes. Missing,
+invalid or future values, or an unavailable server clock, show `Last seen: —`.
+Strict parsing handles UTC and explicit offsets without relying on legacy
+`Date.parse`. Age updates every second, including after failed requests and on
+resume; online recovery removes the hint.
+
+Updated and Last seen use server-clock anchors plus elapsed wall/monotonic time
+where available. Keep the server clock accurate. A large manual forward change
+to the browser clock during failed requests can temporarily overstate age;
+the next valid response recalibrates it.
 
 ## API endpoints
 
@@ -295,7 +386,7 @@ Read endpoints currently have **no Portal login/access-control layer**.
 | GET | `/api/devices/<device_id>` | One device or HTTP 404 |
 | POST | `/api/heartbeat` | Token-authenticated registration/update and address-change flags; 400 invalid body/ID, 401 invalid token, 503 no server token |
 | GET | `/api/metrics` | Beszel normalized systems; 503 missing credentials, 502 handled Beszel API errors |
-| GET | `/api/dashboard` | Registry + metrics: status, count, sources, metrics_error, devices |
+| GET | `/api/dashboard` | Registry + metrics: status, count, sources, metrics_error, devices, data_updated_at, server_time |
 | GET | `/api/history?minutes=60` | One-minute historical samples, 10–360 sample limit, default 60; handled global failures return 502 |
 
 For precise payload fields see `app.py`, `dashboard_service.py` and
@@ -303,28 +394,49 @@ For precise payload fields see `app.py`, `dashboard_service.py` and
 
 ## Testing
 
-With the virtual environment active:
+With the virtual environment active and Node.js 22 available:
 
 ```sh
 python -B -m unittest discover -s tests -v
 python -B -c "import ast, pathlib; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '.venv' not in p.parts]"
 node --check static/dashboard.js
 node --check static/lite.js
+node --check static/offline-seen.js
 node tests/test_lite.js
 node tests/test_network.js
+node tests/test_device_v3.js
+node tests/test_freshness.js
+node tests/test_offline_seen.js
 ```
 
-Current coverage: **8 Flask/static compatibility tests**, **21 Lite assertions**
-and **45 Full/Network assertions**. Flask tests skip `.env`, initialize temporary
-SQLite before importing the app and block outgoing HTTP. JavaScript tests use
-mock DOM/XHR. GitHub Actions runs these suites and syntax checks without live
-Beszel or production credentials. Automated logic/syntax tests do not replace
-layout validation on real devices. A basic manual HTML/CSS/JS page is retained
-at `docs/legacy-browser-test/helloworld.html`.
+Current coverage: **17 Python tests** across Flask/static compatibility, Beszel
+capacity estimates and source freshness; **33 Lite assertions**, **45 Network
+assertions**, and separate Device UI V3, Updated and offline Last seen suites.
+The isolated Python suite uses temporary SQLite, skips local `.env` loading and
+blocks live HTTP. JS behavior tests use mock DOM/XHR, including failures,
+selection, timestamps, clock skew, resume and online recovery. GitHub Actions
+runs these suites and syntax checks without production credentials.
 
-See [fresh installation acceptance](docs/installation-validation.md) for the
-tested environment, dependency/configuration results, mocked API checks and
-explicitly unverified physical-device/service cases.
+Optional real Chrome layout regression (Node 22 built-ins; Chrome must be
+installed separately):
+
+```sh
+CHROME_BIN=/opt/google/chrome/chrome node tests/test_offline_layout.js
+# Adjust CHROME_BIN to your local Chrome executable.
+```
+
+It uses a random local port, fixture APIs and a temporary browser profile;
+it does not contact production instances. Full/Lite checks cover
+**320, 375, 768 and 1024px**, long names, missing/multi-day timestamps,
+13px normal-weight dark gray hints on separate lines, equal Mini Card heights,
+overflow, timer updates and online recovery. This layout test is optional and
+is not part of the current CI workflow. Automated results do not replace iOS
+or Android hardware acceptance. A basic manual test page remains at
+[legacy browser test](docs/legacy-browser-test/helloworld.html).
+
+[Fresh installation acceptance](docs/installation-validation.md) records an
+earlier revision's checks and limitations; its branch/release instructions and
+test counts are historical, not the installation guide for current main.
 
 ## Security notes
 
@@ -348,9 +460,9 @@ explicitly unverified physical-device/service cases.
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device
 management editor and a hardened public deployment guide. These are possible
-future directions, not commitments or v0.1.0 features. Real-device Network and
-latest Full UI validation, long-duration Lite refresh testing and
-dependency/Beszel-version compatibility testing remain pending.
+future directions, not commitments for v0.2.0. Complete latest-UI hardware
+acceptance, long-duration refresh testing and broader Android/browser,
+dependency and Beszel-version compatibility testing remain open.
 
 ## License
 
@@ -358,9 +470,9 @@ This project is licensed under the [MIT License](LICENSE).
 
 Copyright (c) 2026 Hongbin He
 
-Release material: [changelog](CHANGELOG.md), [draft release notes](docs/releases/v0.1.0.md),
-[release checklist](docs/release-checklist.md). Sanitized screenshots of Full,
-Network and Lite could be added here later; no screenshots are fabricated.
+See the [changelog](CHANGELOG.md) for historical changes. Older release-preparation
+documents are historical drafts, not the current installation or compatibility
+reference. No v0.2.0 tag or Release is created by this documentation update.
 
 ---
 
@@ -368,17 +480,26 @@ Network and Lite could be added here later; no screenshots are fabricated.
 
 ### 项目简介
 
-HomeLab Portal 是基于 Python、Flask、SQLite、原生 JavaScript 和 SVG 的轻量
-自托管设备登记与监控仪表盘。v0.1.0 正在准备，应用基线为
-`f261de40280dfd9cbd57a1c9ef24bf83e4fbd347`；尚未创建版本 Tag 或 Release，许可证已确认为 [MIT License](LICENSE)。
+**Give Old Devices a Second Life — 让旧设备重获新生。** HomeLab Portal 是基于
+Python、Flask、SQLite、原生 JavaScript 和 SVG 的轻量自托管 HomeLab 监控仪表盘与
+设备登记工具，将 Heartbeat 上报的地址与 Beszel 系统指标、历史趋势整合在一起，无需前端框架。
+
+可以尝试把闲置 iPad、安卓手机或平板作为轻量 HomeLab 监控屏幕。
+iPad mini 1 / 用户报告的 iOS 9.1.3 Safari 已有实际使用确认，但 Android 和其他老旧浏览器
+尚未全部经过真机验证，具体范围见下方兼容性说明。
+
+本文对应当前 main，包含已合并的 PR #2（Device UI V3）、#3（Network/Updated）、
+#4（OFFLINE Last seen）、#5（离线提示分行样式）。**v0.2.0 为计划版本**，不是
+已发布 Tag 或 Release 的声明。本项目采用 [MIT License](LICENSE)。
 
 ### 已实现功能
 
 - Linux Python 与 Windows PowerShell 心跳客户端，使用共享 Token 鉴权。
 - 分别记录 LAN、可选 ZeroTier IPv4、最后心跳和 IP 变更事件。
 - Beszel CPU、内存、磁盘、负载、温度、运行时间和设备状态。
-- Full 的 Mini Card、选中设备详情、实时与持久 SVG 趋势图。
+- Device UI V3：可选择的 Mini Card、容量信息、详情横条和实时/历史 SVG 趋势。
 - Lite 轻量实时卡片；Network 上报地址与状态摘要。
+- Full Updated 的源数据超过 30 分钟警告；OFFLINE 独立行 Last seen 与自动更新年龄。
 - ES5/XHR、响应式旧式 CSS、缺失数据提示、失败保留旧数据及自动测试/CI。
 
 ### 系统架构
@@ -399,12 +520,12 @@ Node.js 22，运行服务器不需要 Node.js；其他版本尚未完整认证�
 
 ### 安装步骤
 
-在新目录按英文 Installation 的命令显式克隆发布准备分支、记录 Commit、创建 `.venv`、
-安装 `requirements.txt` 并仅在 `.env` 不存在时复制示例。不覆盖现有实例、
-配置或数据库。当前没有 `v0.1.0` Tag，不要使用尚不存在的版本安装命令。
-main 尚未包含完整待发布功能，发布准备分支还可能推进；正式部署应选择包含应用与
-文档的最终不可变 Commit，不能仅回退到旧应用基线而丢失新版文档和示例配置。
-`app.py` 导入时会初始化配置路径下的 SQLite，无需另一个初始化命令。
+在新目录按英文 Installation 命令使用 `git clone --branch main`，记录完整提交号、
+创建 `.venv`、安装 `requirements.txt`，仅在 `.env` 不存在时复制示例。
+当前 main 已包含本文描述的功能，不使用旧开发或发布准备分支安装。
+不覆盖已有实例、配置或数据库；升级前独立备份数据库和私有配置。
+可复现安装应选择已批准的完整不可变提交；计划中的 v0.2.0 发布后再使用其实际发布
+修订，不依赖尚未发布的 Tag。`app.py` 导入时初始化 SQLite，无需额外初始化命令。
 
 ### 配置方法
 
@@ -449,19 +570,69 @@ Windows 私有 JSON 默认位于 `%USERPROFILE%\.config\homelab-portal\heartbeat
 
 ### Lite Style / 旧设备兼容页面
 
-`/lite` 显示名称、状态、LAN/可选 ZeroTier、CPU、RAM、磁盘和一分钟负载。
-每 5 秒刷新，不请求历史或显示图表；离线/未知设备不展示当前指标，支持双向导航。
-ES5/XHR 面向老设备。**用户已确认 iPad mini 1（iOS 9.1.3）使用 Safari 访问
-Lite 页面正常**。此结果仅适用于该设备及用户报告的系统版本，不保证所有 iOS 9
-设备兼容；用户未明确确认长时间刷新测试。Full 曾在 iPad mini 1 的 iOS 9 Safari
-成功显示；新版 Network 和最近 Full UI 改动仍待实机验收。
-见 [浏览器验收](docs/legacy-browser-validation.md)，待验收项目不标记 PASS。
+`/lite` 显示状态、名称、LAN/可选 ZeroTier、CPU、RAM、磁盘和一分钟负载。
+离线卡片按 OFFLINE / 离线、Last seen、名称和指标排列。每 5 秒刷新，
+不请求历史或显示图表；离线/未知设备不展示当前指标，支持返回 Full。
+Lite 摘要显示浏览器刷新时间，不使用 Full 的源数据年龄 Updated 警告。
+
+ES5/XHR 与不使用 CSS Grid、CSS 变量的响应式 CSS 面向旧设备。
+**此前用户已确认 iPad mini 1（用户报告的 iOS 9.1.3）Safari 使用 Lite 正常**，
+早期 Full 也曾在 iOS 9 Safari 正常显示。这些结果不代表后续全部改动通过真机验收。
+最新 Device UI V3、Network、Updated 和离线分行布局已有行为/Chrome 自动检查，
+尚不能写成完整的 iOS 9.1.3 真机验收结果；Lite 长时间刷新也未明确确认。
+安卓手机、平板及其他旧浏览器可尝试使用，但不是已完整实测的兼容性清单。
+请在自己的设备检查布局、刷新、导航和休眠恢复。
+[历史浏览器验收清单](docs/legacy-browser-validation.md) 的初始待验收描述早于上述 Lite 确认。
 
 ### Network Tab / 网络信息页面
 
 显示设备总数、在线/离线/未知数量、LAN/ZeroTier 上报数量、登记地址和最后心跳，
 隐藏 Device Details。仅汇总客户端上报的信息，**不是网络扫描器或自动拓扑发现**，
 不进行 Ping、不推断连接关系。登记地址不代表可达性，不新增后台服务或 API。
+桌面标签列为 180px；600px 及以下采用标签和值上下排列，长地址可换行。
+
+### Beszel 指标与磁盘估算限制
+
+CPU/RAM 百分比、可用的系统负载、温度和运行时间来自 Beszel `systems.info`；
+容量取最新 `system_stats` 的 `m/d/du/dp`。不同平台或版本可能缺少字段，缺失显示 `—`。
+Device UI V3 Mini Card 显示 LAN、CPU、RAM 总容量/使用率、磁盘容量/估算可用空间；
+选中设备桌面信息表为三行四列，CPU/RAM/Disk 横条统一 24px 高。
+Disk 标注 `USED:` 和 `FREE:`，窄区段隐藏文字但保留无障碍数值与估算含义。
+
+G/T 为 GiB/TiB，保留一位小数，1024 GiB 起显示 T。磁盘总量是 Beszel 监控的
+主文件系统容量，不是硬件标称容量，不累计 `efs` 数据盘；使用的 API 字段不提供挂载点，
+需自行核对 Beszel 配置。可用空间采用同一 `d/du/dp` 样本的
+`du × (100 - dp) / dp` 估算，不是 `statvfs` 精确值，也不是简单的 `d-du`。
+缺失、非法、`du/dp` 为零或舍入误差不可靠时显示 `—`；有效 100% 样本可估算为零。
+Mini Card 可用容量不带 `≈`，Full Disk 区段下方保留估算说明；Lite 的可信可用
+比例显示 `可用≈`，采用 `100-dp`。旧 `disk_percent` 仍为已用比例。
+[Device UI V3 开发记录](docs/device-ui-v3.md) 包含中间样式；最终行为以当前代码和本文为准。
+
+### Updated / 数据更新时间
+
+Full Updated 来自 `/api/dashboard.data_updated_at`：已登记设备 Heartbeat 与
+关联 Beszel 非空统计样本中最新的有效时间。`server_time` 校准年龄；
+网页轮询不会使旧数据变新，汇总时间不代表每台设备、每项指标都新鲜。
+数据年龄**严格超过 30 分钟**时显示红色粗体“已断开更新 XX 分钟”，分钟向下取整。
+独立一秒计时器在请求失败后继续更新，恢复页面时重新检查；缺失、非法、未来时间
+不创建新警告、不覆盖已有有效时间，旧响应不能倒退时间。
+Portal ONLINE、Database READY 和 Beszel 状态含义各自独立。
+
+### OFFLINE Last seen / 最后有效心跳
+
+仅 Beszel `down/paused` 显示提示，ONLINE/UNKNOWN 不显示。
+Full Mini Card 先显示名称，再显示红色粗体 OFFLINE，第三行独立显示
+`Last seen: 21:30 (1h 37m ago)`，之后才是分隔线和 LAN/CPU/RAM/DISK。
+Lite 先 OFFLINE / 离线，下一行 Last seen，然后名称和指标。
+Last seen 为 **13px、正常字重、深灰色**；有离线提示时 Mini Card 按最高卡片等高，缩放时重算。
+
+两种视图共用 `static/offline-seen.js`，来源为 SQLite UTC 的最后有效 Heartbeat
+接收时间 `last_seen`，不是精确关机/断网时间或已离线时长；Beszel 离线时心跳仍可能很新。
+按浏览器本地时区显示；跨本地日期附完整日期，多日显示天/小时/分钟。
+缺失、非法、未来时间或无可靠服务器时间时显示 `Last seen: —`，严格解析 UTC/时区偏移，
+不依赖旧 Safari `Date.parse`。每秒更新，请求失败、页面恢复仍继续；恢复在线后移除提示。
+Updated 与 Last seen 采用服务器时间加墙钟/可用单调时间；服务器时钟需准确。
+持续请求失败时大幅手动前调浏览器时钟可能暂时放大年龄，下次有效响应重新校准。
 
 ### API 接口
 
@@ -472,13 +643,17 @@ Lite 页面正常**。此结果仅适用于该设备及用户报告的系统版�
 
 ### 测试方法
 
-按英文 Testing 命令运行 unittest、Python AST、Node 语法检查和两套前端测试。
-当前为 8 项 Flask/静态兼容性测试、21 项 Lite 断言、45 项 Full/Network 断言。
-测试使用临时数据库、不读取 `.env`、禁止真实外部 HTTP；前端使用模拟 DOM/XHR。
-GitHub Actions 不需要生产凭据或真实 Beszel；自动测试不能替代真实设备布局验收。
-保留 `docs/legacy-browser-test/helloworld.html` 基础手工兼容性测试页面。
-本次 [全新安装验收](docs/installation-validation.md) 记录测试环境、依赖与配置结果、
-模拟 API 检查及尚未进行的实体设备/服务验收。
+按英文 Testing 命令运行 unittest、Python AST、Node 语法及五套前端行为测试。
+当前有 **17 项 Python 测试、33 项 Lite 断言、45 项 Network 断言**，另有
+Device UI V3、Updated 和 OFFLINE Last seen 专项测试。
+Python 隔离测试使用临时数据库、不加载本地 `.env`、禁止真实 HTTP；JS 使用模拟 DOM/XHR。
+CI 运行这些行为与语法检查，不需要生产凭据。
+可选 `test_offline_layout.js` 需要独立安装 Chrome 和 Node 22，使用随机本地端口、
+测试样本 API 和临时浏览器配置，不访问生产实例，也不在当前 CI 中执行。
+覆盖 Full/Lite 的 320/375/768/1024px、长名称、多日/缺失时间、13px 分行样式、
+四卡等高、无溢出、持续更新和在线恢复；自动测试不能替代 iOS/Android 真机验收。
+保留 [基础手工浏览器测试页](docs/legacy-browser-test/helloworld.html)。
+[早期全新安装验收](docs/installation-validation.md) 的分支命令和测试数量仅为历史记录。
 
 ### 安全注意事项
 
@@ -491,8 +666,8 @@ HTTP 不加密信息，调试必须关闭；Flask 内置服务器不是公网部
 ### 后续规划
 
 严格的心跳数据校验、Portal 用户认证、连通性检测、拓扑发现、IP 事件浏览界面、
-设备管理编辑和加固部署指南均未实现，只是潜在方向，不属于 v0.1.0。
-Network 和最近 Full UI 实机验证、Lite 长时间刷新测试及 Beszel/依赖版本兼容性测试待完成。
+设备管理编辑和加固部署指南均未实现，只是潜在方向，不是 v0.2.0 承诺。
+最新 UI 的完整真机验收、长时间刷新、更多 Android/旧浏览器及 Beszel/依赖版本验证仍需继续。
 
 ### 许可证信息
 
@@ -500,48 +675,5 @@ Network 和最近 Full UI 实机验证、Lite 长时间刷新测试及 Beszel/�
 
 Copyright (c) 2026 Hongbin He
 
-发布资料：[CHANGELOG](CHANGELOG.md)、[双语 Release Notes 草稿](docs/releases/v0.1.0.md)、
-[发布前检查清单](docs/release-checklist.md)。之后可在 README 加入已脱敏的真实
-Full/Network/Lite 截图，当前不伪造或添加截图。
-
-### Dashboard data freshness / 数据更新时间
-
-Full View 的 Updated 来自 `/api/dashboard.data_updated_at`，是已登记设备的
-SQLite `last_seen` 与关联 Beszel 非空样本 `latest_stats_created` 中最新的有效时间。
-SQLite 时间按 UTC 解释，Beszel ISO 时间保留时区偏移；API 返回 Unix 秒，
-`server_time` 是读取完成后的服务器 Unix 秒。网页刷新不会使源时间变新。
-这是汇总层面的最近更新，不表示每台设备或每项指标都持续更新；Lite 保留原行为。
-
-数据年龄严格超过 30 分钟时显示红色粗体“已断开更新 XX 分钟”（向下取整）。
-独立的一秒计时器在请求失败时继续更新；页面恢复也立即检查。
-缺失、非法、未来时间不创建警告，也不覆盖已有有效时间；乱序旧响应不能倒退更新时间。
-Portal ONLINE、Database READY 和 Beszel 状态仍保留各自原有含义。
-
-年龄以服务器时间为基准，避免客户端初始时区或时钟偏差；计时同时参考单调时间和
-墙钟以兼容旧 Safari 休眠恢复。服务器时钟应准确；持续请求失败期间若手动大幅向前
-调整客户端时钟，墙钟无法与休眠区分，可能提前警告，下一次有效响应会重新校准。
-Network 桌面标签列为 180px，600px 及以下使用上下排列的单行标签与完整可换行值。
-自动测试覆盖 CSS 规则；iOS 9 真机视觉验收仍需人工进行。
-
-### Offline Last Seen / 离线设备最后心跳
-
-Full Device Mini Card 和 Lite 在 Beszel 状态为 `down` 或 `paused`（OFFLINE）时
-显示小号灰色 `Last: HH:mm · 1h 02m ago`；ONLINE 和 UNKNOWN 不显示。
-两个界面共用 `static/offline-seen.js`，从 `/api/dashboard` 的 `last_seen`
-读取最后有效 Heartbeat 接收时间（SQLite UTC），并用已有 `server_time` Unix 秒校准年龄。
-这不是精确关机、断电或断网时间，也不代表持续离线了多久；若 Heartbeat 仍持续上报而
-Beszel 显示离线，Last 提示可以仍然很新。无需接口调整、数据库迁移或客户端变更。
-
-提示时间按浏览器本地时区显示；未满一小时显示分钟，满一小时显示小时与两位分钟，
-满24小时附带本地完整日期并显示天/小时/分钟。日期严格解析，不依赖旧 Safari 的
-`Date.parse`；缺失、非法、未来时间或没有可靠服务器时间时显示 `Last: —`。
-每秒仅更新提示文本，请求失败时也持续计时，页面恢复立即更新，ONLINE 恢复后隐藏。
-初始客户端时钟偏差由服务器时间校准，向后跳时不会产生负数；休眠兼容采用墙钟与
-可用的单调计时。如持续请求失败同时手动将客户端时钟大幅前调，年龄可能暂时偏大，
-下一次有效响应会重新校准。服务器时钟仍需准确。
-
-自动测试：`node tests/test_offline_seen.js`。可选真实浏览器布局测试（Node 22 内置工具，
-不新增依赖）：`CHROME_BIN=/opt/google/chrome/chrome node tests/test_offline_layout.js`。
-布局测试使用随机本地端口、模拟API和临时浏览器配置，覆盖 Full/Lite 的
-320/375/768/1024px、缺失与多日时间、持续更新及 ONLINE 恢复；不访问生产8088或8089。
-iOS 9 真机视觉验收仍需人工确认。
+历史变更见 [CHANGELOG](CHANGELOG.md)。旧发布准备文档为历史草稿，
+不是当前安装或兼容性依据。本次文档更新不创建 v0.2.0 Tag 或 Release。
