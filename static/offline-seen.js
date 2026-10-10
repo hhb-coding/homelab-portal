@@ -51,9 +51,9 @@ var OfflineSeen = (function () {
       label = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + label;
     }
     duration = minutes < 60 ? minutes + "m" : minutes < 1440
-      ? Math.floor(minutes / 60) + "h " + pad(minutes % 60) + "m"
-      : Math.floor(minutes / 1440) + "d " + pad(Math.floor(minutes % 1440 / 60)) + "h " + pad(minutes % 60) + "m";
-    return "Last: " + label + " · " + duration + " ago";
+      ? Math.floor(minutes / 60) + "h" + pad(minutes % 60) + "m"
+      : Math.floor(minutes / 1440) + "d" + pad(Math.floor(minutes % 1440 / 60)) + "h" + pad(minutes % 60) + "m";
+    return "Last: " + label + " (" + duration + ")";
   }
   function escape(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;")

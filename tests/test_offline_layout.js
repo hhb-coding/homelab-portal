@@ -44,13 +44,41 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 3'));
   for(const width of [320,375,768,1024]) {
    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
-   const layout=await evalJS(`(function(){var items=document.querySelectorAll('.offline-seen'),ok=true,aligned=true;for(var i=0;i<items.length;i++){var r=items[i].getBoundingClientRect(),p=items[i].parentNode.getBoundingClientRect();ok=ok&&r.right<=innerWidth&&items[i].scrollWidth<=items[i].clientWidth+1;if(document.querySelector('.mini-card')){var s=items[i].previousSibling.getBoundingClientRect();aligned=aligned&&r.left>=s.right-1&&Math.abs(r.top-s.top)<=1;}}return {width:innerWidth,scroll:document.documentElement.scrollWidth,ok:ok,aligned:aligned};}())`);
-   assert(layout.ok&&layout.aligned&&layout.scroll<=layout.width+1,JSON.stringify(layout));
+   const layout=await evalJS(`(function(){
+     var items=document.querySelectorAll('.offline-seen'),ok=true,aligned=true,styles=true;
+     function textRect(node){var range=document.createRange();range.selectNodeContents(node);return range.getClientRects()[0];}
+     for(var i=0;i<items.length;i++){
+       var note=items[i],r=note.getBoundingClientRect(),style=getComputedStyle(note);
+       ok=ok&&r.right<=innerWidth&&note.scrollWidth<=note.clientWidth+1;
+       styles=styles&&style.fontSize==='12px'&&style.color==='rgb(85, 85, 85)'&&style.fontWeight==='400';
+       var isFull=!!document.querySelector('.mini-card');
+       var status=isFull?note.previousSibling:note.parentNode.firstChild;
+       var a=textRect(status),b=textRect(note);
+       if(a&&b){aligned=aligned&&(Math.abs(a.top-b.top)<=1||b.top>=a.bottom);}
+       styles=styles&&parseFloat(isFull?style.paddingLeft:style.marginLeft)===10;
+       var red=getComputedStyle(isFull?status:note.parentNode);
+       styles=styles&&red.fontWeight==='700'&&(red.color==='rgb(160, 0, 32)');
+       if(i===0){ok=ok&&/^Last: \\d{2}:\\d{2} \\(1h02m\\)$/.test(note.textContent);}
+       if(i===1){ok=ok&&/^Last: \\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2} \\(7d01h02m\\)$/.test(note.textContent);}
+       if(i===2){ok=ok&&note.textContent==='Last: —';}
+     }
+     var cards=document.querySelectorAll('.mini-card'),grid=true;
+     if(cards.length===4){
+       var expected=innerWidth>800?4:innerWidth>600?2:1;
+       for(var j=0;j<cards.length;j++){
+         var c=cards[j].getBoundingClientRect();
+         if(j%expected){var prev=cards[j-1].getBoundingClientRect();grid=grid&&Math.abs(c.top-prev.top)<=1&&c.left>=prev.right;}
+         else if(j){grid=grid&&c.top>=cards[j-expected].getBoundingClientRect().bottom;}
+       }
+     }
+     return {width:innerWidth,scroll:document.documentElement.scrollWidth,ok:ok,aligned:aligned,styles:styles,grid:grid};
+   }())`);
+   assert(layout.ok&&layout.aligned&&layout.styles&&layout.grid&&layout.scroll<=layout.width+1,JSON.stringify(layout));
    console.log(path,'offline layout PASS',width);
   }
   // Tick retained DOM without a request; then confirm actual online polling removes hints.
   await evalJS('OfflineSeen.sync(Date.now()/1000+120); OfflineSeen.update()');
-  assert(await evalJS('document.querySelector(".offline-seen").textContent.indexOf("1h 04m ago") >= 0'));
+  assert(await evalJS('document.querySelector(".offline-seen").textContent.indexOf("(1h04m)") >= 0'));
   online=true;
   for(let i=0;i<70;i++){if(await evalJS('document.querySelectorAll(".offline-seen").length === 0'))break;await sleep(100);}
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 0'));
