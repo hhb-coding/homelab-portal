@@ -27,4 +27,4 @@ header p, #lite-summary { color:#555; line-height:1.5; }
   .view-switch { float:none; display:inline-block; margin:0 0 12px; }
 }
 
-.status .offline-seen { display:inline-block; max-width:calc(100% - 10px); margin-left:10px; color:#555; font-size:12px; font-weight:normal; line-height:1.5; word-wrap:break-word; vertical-align:top; }
+.lite-card h2 .offline-seen { display:block; margin:4px 0 6px; color:#555; font-size:13px; font-weight:normal; line-height:1.5; word-wrap:break-word; }

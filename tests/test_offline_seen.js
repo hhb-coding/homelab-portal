@@ -46,18 +46,20 @@ function hint(html) { var m = html.match(/class="offline-seen"[^>]*>([^<]*)</);r
 var now = Date.UTC(2026, 0, 2, 0, 32) / 1000, result = [];
 ['full', 'lite'].forEach(function (view) {
   var h = harness(view), device = {device_id: 'a', beszel_status: 'down', last_seen: '2026-01-01 23:30:00'};
-  h.deliver(device, now);assert(/1h02m\)$/.test(hint(h.html())));result.push(hint(h.html()));
-  h.fail();h.tick(60000);assert(/1h03m\)$/.test(hint(h.html())));
-  h.skew(-86400000);h.tick(60000);assert(/1h04m\)$/.test(hint(h.html())));
+  h.deliver(device, now);
+  assert(/OFFLINE(?: \/ 离线)?<\/span><\/span><span class="offline-seen"/.test(h.html()) || /OFFLINE \/ 离线<\/span><span class="offline-seen"/.test(h.html()));
+  assert(/1h 2m ago\)$/.test(hint(h.html())));result.push(hint(h.html()));
+  h.fail();h.tick(60000);assert(/1h 3m ago\)$/.test(hint(h.html())));
+  h.skew(-86400000);h.tick(60000);assert(/1h 4m ago\)$/.test(hint(h.html())));
   h.tick(2 * 86400000);h.events.pageshow();h.events.visibilitychange();
-  assert(/Last: \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(2d01h04m\)/.test(hint(h.html())));
+  assert(/Last seen: \d{4}-\d{2}-\d{2} \d{2}:\d{2} \(2d 1h 4m ago\)/.test(hint(h.html())));
   device.beszel_status = 'up';h.deliver(device, now + 2 * 86400 + 120);assert.strictEqual(hint(h.html()), null);
   device.beszel_status = 'paused';h.deliver(device, now + 2 * 86400 + 120);assert(hint(h.html()));
   device.beszel_status = 'unknown';h.deliver(device, now + 2 * 86400 + 120);assert.strictEqual(hint(h.html()), null);
   device.beszel_status = 'down';
   [null, '', 'bad', '2026-02-30 00:00:00', '2026-01-01', '2026-01-01T25:00:00Z',
     '2026-01-01T00:00:00+24:00', '2026-01-01 00:00:00 junk', '2028-01-01 00:00:00', 123, false].forEach(function (value) {
-    device.last_seen = value;h.deliver(device, now + 2 * 86400 + 120);assert.strictEqual(hint(h.html()), 'Last: —');
+    device.last_seen = value;h.deliver(device, now + 2 * 86400 + 120);assert.strictEqual(hint(h.html()), 'Last seen: —');
   });
   // Same observation with an explicit timezone offset is identical to SQLite UTC.
   assert.strictEqual(h.c.OfflineSeen.parse('2026-01-01T18:30:00-05:00'), h.c.OfflineSeen.parse('2026-01-01 23:30:00'));
@@ -67,17 +69,20 @@ var now = Date.UTC(2026, 0, 2, 0, 32) / 1000, result = [];
   var clock = harness(view);
   clock.c.OfflineSeen.sync(now);
   function stampAgo(seconds) { return new Date((now - seconds) * 1000).toISOString(); }
-  assert(/59m\)$/.test(clock.c.OfflineSeen.text(stampAgo(3599))));
-  assert(/1h00m\)$/.test(clock.c.OfflineSeen.text(stampAgo(3600))));
-  assert(/1d00h00m\)$/.test(clock.c.OfflineSeen.text(stampAgo(86400))));
-  assert.strictEqual(clock.c.OfflineSeen.text(stampAgo(-60)), 'Last: —');
+  var localMidnight = new Date(2026, 0, 2, 0, 30).getTime() / 1000;
+  var midnight = harness(view);midnight.c.OfflineSeen.sync(localMidnight);
+  assert(/^Last seen: 2026-01-01 23:30 \(1h 0m ago\)$/.test(midnight.c.OfflineSeen.text(new Date((localMidnight - 3600) * 1000).toISOString())));
+  assert(/59m ago\)$/.test(clock.c.OfflineSeen.text(stampAgo(3599))));
+  assert(/1h 0m ago\)$/.test(clock.c.OfflineSeen.text(stampAgo(3600))));
+  assert(/1d 0h 0m ago\)$/.test(clock.c.OfflineSeen.text(stampAgo(86400))));
+  assert.strictEqual(clock.c.OfflineSeen.text(stampAgo(-60)), 'Last seen: —');
   clock.skew(10 * 86400000);clock.c.OfflineSeen.sync(now + 1);
-  assert(/1h02m\)$/.test(clock.c.OfflineSeen.text('2026-01-01 23:30:00')));
+  assert(/1h 2m ago\)$/.test(clock.c.OfflineSeen.text('2026-01-01 23:30:00')));
   delete clock.c.window.performance;clock.skew(-20 * 86400000);
-  assert(clock.c.OfflineSeen.text('2026-01-01 23:30:00').indexOf('-') < 0);
+  assert(/Last seen: .*\(1h 2m ago\)$/.test(clock.c.OfflineSeen.text('2026-01-01 23:30:00')));
   var fresh = harness(view);fresh.deliver({device_id:'a', beszel_status:'down', last_seen:'2026-01-01 23:30:00'}, undefined);
-  assert.strictEqual(hint(fresh.html()), 'Last: —');
-  [null, NaN, Infinity, '1767313920', -1].forEach(function (server) { fresh.c.OfflineSeen.sync(server);assert.strictEqual(fresh.c.OfflineSeen.text('2026-01-01 23:30:00'), 'Last: —'); });
+  assert.strictEqual(hint(fresh.html()), 'Last seen: —');
+  [null, NaN, Infinity, '1767313920', -1].forEach(function (server) { fresh.c.OfflineSeen.sync(server);assert.strictEqual(fresh.c.OfflineSeen.text('2026-01-01 23:30:00'), 'Last seen: —'); });
 });
 assert.strictEqual(result[0], result[1]);
 console.log('Offline Last Seen: Full/Lite transitions, retained-data timer, resume, midnight, days, offsets, invalid/future times and clock skew passed');

@@ -41,19 +41,21 @@ var OfflineSeen = (function () {
   }
   function pad(n) { return n < 10 ? "0" + n : String(n); }
   function text(value) {
-    var stamp = parse(value), current = now(), age, minutes, date, label, duration;
-    if (stamp === null || current === null || stamp > current) { return "Last: —"; }
+    var stamp = parse(value), current = now(), age, minutes, date, currentDate, label, duration;
+    if (stamp === null || current === null || stamp > current) { return "Last seen: —"; }
     age = current - stamp;
     minutes = Math.floor(age / 60000);
     date = new Date(stamp);
     label = pad(date.getHours()) + ":" + pad(date.getMinutes());
-    if (age >= 86400000) {
+    currentDate = new Date(current);
+    if (age >= 86400000 || date.getFullYear() !== currentDate.getFullYear()
+        || date.getMonth() !== currentDate.getMonth() || date.getDate() !== currentDate.getDate()) {
       label = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " + label;
     }
     duration = minutes < 60 ? minutes + "m" : minutes < 1440
-      ? Math.floor(minutes / 60) + "h" + pad(minutes % 60) + "m"
-      : Math.floor(minutes / 1440) + "d" + pad(Math.floor(minutes % 1440 / 60)) + "h" + pad(minutes % 60) + "m";
-    return "Last: " + label + " (" + duration + ")";
+      ? Math.floor(minutes / 60) + "h " + (minutes % 60) + "m"
+      : Math.floor(minutes / 1440) + "d " + Math.floor(minutes % 1440 / 60) + "h " + (minutes % 60) + "m";
+    return "Last seen: " + label + " (" + duration + " ago)";
   }
   function escape(value) {
     return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -66,6 +68,7 @@ var OfflineSeen = (function () {
   function update() {
     var items = document.querySelectorAll ? document.querySelectorAll(".offline-seen") : [], i;
     for (i = 0; i < items.length; i += 1) { items[i].textContent = text(items[i].getAttribute("data-last-seen")); }
+    if (typeof equalMiniCards === "function") { equalMiniCards(); }
   }
   setInterval(update, 1000);
   if (document.addEventListener) { document.addEventListener("visibilitychange", update, false); }
