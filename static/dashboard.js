@@ -571,8 +571,10 @@ function miniCard(d) {
     + '" onclick="selectDeviceCard(this)">';
 
   h += '<div class="mini-card-head"><strong>' + esc(nameOf(d)) + '</strong>'
+    + (state === "offline" ? '<span class="offline-status-row">' : '')
     + '<span class="' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown") + '">'
-    + state.toUpperCase() + '</span></div>';
+    + state.toUpperCase() + '</span>'
+    + (state === "offline" ? OfflineSeen.html(d.last_seen) + '</span>' : '') + '</div>';
 
   h += '<div class="mini-card-body">'
     + '<div><span>LAN</span><b>' + esc(d.lan_ip || "—") + '</b></div>';
@@ -727,6 +729,7 @@ function render(data) {
       list.push(data.devices[i]);
     }
   }
+  OfflineSeen.sync(data.server_time);
   appendHistory(list);
   latestDashboardData = { devices: list, sources: data.sources };
   document.getElementById("device-count").innerHTML = list.length;

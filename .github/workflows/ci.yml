@@ -20,10 +20,12 @@ jobs:
       - run: node tests/test_network.js
       - run: node tests/test_device_v3.js
       - run: node tests/test_freshness.js
+      - run: node tests/test_offline_seen.js
       - name: Python syntax / Python 语法
         run: python -B -c "import ast, pathlib; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '.venv' not in p.parts]"
       - name: JavaScript syntax / JavaScript 语法
         run: |
           node --check static/dashboard.js
           node --check static/lite.js
+          node --check static/offline-seen.js
           node --check tests/test_network.js

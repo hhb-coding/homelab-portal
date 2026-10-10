@@ -8,7 +8,7 @@ var c = {Date: Clock, XMLHttpRequest: XHR,
     addEventListener: function (name, cb) { events[name] = cb; }},
   window: {performance: {now: function () { return mono; }}, addEventListener: function (name, cb) { events[name] = cb; }},
   setInterval: function (cb, delay) { timers.push({cb: cb, delay: delay}); }};
-vm.createContext(c); vm.runInContext(fs.readFileSync('static/dashboard.js', 'utf8'), c);
+vm.createContext(c); vm.runInContext(fs.readFileSync("static/offline-seen.js", "utf8") + "\n" + fs.readFileSync('static/dashboard.js', 'utf8'), c);
 function text() { c.updateFreshness(); return elements['last-updated'].innerHTML; }
 function sample(age) { c.acceptFreshness({data_updated_at: wall / 1000 - age * 60, server_time: wall / 1000}); }
 [29, 30, 31].forEach(function (age) {
@@ -17,7 +17,7 @@ function sample(age) { c.acceptFreshness({data_updated_at: wall / 1000 - age * 6
 });
 assert(text().indexOf('31 分钟') >= 0);
 c.fail(); wall += 60000; mono += 60000;
-timers.filter(function (t) { return t.delay === 1000; })[0].cb();
+timers.filter(function (t) { return t.delay === 1000; }).slice(-1)[0].cb();
 assert(elements['last-updated'].innerHTML.indexOf('32 分钟') >= 0);
 sample(0); assert(text().indexOf('已断开更新') < 0);
 wall += 31 * 60000; mono += 31 * 60000; events.pageshow();
