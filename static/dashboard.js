@@ -740,8 +740,39 @@ function render(data) {
   renderDevicePanels(list);
   renderNetworkPanels(list, data.sources);
   document.getElementById("dashboard-error").className = "error hidden";
-  document.getElementById("last-updated").innerHTML =
-    "Updated: " + new Date().toLocaleTimeString();
+  acceptFreshness(data);
+  updateFreshness();
+}
+
+/* Source timestamps are Unix seconds, never browser refresh times. */
+var freshness = null;
+function monotonicTime() {
+  return typeof window !== "undefined" && window.performance && window.performance.now
+    ? window.performance.now() : null;
+}
+function acceptFreshness(data) {
+  var stamp = data.data_updated_at, server = data.server_time;
+  if (typeof stamp !== "number" || typeof server !== "number" || !isFinite(stamp)
+      || !isFinite(server) || stamp <= 0 || server < stamp || server > 8640000000000) {
+    return; /* Unknown time cannot reset a known observation. */
+  }
+  if (freshness && stamp < freshness.stamp) { return; } /* Late responses cannot rewind. */
+  freshness = {stamp: stamp, age: (server - stamp) * 1000,
+    wall: new Date().getTime(), mono: monotonicTime(), elapsed: 0};
+}
+function updateFreshness() {
+  var element = document.getElementById("last-updated"), elapsed, mono, age;
+  if (!freshness) { element.innerHTML = "Updated: —"; return; }
+  mono = monotonicTime();
+  elapsed = Math.max(0, new Date().getTime() - freshness.wall);
+  if (mono !== null && freshness.mono !== null) {
+    elapsed = Math.max(elapsed, mono - freshness.mono);
+  }
+  freshness.elapsed = Math.max(freshness.elapsed, elapsed);
+  age = freshness.age + freshness.elapsed;
+  element.innerHTML = "Updated: " + esc(new Date(freshness.stamp * 1000).toLocaleString())
+    + (age > 30 * 60000 ? ' <strong class="stale-warning">已断开更新 '
+      + Math.floor(age / 60000) + ' 分钟</strong>' : "");
 }
 
 function fail() {
@@ -855,6 +886,9 @@ loadHistory();
 loadDashboard();
 setInterval(loadDashboard, REFRESH_MS);
 setInterval(loadHistory, HISTORY_REFRESH_MS);
+setInterval(updateFreshness, 1000);
+if (document.addEventListener) { document.addEventListener("visibilitychange", updateFreshness, false); }
+if (typeof window !== "undefined") { window.addEventListener("pageshow", updateFreshness, false); }
 
 /* Re-measure after rotation or tab changes / 旋转或标签切换后重新测量。 */
 if (typeof window !== "undefined") { window.addEventListener("resize", fitDiskLabels, false); }

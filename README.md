@@ -503,3 +503,22 @@ Copyright (c) 2026 Hongbin He
 发布资料：[CHANGELOG](CHANGELOG.md)、[双语 Release Notes 草稿](docs/releases/v0.1.0.md)、
 [发布前检查清单](docs/release-checklist.md)。之后可在 README 加入已脱敏的真实
 Full/Network/Lite 截图，当前不伪造或添加截图。
+
+### Dashboard data freshness / 数据更新时间
+
+Full View 的 Updated 来自 `/api/dashboard.data_updated_at`，是已登记设备的
+SQLite `last_seen` 与关联 Beszel 非空样本 `latest_stats_created` 中最新的有效时间。
+SQLite 时间按 UTC 解释，Beszel ISO 时间保留时区偏移；API 返回 Unix 秒，
+`server_time` 是读取完成后的服务器 Unix 秒。网页刷新不会使源时间变新。
+这是汇总层面的最近更新，不表示每台设备或每项指标都持续更新；Lite 保留原行为。
+
+数据年龄严格超过 30 分钟时显示红色粗体“已断开更新 XX 分钟”（向下取整）。
+独立的一秒计时器在请求失败时继续更新；页面恢复也立即检查。
+缺失、非法、未来时间不创建警告，也不覆盖已有有效时间；乱序旧响应不能倒退更新时间。
+Portal ONLINE、Database READY 和 Beszel 状态仍保留各自原有含义。
+
+年龄以服务器时间为基准，避免客户端初始时区或时钟偏差；计时同时参考单调时间和
+墙钟以兼容旧 Safari 休眠恢复。服务器时钟应准确；持续请求失败期间若手动大幅向前
+调整客户端时钟，墙钟无法与休眠区分，可能提前警告，下一次有效响应会重新校准。
+Network 桌面标签列为 180px，600px 及以下使用上下排列的单行标签与完整可换行值。
+自动测试覆盖 CSS 规则；iOS 9 真机视觉验收仍需人工进行。
