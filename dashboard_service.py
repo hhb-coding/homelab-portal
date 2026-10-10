@@ -14,7 +14,10 @@ Device identity is linked through beszel_system_id.
 设备身份通过 beszel_system_id 建立稳定关联。
 """
 
+import re
 import sqlite3
+import time
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import config
@@ -90,6 +93,24 @@ def _get_beszel_snapshot() -> List[Dict[str, Any]]:
         )
 
     return client.get_snapshot()
+
+
+def source_timestamp(value, now):
+    """SQLite timestamps are UTC; Beszel created carries UTC/ISO offset.
+
+    Return Unix seconds only for valid, non-future source observations.
+    """
+    if not isinstance(value, str) or not re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?", value):
+        return None
+    try:
+        date = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if date.tzinfo is None:
+            date = date.replace(tzinfo=timezone.utc)
+        stamp = date.timestamp()
+        return stamp if 0 < stamp <= now else None
+    except (ValueError, OverflowError, OSError):
+        return None
 
 
 def build_dashboard() -> Dict[str, Any]:
@@ -215,7 +236,18 @@ def build_dashboard() -> Dict[str, Any]:
             }
         )
 
+    server_now = time.time()
+    observations = [source_timestamp(d.get("last_seen"), server_now)
+                    for d in registry_devices]
+    observations += [source_timestamp(metrics_by_id[d.get("beszel_system_id")].get(
+        "latest_stats_created"), server_now) for d in registry_devices
+        if d.get("beszel_system_id") in metrics_by_id
+        and metrics_by_id[d.get("beszel_system_id")].get("stats_keys")]
+    valid = [stamp for stamp in observations if stamp is not None]
+
     return {
+        "data_updated_at": max(valid) if valid else None,
+        "server_time": server_now,
         "status": "ok",
         "count": len(devices),
 

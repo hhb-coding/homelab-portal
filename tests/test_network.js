@@ -87,7 +87,7 @@
     assert(document.getElementById("network-devices").innerHTML.indexOf("No devices registered") >= 0, "Empty network view");
     document.getElementById("tab-device").onclick();
     assert(document.getElementById("devices").innerHTML.indexOf("No devices registered") >= 0, "Empty Device view");
-    assert(timers.length === 2 && timers[0].delay === 5000 && timers[1].delay === 60000, "Existing polling unchanged");
+    assert(timers.length === 3 && timers[0].delay === 5000 && timers[1].delay === 60000, "Existing polling unchanged");
     assert(requests.every(function (request) {
       return request.url.indexOf("/api/dashboard?") === 0 || request.url.indexOf("/api/history?") === 0;
     }), "No extra network APIs");

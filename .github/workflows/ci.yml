@@ -19,6 +19,7 @@ jobs:
       - run: node tests/test_lite.js
       - run: node tests/test_network.js
       - run: node tests/test_device_v3.js
+      - run: node tests/test_freshness.js
       - name: Python syntax / Python 语法
         run: python -B -c "import ast, pathlib; [ast.parse(p.read_text(), filename=str(p)) for p in pathlib.Path('.').rglob('*.py') if '.venv' not in p.parts]"
       - name: JavaScript syntax / JavaScript 语法
