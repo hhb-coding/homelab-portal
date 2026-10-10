@@ -87,7 +87,7 @@
     assert(document.getElementById("network-devices").innerHTML.indexOf("No devices registered") >= 0, "Empty network view");
     document.getElementById("tab-device").onclick();
     assert(document.getElementById("devices").innerHTML.indexOf("No devices registered") >= 0, "Empty Device view");
-    assert(timers.length === 3 && timers[0].delay === 5000 && timers[1].delay === 60000, "Existing polling unchanged");
+    assert(timers.length === 4 && timers[1].delay === 5000 && timers[2].delay === 60000, "Existing polling unchanged");
     assert(requests.every(function (request) {
       return request.url.indexOf("/api/dashboard?") === 0 || request.url.indexOf("/api/history?") === 0;
     }), "No extra network APIs");
@@ -107,7 +107,7 @@
     assert(selectedDeviceId === "partial", "Tab switch uses sanitized records");
     console.log("Network tab behavior: " + checks + " assertions passed");
   }
-  vm.runInNewContext(fs.readFileSync("static/dashboard.js", "utf8") + "\n(" + exercise.toString() + ")();", {
+  vm.runInNewContext(fs.readFileSync("static/offline-seen.js", "utf8") + "\n" + fs.readFileSync("static/dashboard.js", "utf8") + "\n(" + exercise.toString() + ")();", {
     document: { getElementById: element }, XMLHttpRequest: XHR, requests: requests, timers: timers,
     setInterval: function (callback, delay) { timers.push({ callback: callback, delay: delay }); }, console: console
   });

@@ -60,7 +60,7 @@ class PortalSmokeTests(unittest.TestCase):
             self.assertIn(marker, lite.data)
         for marker in (b'dashboard.js', b'/api/history', b'<svg'):
             self.assertNotIn(marker, lite.data)
-        for path in ("/static/lite.js", "/static/lite.css", "/static/dashboard.js", "/static/style.css"):
+        for path in ("/static/lite.js", "/static/lite.css", "/static/dashboard.js", "/static/style.css", "/static/offline-seen.js"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
             response.close()
@@ -80,11 +80,12 @@ class PortalSmokeTests(unittest.TestCase):
     def test_legacy_frontend_guards(self):
         """Guard known iOS 9 incompatibilities / 防止引入已知的 iOS 9 不兼容语法。"""
         root = Path(__file__).resolve().parents[1]
-        for name in ("dashboard.js", "lite.js"):
+        for name in ("dashboard.js", "lite.js", "offline-seen.js"):
             source = (root / "static" / name).read_text()
             code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
             self.assertNotRegex(code, r"\b(?:const|let)\s+\w|=>|\?\.|\bfetch\s*\(")
-            self.assertIn("XMLHttpRequest", source)
+            if name != "offline-seen.js":
+                self.assertIn("XMLHttpRequest", source)
         for name in ("style.css", "lite.css"):
             css = re.sub(r"/\*.*?\*/", "", (root / "static" / name).read_text(), flags=re.S)
             self.assertNotRegex(css, r"display\s*:\s*(?:inline-)?grid|\bvar\s*\(|(?:^|[;{])\s*(?:gap|row-gap|column-gap|--[\w-]+)\s*:")

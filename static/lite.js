@@ -45,7 +45,7 @@
     var name = device.display_name || device.hostname || device.device_id || "Unnamed device / 未命名设备";
     var html = '<article class="lite-card"><h2><span class="status '
       + (online ? "online" : offline ? "offline" : "unknown") + '">' + label
-      + '</span>' + esc(name) + '</h2><p class="addresses">LAN IP: '
+      + (offline ? OfflineSeen.html(device.last_seen) : '') + '</span>' + esc(name) + '</h2><p class="addresses">LAN IP: '
       + esc(device.lan_ip || "—");
     if (device.zerotier_ip) { html += '<br>ZeroTier IP: ' + esc(device.zerotier_ip); }
     html += '</p><div class="metrics">';
@@ -63,6 +63,7 @@
     if (!data || data.status !== "ok" || !Array.isArray(data.devices)) {
       throw new Error("Invalid dashboard response");
     }
+    OfflineSeen.sync(data.server_time);
     for (i = 0; i < data.devices.length; i += 1) {
       /* One invalid record must not hide other devices / 单条无效数据不影响其他设备。 */
       if (!data.devices[i] || typeof data.devices[i] !== "object" || Array.isArray(data.devices[i])) { continue; }

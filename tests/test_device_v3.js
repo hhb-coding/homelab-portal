@@ -12,7 +12,7 @@
     XMLHttpRequest: XHR, setInterval: function () {},
     window: {addEventListener: function (name, callback) { resize = callback; }}};
   vm.createContext(c);
-  vm.runInContext(fs.readFileSync("static/dashboard.js", "utf8"), c);
+  vm.runInContext(fs.readFileSync("static/offline-seen.js", "utf8") + "\n" + fs.readFileSync("static/dashboard.js", "utf8"), c);
   [null, undefined, "", "  ", false, {}, [], NaN, Infinity, -1].forEach(function (v) {
     assert.strictEqual(c.capacity(v), "—");
   });

@@ -353,3 +353,8 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
   .network-device-card td:first-child { width:auto; white-space:nowrap; }
   .network-device-card td:last-child { padding-top:0; }
 }
+
+/* Offline only: the note stays to the right of the existing red status. */
+.mini-card-head .offline-status-row { display:table; width:100%; table-layout:fixed; }
+.offline-status-row > .bad { display:table-cell; width:52px; vertical-align:top; }
+.mini-card-head .offline-seen { display:table-cell; color:#777; font-size:10px; font-weight:normal; line-height:1.4; word-wrap:break-word; vertical-align:top; }

@@ -522,3 +522,26 @@ Portal ONLINE、Database READY 和 Beszel 状态仍保留各自原有含义。
 调整客户端时钟，墙钟无法与休眠区分，可能提前警告，下一次有效响应会重新校准。
 Network 桌面标签列为 180px，600px 及以下使用上下排列的单行标签与完整可换行值。
 自动测试覆盖 CSS 规则；iOS 9 真机视觉验收仍需人工进行。
+
+### Offline Last Seen / 离线设备最后心跳
+
+Full Device Mini Card 和 Lite 在 Beszel 状态为 `down` 或 `paused`（OFFLINE）时
+显示小号灰色 `Last: HH:mm · 1h 02m ago`；ONLINE 和 UNKNOWN 不显示。
+两个界面共用 `static/offline-seen.js`，从 `/api/dashboard` 的 `last_seen`
+读取最后有效 Heartbeat 接收时间（SQLite UTC），并用已有 `server_time` Unix 秒校准年龄。
+这不是精确关机、断电或断网时间，也不代表持续离线了多久；若 Heartbeat 仍持续上报而
+Beszel 显示离线，Last 提示可以仍然很新。无需接口调整、数据库迁移或客户端变更。
+
+提示时间按浏览器本地时区显示；未满一小时显示分钟，满一小时显示小时与两位分钟，
+满24小时附带本地完整日期并显示天/小时/分钟。日期严格解析，不依赖旧 Safari 的
+`Date.parse`；缺失、非法、未来时间或没有可靠服务器时间时显示 `Last: —`。
+每秒仅更新提示文本，请求失败时也持续计时，页面恢复立即更新，ONLINE 恢复后隐藏。
+初始客户端时钟偏差由服务器时间校准，向后跳时不会产生负数；休眠兼容采用墙钟与
+可用的单调计时。如持续请求失败同时手动将客户端时钟大幅前调，年龄可能暂时偏大，
+下一次有效响应会重新校准。服务器时钟仍需准确。
+
+自动测试：`node tests/test_offline_seen.js`。可选真实浏览器布局测试（Node 22 内置工具，
+不新增依赖）：`CHROME_BIN=/opt/google/chrome/chrome node tests/test_offline_layout.js`。
+布局测试使用随机本地端口、模拟API和临时浏览器配置，覆盖 Full/Lite 的
+320/375/768/1024px、缺失与多日时间、持续更新及 ONLINE 恢复；不访问生产8088或8089。
+iOS 9 真机视觉验收仍需人工确认。
