@@ -37,6 +37,17 @@
   assert(rows[0].indexOf("LAN IP") >= 0 && rows[0].indexOf("ZeroTier") >= 0);
   assert(rows[1].indexOf("Last Seen") >= 0 && rows[1].indexOf("Uptime") >= 0);
   assert(rows[2].indexOf("64.0 °C") >= 0 && rows[2].indexOf("1.30 / 1.16") >= 0);
+  assert(rows[2].indexOf("Temp/Freq") >= 0 && rows[2].indexOf("64.0 °C / —") >= 0);
+  device.cpu_frequency_ghz = 1.4;
+  assert(c.card(device).indexOf("64.0 °C / 1.40 GHz") >= 0);
+  assert.strictEqual(c.miniCard(device), mini);
+  [null, undefined, "1.4", "", false, {}, [], NaN, Infinity, 0, -1].forEach(function (value) {
+    assert.strictEqual(c.frequency(value), "—");
+  });
+  assert.strictEqual(c.frequency(2.345), "2.35 GHz");
+  device.temperature = null;
+  assert(c.card(device).indexOf("— / 1.40 GHz") >= 0);
+  device.temperature = 64;
   assert(/^\d{2}:\d{2}:\d{2}$/.test(c.seenTime(device.last_seen)));
   assert.strictEqual(c.seenTime(null), "—");
   var bar = c.diskMetric(device);
