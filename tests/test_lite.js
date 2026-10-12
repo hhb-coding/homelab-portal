@@ -91,5 +91,38 @@
   sample.disk_usage_percent = 23.43;
   timers[1].callback(); reply(200, data([sample]));
   assert(elements["lite-devices"].innerHTML.indexOf("可用—") >= 0, "Infeasible rounding interval rejected");
+  /* Reuse the single dashboard refresh; stale samples never become live values.
+   * 复用唯一仪表盘刷新；历史样本不得显示为当前实时数据。 */
+  function tempFreq(temperature, frequency, status, available) {
+    timers[1].callback();
+    reply(200, data([{device_id: "temp-freq-test", beszel_status: status || "up",
+      metrics_available: available !== false, temperature: temperature, cpu_frequency_ghz: frequency}]));
+    return elements["lite-devices"].innerHTML;
+  }
+  html = tempFreq(42, 1.4);
+  assert(html.indexOf('</div><p class="temp-freq">Temp/Freq: 42.0 °C / 1.40 GHz</p>') >= 0,
+    "HP: separate row after existing metrics, Full precision and units");
+  assert(tempFreq(29.9, null).indexOf('Temp/Freq: 29.9 °C / —') >= 0, "Dell: temperature only");
+  assert(tempFreq(null, null).indexOf('Temp/Freq: — / —') >= 0, "Both missing");
+  assert(tempFreq(undefined, 2.345).indexOf('Temp/Freq: — / 2.35 GHz') >= 0, "Frequency only and rounding");
+  ["down", "paused", "unknown"].forEach(function (status) {
+    html = tempFreq(42, 1.4, status);
+    assert(html.indexOf('Temp/Freq: — / —') >= 0 && html.indexOf('42.0 °C') < 0
+      && html.indexOf('1.40 GHz') < 0, "Hide stale samples for " + status);
+  });
+  assert(tempFreq(42, 1.4, "up", false).indexOf('Temp/Freq: — / —') >= 0, "Unavailable metrics hidden");
+  [0, -1, null, undefined, "42", "", true, {}, [], "<img onerror=bad>", NaN, Infinity, -Infinity].forEach(function (value) {
+    assert(tempFreq(value, value).indexOf('Temp/Freq: — / —') >= 0, "Reject invalid numeric samples");
+  });
+  /* JSON cannot carry NaN/Infinity; also exercise numeric guards before serialization.
+   * JSON 无法携带非有限数值，额外直接验证格式化数值门控。 */
+  var source = fs.readFileSync("static/lite.js", "utf8");
+  var format = source.slice(source.indexOf('  function number('), source.indexOf('  /* Only trusted'));
+  var numeric = {}; vm.runInNewContext(format, numeric);
+  [NaN, Infinity, -Infinity].forEach(function (value) {
+    assert(numeric.number(value, 1, " °C") === "—", "Non-finite values rejected");
+  });
+  assert(requests.every(function (request) { return request.url.indexOf("/api/dashboard?") === 0; }), "Temp/Freq adds no endpoint");
+  assert(timers.length === 2 && timers[1].delay === 5000, "Temp/Freq adds no polling timer");
   console.log("Lite browser behavior: " + checks + " assertions passed");
 }());

@@ -126,6 +126,7 @@ Only these server configuration fields are currently read by `config.py`:
 | `BESZEL_URL` | `http://127.0.0.1:8090` | Your Beszel Hub URL |
 | `BESZEL_TOKEN` | empty | Preferred authentication method when provided |
 | `BESZEL_EMAIL`, `BESZEL_PASSWORD` | empty | Used together if no token is provided |
+| `LOCAL_DEVICE_ID` | empty | Registered `device_id` of the Linux host running Portal; enables local CPU frequency only for that device |
 | `BESZEL_TIMEOUT` | `10` | Per-request timeout in seconds |
 
 Generate a new private Heartbeat token locally, put it in the server `.env` and
@@ -283,7 +284,10 @@ failure is normalized by the backend; some errors can return HTTP 500.
 ## Lite Style
 
 `/lite` or the Full page's **Lite Style** link opens compact cards with status,
-name, LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. On offline cards,
+name, LAN IP, optional ZeroTier IP, CPU, RAM, disk and Load 1m. A separate
+Temp/Freq line below those metrics reuses `/api/dashboard`, for example
+`42.0 °C / 1.40 GHz` or `29.9 °C / —` for a temperature-only device.
+Missing, invalid or non-positive samples display `—`; no extra polling is added. On offline cards,
 the order is OFFLINE / 离线, Last seen, then the device name and metrics.
 **Full View** returns to `/`. Lite polls every 5 seconds, has no history requests
 or charts, and hides current metrics for offline/unknown devices. Invalid
@@ -428,8 +432,8 @@ node tests/test_freshness.js
 node tests/test_offline_seen.js
 ```
 
-Current coverage: **17 Python tests** across Flask/static compatibility, Beszel
-capacity estimates and source freshness; **33 Lite assertions**, **45 Network
+Current coverage: **20 Python tests** across Flask/static compatibility, Beszel
+capacity estimates and source freshness; **59 Lite assertions**, **45 Network
 assertions**, and separate Device UI V3, Updated and offline Last seen suites.
 The isolated Python suite uses temporary SQLite, skips local `.env` loading and
 blocks live HTTP. JS behavior tests use mock DOM/XHR, including failures,
@@ -590,6 +594,8 @@ Windows 私有 JSON 默认位于 `%USERPROFILE%\.config\homelab-portal\heartbeat
 ### Lite Style / 旧设备兼容页面
 
 `/lite` 显示状态、名称、LAN/可选 ZeroTier、CPU、RAM、磁盘和一分钟负载。
+指标下方增加 Temp/Freq，例如 `42.0 °C / 1.40 GHz`；仅有温度时显示
+`29.9 °C / —`。复用现有 API，无额外请求；缺失、无效或非正数显示 `—`。
 离线卡片按 OFFLINE / 离线、Last seen、名称和指标排列。每 5 秒刷新，
 不请求历史或显示图表；离线/未知设备不展示当前指标，支持返回 Full。
 Lite 摘要显示浏览器刷新时间，不使用 Full 的源数据年龄 Updated 警告。
@@ -663,7 +669,7 @@ Updated 与 Last seen 采用服务器时间加墙钟/可用单调时间；服务
 ### 测试方法
 
 按英文 Testing 命令运行 unittest、Python AST、Node 语法及五套前端行为测试。
-当前有 **17 项 Python 测试、33 项 Lite 断言、45 项 Network 断言**，另有
+当前有 **20 项 Python 测试、59 项 Lite 断言、45 项 Network 断言**，另有
 Device UI V3、Updated 和 OFFLINE Last seen 专项测试。
 Python 隔离测试使用临时数据库、不加载本地 `.env`、禁止真实 HTTP；JS 使用模拟 DOM/XHR。
 CI 运行这些行为与语法检查，不需要生产凭据。

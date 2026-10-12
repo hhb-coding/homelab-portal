@@ -11,7 +11,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   {device_id:'a',display_name:'Offline Device',beszel_status:online?'up':'down',last_seen:new Date(Date.now()-3720000).toISOString()},
   {device_id:'b',display_name:'Multi-day Offline Device With A Very Long Name That Wraps',beszel_status:online?'up':'paused',last_seen:new Date(Date.now()-7*86400000-3720000).toISOString()},
   {device_id:'c',display_name:'Missing Time',beszel_status:online?'up':'down'},
-  {device_id:'d',display_name:'Online Device',beszel_status:'up'}]});
+  {device_id:'d',display_name:'Online Device',beszel_status:'up',metrics_available:true,temperature:42,cpu_frequency_ghz:1.4}]});
 (async () => {
  server = http.createServer((req,res) => {
   const path = req.url.split('?')[0];
@@ -44,6 +44,19 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 3'));
   for(const width of [320,375,768,1024]) {
    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
+   if(path==='/lite') {
+    // Temp/Freq stays below metrics and wraps without horizontal overflow.
+    // 温度/频率位于指标下方，窄屏换行且不产生横向溢出。
+    assert(await evalJS(`(function(){
+      var rows=document.querySelectorAll('.temp-freq');
+      if(rows.length!==4 || rows[3].textContent!=='Temp/Freq: 42.0 °C / 1.40 GHz'){return false;}
+      for(var i=0;i<rows.length;i++){
+        var r=rows[i].getBoundingClientRect(),m=rows[i].previousSibling.getBoundingClientRect();
+        if(r.top<m.bottom || r.right>innerWidth || rows[i].scrollWidth>rows[i].clientWidth+1){return false;}
+      }
+      return document.documentElement.scrollWidth<=innerWidth;
+    }())`), 'Lite Temp/Freq layout at '+width);
+   }
    const layout=await evalJS(`(function(){
      var items=document.querySelectorAll('.offline-seen'),ok=true,aligned=true,styles=true;
      function textRect(node){var range=document.createRange();range.selectNodeContents(node);return range.getClientRects()[0];}
