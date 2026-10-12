@@ -13,6 +13,7 @@ future Beszel API changes only need to be handled in one place.
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -163,6 +164,35 @@ class BeszelClient:
             return None
 
         return items[0]
+
+    def get_archive_page(self, system_id, start, end, after=None, per_page=200):
+        """Read a bounded 1m page using a (created, id) cursor / 有界游标分页。"""
+        if not re.fullmatch(r"[a-z0-9]{15}", system_id):
+            raise ValueError("Invalid system ID")
+        # Only UTC timestamps supplied by the archive engine are accepted.
+        def timestamp(value):
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}Z", value):
+                raise ValueError("Invalid archive timestamp")
+            return value
+        filters = ["type='1m'", f"system='{system_id}'",
+                   f"created >= '{timestamp(start)}'", f"created <= '{timestamp(end)}'"]
+        if after:
+            created, record_id = after
+            if not re.fullmatch(r"[a-z0-9]{15}", record_id):
+                raise ValueError("Invalid record ID")
+            created = timestamp(created)
+            filters.append(f"(created > '{created}' || (created = '{created}' && id > '{record_id}'))")
+        response = self.session.get(
+            f"{self.base_url}/api/collections/system_stats/records",
+            params={"page": 1, "perPage": per_page, "sort": "created,id",
+                    "filter": " && ".join(filters),
+                    "fields": "id,system,type,created,updated,stats"},
+            timeout=self.timeout,
+        )
+        payload = self._check_response(response)
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise BeszelAPIError("Invalid archive page")
+        return payload["items"]
 
     @staticmethod
     def _capacity(value: Any, positive: bool = False) -> Optional[float]:

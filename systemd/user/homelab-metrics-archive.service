@@ -1,0 +1,13 @@
+[Unit]
+Description=Archive raw Beszel one-minute metrics to the verified HDD
+
+[Service]
+Type=oneshot
+Environment="METRICS_ARCHIVE_PYTHON=%h/homelab-portal/.venv/bin/python"
+Environment="METRICS_ARCHIVE_SCRIPT=%h/homelab-portal/tools/archive_metrics.py"
+EnvironmentFile=-%h/.config/homelab-portal/archive.env
+ExecStart=/usr/bin/env ${METRICS_ARCHIVE_PYTHON} -B ${METRICS_ARCHIVE_SCRIPT}
+Environment=PYTHONDONTWRITEBYTECODE=1
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=15min

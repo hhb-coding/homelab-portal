@@ -702,3 +702,13 @@ Copyright (c) 2026 Hongbin He
 
 历史变更见 [CHANGELOG](CHANGELOG.md)。旧发布准备文档为历史草稿，
 不是当前安装或兼容性依据。本次文档更新不创建 v0.2.0 Tag 或 Release。
+
+## Historical metrics archive / 历史指标归档
+
+Step 7.04 collector development and deployment boundaries are documented in
+[Historical Metrics Archive](docs/historical-metrics-archive.md). The archive
+uses a separate HDD SQLite database with UUID protection; timer templates are
+provided but have not been installed. Existing charts continue to query Beszel.
+
+Step 7.04 归档采集器及部署边界见上述文档：独立 HDD SQLite、UUID 挂载保护及
+未安装的 timer 模板。现有图表继续读取 Beszel。
