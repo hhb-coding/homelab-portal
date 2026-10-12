@@ -53,6 +53,11 @@
     html += '<span class="metric">RAM: ' + number(available ? device.memory_percent : null, 1, "%") + '</span>';
     html += '<span class="metric">' + diskText(device, available) + '</span>';
     html += '<span class="metric">Load 1m / 负载: ' + number(available ? device.load_1 : null, 2, "") + '</span></div>';
+    /* Match Full precision; only positive finite samples are reliable.
+     * 与 Full 保持精度一致，仅显示正数且有限的可靠样本。 */
+    html += '<p class="temp-freq">Temp/Freq: '
+      + number(available && device.temperature > 0 ? device.temperature : null, 1, " °C")
+      + ' / ' + number(available && device.cpu_frequency_ghz > 0 ? device.cpu_frequency_ghz : null, 2, " GHz") + '</p>';
     /* Offline values can be stale / 离线设备的指标可能过期，因此不显示。 */
     if (!available) { html += '<p class="note">Current metrics unavailable / 当前指标不可用</p>'; }
     return html + '</article>';

@@ -14,6 +14,7 @@ header p, #lite-summary { color:#555; line-height:1.5; }
 .unknown { color:#666; }
 .addresses { margin:0 0 10px; line-height:1.6; word-wrap:break-word; }
 .metric { display:inline-block; margin:4px 22px 4px 0; }
+.temp-freq { margin:4px 0; word-wrap:break-word; }
 .note { color:#666; font-size:12px; }
 #lite-error { padding:12px; color:#8a0018; background:#fff2f2; border:1px solid #b00020; }
 .hidden { display:none; }
