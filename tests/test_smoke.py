@@ -22,7 +22,7 @@ class PortalSmokeTests(unittest.TestCase):
         cls.config = config
         cls.settings = patch.multiple(
             config, DATABASE_PATH=Path(cls.temp.name) / "test.db",
-            HEARTBEAT_TOKEN="smoke-test-only", BESZEL_TOKEN="",
+            HEARTBEAT_TOKEN="smoke-test-only", BESZEL_TOKEN="", LOCAL_DEVICE_ID="",
             BESZEL_EMAIL="", BESZEL_PASSWORD="",
         )
         cls.settings.start()
@@ -135,9 +135,16 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(device["beszel_status"], "up")
         self.assertTrue(device["metrics_available"])
         self.assertEqual(device["cpu_percent"], 0)
+        self.assertIsNone(device["cpu_frequency_ghz"])
         for key in ("memory_total", "disk_total", "disk_used", "disk_available", "disk_available_estimated", "disk_usage_percent", "capacity_unit"):
             self.assertEqual(device[key], snapshot[0][key])
         self.assertIsNone(device["zerotier_ip"])
+        with patch("dashboard_service._get_beszel_snapshot", return_value=snapshot), \
+             patch.object(self.config, "LOCAL_DEVICE_ID", "test-device"), \
+             patch("dashboard_service.local_cpu_frequency_ghz", return_value=1.4):
+            response = self.client.get("/api/dashboard")
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json["devices"][0]["cpu_frequency_ghz"], 1.4)
         snapshot[0]["status"] = "down"
         with patch("dashboard_service._get_beszel_snapshot", return_value=snapshot):
             self.assertEqual(self.client.get("/api/dashboard").json["devices"][0]["beszel_status"], "down")

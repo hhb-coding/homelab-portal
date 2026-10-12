@@ -1,5 +1,24 @@
 # HomeLab Portal
 
+Step 7.01: Device Detail displays **Temp/Freq**, for example `39.0 °C / 1.40 GHz`.
+Temperature still comes from Beszel with its existing precision. Set `LOCAL_DEVICE_ID`
+in your private `.env` to the exact registered `device_id` of the Linux host running
+Portal. Only that device receives numeric `cpu_frequency_ghz` in `/api/dashboard`;
+other devices receive `null` and display `—`. A blank or unmatched identifier disables
+sampling. Each existing dashboard refresh averages all readable positive, finite
+`/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq` samples (kHz → GHz).
+No new dependency, polling service or agent is required. Missing/unsupported sysfs
+data displays `—`; this is a sequential current-frequency sample, not nominal or maximum
+frequency. Configure the identifier when applying the change through your usual deployment process.
+
+Step 7.01：Device Detail 使用 **Temp/Freq** 联合显示温度与频率，例如
+`39.0 °C / 1.40 GHz`，温度来源和精度不变。在私有 `.env` 中设置
+`LOCAL_DEVICE_ID`，准确对应运行 Portal 的 Linux 主机注册 `device_id`。
+每次现有 Dashboard 刷新读取所有可用逻辑核心的 sysfs 当前频率，过滤缺失、
+非有限及非正数后取算术平均，并从 kHz 转为 GHz，前端保留两位小数。
+未配置、未匹配、sysfs 不支持或采集失败时频率显示 `—`；其他设备不会获得
+本机频率。无需新增依赖或 Agent；各核心依次读取，并非同时采样。
+
 **Give Old Devices a Second Life.** HomeLab Portal is a lightweight,
 self-hosted HomeLab monitoring dashboard and device registry built with Python,
 Flask, SQLite, vanilla JavaScript and SVG. It combines Heartbeat-reported device

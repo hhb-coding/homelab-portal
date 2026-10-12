@@ -41,6 +41,10 @@ else:
 # Heartbeat 客户端与 Portal 共用的认证 Token。
 HEARTBEAT_TOKEN = os.getenv("HEARTBEAT_TOKEN", "")
 
+# Exact registry device_id of the Portal host; blank disables local sampling.
+# Portal 所在主机的注册 device_id；留空则禁用本机采集，避免误配其他设备。
+LOCAL_DEVICE_ID = os.getenv("LOCAL_DEVICE_ID", "").strip()
+
 # --- Beszel integration / Beszel 集成 ---
 
 # Internal address of the Beszel Hub.

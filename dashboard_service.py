@@ -14,14 +14,40 @@ Device identity is linked through beszel_system_id.
 设备身份通过 beszel_system_id 建立稳定关联。
 """
 
+import math
 import re
 import sqlite3
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List
 
 import config
 from beszel_client import BeszelAPIError, BeszelClient
+
+
+def local_cpu_frequency_ghz(cpu_root=Path("/sys/devices/system/cpu")):
+    """Average available logical CPUs' current kHz as GHz.
+    将所有可读取逻辑核心的当前 kHz 频率取算术平均并转换为 GHz。
+    """
+    values = []
+    try:
+        paths = cpu_root.glob("cpu[0-9]*/cpufreq/scaling_cur_freq")
+        for path in paths:
+            try:
+                value = float(path.read_text().strip())
+                if math.isfinite(value) and value > 0:
+                    values.append(value / 1000000.0)
+            except (OSError, ValueError, OverflowError, UnicodeError):
+                continue
+    except OSError:
+        return None
+    if not values:
+        return None
+    # Divide before summing to keep even extreme samples finite.
+    # 先除后加，避免极端输入使求和溢出；API 保持数值型，前端负责两位小数。
+    average = sum(value / len(values) for value in values)
+    return average if math.isfinite(average) and average > 0 else None
 
 
 def _get_registry_devices() -> List[Dict[str, Any]]:
@@ -129,6 +155,12 @@ def build_dashboard() -> Dict[str, Any]:
 
     registry_devices = _get_registry_devices()
 
+    # Only an explicit, unique registry match may receive host-local metrics.
+    # 仅明确且唯一的注册设备匹配可接收本机指标，不根据主机名或 IP 猜测。
+    local_matches = [d for d in registry_devices
+                     if config.LOCAL_DEVICE_ID and d.get("device_id") == config.LOCAL_DEVICE_ID]
+    local_frequency = local_cpu_frequency_ghz() if len(local_matches) == 1 else None
+
     metrics_status = "ok"
     metrics_error = None
 
@@ -229,6 +261,10 @@ def build_dashboard() -> Dict[str, Any]:
                 "temperature": metric.get(
                     "temperature"
                 ),
+
+                "cpu_frequency_ghz": local_frequency if (
+                    registry.get("device_id") == config.LOCAL_DEVICE_ID
+                ) else None,
 
                 "uptime_seconds": metric.get(
                     "uptime_seconds"

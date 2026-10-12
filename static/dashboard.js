@@ -233,6 +233,11 @@ function uptime(seconds) {
   return m + "m";
 }
 
+/* Numeric GHz only; preserve missing data / 仅接受数值型 GHz，缺失时保留占位符。 */
+function frequency(v) {
+  return typeof v === "number" && isFinite(v) && v > 0 ? v.toFixed(2) + " GHz" : "—";
+}
+
 function temp(v) {
   var n = Number(v);
   if (num(v, 1) === "—" || n <= 0) { return "—"; }
@@ -649,7 +654,7 @@ function card(d) {
     + '</td><th scope="row">ZeroTier</th><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
     + '<tr><th scope="row">Last Seen</th><td>' + seenTime(d.last_seen)
     + '</td><th scope="row">Uptime</th><td>' + esc(uptime(d.uptime_seconds)) + '</td></tr>'
-    + '<tr><th scope="row">Temperature</th><td>' + temp(d.temperature)
+    + '<tr><th scope="row">Temp/Freq</th><td>' + temp(d.temperature) + ' / ' + frequency(d.cpu_frequency_ghz)
     + '</td><th scope="row">Load 1m / 5m</th><td>' + num(d.load_1,2) + ' / ' + num(d.load_5,2)
     + '</td></tr></tbody></table>';
 
