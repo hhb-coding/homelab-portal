@@ -1,5 +1,10 @@
 # v0.1.0 release checklist / 发布前检查
 
+> **Historical release-preparation checklist / 历史发布前清单.** This checklist predates the actual [v0.1.0 Release](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.1.0) published 2026-10-09. Unchecked items below document what had **not yet been verified at preparation time**; they do not mean the tag or GitHub Release is still pending. Retained as an audit trail, not a current release gate.
+>
+> **历史说明：**下方未勾选项目是准备阶段的测试记录，并非当前发布状态；v0.1.0 已于 2026-10-09 发布。
+
+
 This is a preparation checklist, not evidence of a published release. Leave
 items unchecked until verified for the actual release candidate.
 这是发布准备清单，不是已发布证明；候选版本未确认的项目保持未勾选。

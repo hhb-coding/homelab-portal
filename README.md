@@ -34,7 +34,7 @@ This README describes current `main`, including merged
 [PR #3](https://github.com/hhb-coding/homelab-portal/pull/3) (Network and Updated),
 [PR #4](https://github.com/hhb-coding/homelab-portal/pull/4) (offline Last seen) and
 [PR #5](https://github.com/hhb-coding/homelab-portal/pull/5) (readable offline layout).
-**v0.2.0 is planned**; this is not a tag or Release announcement.
+**Latest published GitHub Release:** [v0.2.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0), published 2026-10-10. `main` contains later untagged development; internal Step numbers are not GitHub Release versions.
 [中文说明](#中文说明) follows the English guide. Licensed under [MIT](LICENSE).
 
 ## Features
@@ -105,8 +105,7 @@ chmod 600 .env
 
 The commands install current `main`, which includes the features described here.
 For a reproducible installation, record and select an approved complete commit.
-For the planned v0.2.0 release, use its published revision once available; these
-instructions do not require a future tag to exist. Existing installations should
+For the already published v0.2.0 version, use its [immutable release tag](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0). These instructions describe the newer `main`; record its exact commit for reproducible installation. Existing installations should
 back up the database and private configuration before reviewing any upgrade.
 Edit `.env` before starting. Importing `app.py` initializes the configured SQLite
 schema; no separate database-initialization command is required.
@@ -432,7 +431,7 @@ node tests/test_freshness.js
 node tests/test_offline_seen.js
 ```
 
-Current coverage: **20 Python tests** across Flask/static compatibility, Beszel
+Current coverage: **44 Python test methods** across Flask/static compatibility, Beszel
 capacity estimates and source freshness; **59 Lite assertions**, **45 Network
 assertions**, and separate Device UI V3, Updated and offline Last seen suites.
 The isolated Python suite uses temporary SQLite, skips local `.env` loading and
@@ -472,13 +471,15 @@ test counts are historical, not the installation guide for current main.
 - Leave `DEBUG=false`. Flask's built-in server is not a public-internet deployment
   solution. No public deployment or reverse-proxy configuration is bundled.
 - Protect and back up your SQLite database and private configuration independently.
-  Beszel history stays in Beszel, not the Portal database.
+  Current `/api/history` charts still read Beszel; Step 7.04 adds a separate historical-metrics SQLite archive independent of Portal's registry database. Any host's deployment status must be checked separately.
 - Tokens/configuration should not be pasted into issue reports; sanitize probe
   output, logs and screenshots. Device display data is HTML-escaped by the UI,
   but Heartbeat only validates JSON object and nonempty string device ID;
   optional fields have no strict type/IPv4 schema validation yet.
 
 ## Roadmap
+
+For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Step 7.03's expanded cross-platform CPU-frequency scope is in [Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11); Step 7.05 covers Security Events, and Step 7.06 covers archive-backed historical charts. Approved plans are not yet implemented features.
 
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device
@@ -495,7 +496,7 @@ Copyright (c) 2026 Hongbin He
 
 See the [changelog](CHANGELOG.md) for historical changes. Older release-preparation
 documents are historical drafts, not the current installation or compatibility
-reference. No v0.2.0 tag or Release is created by this documentation update.
+reference. Releases [v0.1.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.1.0) and [v0.2.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0) were already published; editing this README does not alter either Release or tag.
 
 ---
 
@@ -512,8 +513,7 @@ iPad mini 1 / 用户报告的 iOS 9.1.3 Safari 已有实际使用确认，但 An
 尚未全部经过真机验证，具体范围见下方兼容性说明。
 
 本文对应当前 main，包含已合并的 PR #2（Device UI V3）、#3（Network/Updated）、
-#4（OFFLINE Last seen）、#5（离线提示分行样式）。**v0.2.0 为计划版本**，不是
-已发布 Tag 或 Release 的声明。本项目采用 [MIT License](LICENSE)。
+#4（OFFLINE Last seen）、#5（离线提示分行样式）。**v0.2.0 已于 2026-10-10 发布**，参见 [GitHub Release](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0)；`main` 还包含后续开发内容，Step 编号不代表正式发布版本。本项目采用 [MIT License](LICENSE)。
 
 ### 已实现功能
 
@@ -547,8 +547,7 @@ Node.js 22，运行服务器不需要 Node.js；其他版本尚未完整认证�
 创建 `.venv`、安装 `requirements.txt`，仅在 `.env` 不存在时复制示例。
 当前 main 已包含本文描述的功能，不使用旧开发或发布准备分支安装。
 不覆盖已有实例、配置或数据库；升级前独立备份数据库和私有配置。
-可复现安装应选择已批准的完整不可变提交；计划中的 v0.2.0 发布后再使用其实际发布
-修订，不依赖尚未发布的 Tag。`app.py` 导入时初始化 SQLite，无需额外初始化命令。
+可复现安装应选择已批准的完整不可变提交；如需安装 v0.2.0，请选择已发布的对应 Tag。`app.py` 导入时初始化 SQLite，无需额外初始化命令。
 
 ### 配置方法
 
@@ -669,7 +668,7 @@ Updated 与 Last seen 采用服务器时间加墙钟/可用单调时间；服务
 ### 测试方法
 
 按英文 Testing 命令运行 unittest、Python AST、Node 语法及五套前端行为测试。
-当前有 **20 项 Python 测试、59 项 Lite 断言、45 项 Network 断言**，另有
+当前有 **44 个 Python 测试方法、59 项 Lite 断言、45 项 Network 断言**，另有
 Device UI V3、Updated 和 OFFLINE Last seen 专项测试。
 Python 隔离测试使用临时数据库、不加载本地 `.env`、禁止真实 HTTP；JS 使用模拟 DOM/XHR。
 CI 运行这些行为与语法检查，不需要生产凭据。
@@ -701,14 +700,13 @@ HTTP 不加密信息，调试必须关闭；Flask 内置服务器不是公网部
 Copyright (c) 2026 Hongbin He
 
 历史变更见 [CHANGELOG](CHANGELOG.md)。旧发布准备文档为历史草稿，
-不是当前安装或兼容性依据。本次文档更新不创建 v0.2.0 Tag 或 Release。
+不是当前安装或兼容性依据。v0.1.0、v0.2.0 已正式发布；本次文档维护不更改这些 Tag 或 Release。
 
 ## Historical metrics archive / 历史指标归档
 
 Step 7.04 collector development and deployment boundaries are documented in
 [Historical Metrics Archive](docs/historical-metrics-archive.md). The archive
-uses a separate HDD SQLite database with UUID protection; timer templates are
-provided but have not been installed. Existing charts continue to query Beszel.
+uses a separate HDD SQLite database with UUID protection; timer templates are provided. This GitHub source reflects the pre-deployment Phase B documentation, not the running state of any particular host; verify installed timers on that host. Existing charts continue to query Beszel.
 
 Step 7.04 归档采集器及部署边界见上述文档：独立 HDD SQLite、UUID 挂载保护及
-未安装的 timer 模板。现有图表继续读取 Beszel。
+timer 模板。早期 Phase B 文档记录的是未部署阶段，并不代表如今 HP 主机的实时状态；需在机器上核验实际 timer。现有图表继续读取 Beszel。
