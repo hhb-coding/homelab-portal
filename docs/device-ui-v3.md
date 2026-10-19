@@ -1,5 +1,10 @@
 # Device UI V3 验证记录 / Validation notes
 
+> **Historical implementation/validation record / 历史开发验收记录.** Branch, commit, Beszel Agent versions and manual test states below are a snapshot of the 2026-10-09 development work. The feature has since been merged into `main`; do not use these values as live environment facts. See [README](../README.md) and [ROADMAP](ROADMAP.md) for current documentation and future work.
+>
+> **历史说明：**下文分支、提交及 Agent 版本是开发时的历史记录，不代表当前生产机器状态。
+
+
 基线为 `bd4892b4d419198891e3cab7eab9627f9bd5ff25`，分支为 `feature/device-ui-v3`。
 开发、依赖安装、自动测试和浏览器测试均在开发目录进行；没有启动或重启生产服务。
 
