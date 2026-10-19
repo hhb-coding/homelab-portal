@@ -1,5 +1,10 @@
 # Browser validation / 浏览器验收
 
+> **Historical browser checklist / 历史浏览器测试清单.** The statements below that Lite had not yet been tested on a physical iOS 9 device were accurate when this checklist was drafted. Later, the maintainer confirmed Lite running on an iPad mini 1 (reported iOS 9.1.3); see [README browser compatibility](../README.md#browser-compatibility) and the v0.2.0 Release. This is **not** proof of all remaining checklist items, long-duration operation or any later UI changes. Unchecked boxes remain pending until separately recorded.
+>
+> **历史说明：**旧文中“Lite 尚未实测”是当时快照；后续已确认 iPad mini 1 / iOS 9.1.3 Safari 的 Lite 使用。其他验收项目仍按原勾选状态保留。
+
+
 The Full page was previously confirmed to display correctly on real iOS 9
 Safari. That historical result does not certify these new UI changes.
 Lite and the new Network view have **not** been tested on real iOS 9 Safari.
