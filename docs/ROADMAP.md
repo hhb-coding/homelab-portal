@@ -1,14 +1,14 @@
 # HomeLab Portal — Unified Development Roadmap / 统一开发路线图
 
-**Planning date / 规划日期:** 2026-10-13  
+**Original planning date / 初版规划日期:** 2026-10-13  
 **Repository:** `hhb-coding/homelab-portal`  
-**Status:** Documentation proposal pending merge / 待合并的文档规划，不代表代码实现或部署  
-**Approved scope:** [Step 7.05 Security Events](step-7-05-security-events.md)
+**Status / 状态:** Maintained in GitHub `main` since PR #10 (2026-10-14); documentation consistency review 2026-10-19 / 已合并至 `main` 并持续维护，最近核对 2026-10-19  
+**Approved scopes / 已批准范围:** [Step 7.03 Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11) and [Step 7.05 Security Events](step-7-05-security-events.md)
 
-> Scope numbering: `Step 7.05` is an **internal work-package identifier**, not a claim that GitHub tag/release `v7.05` exists. The repository README separately describes a planned `v0.2.0` release. Never equate a planned Step with a deployed version.
+> Scope numbering: `Step 7.05` is an **internal work-package identifier**, not a claim that GitHub tag/release `v7.05` exists. The repository has already published [v0.2.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0). Never equate a planned Step with a deployed version.
 >
 >
-> 编号说明：`Step 7.05` 是内部开发任务编号，不代表 GitHub 已发布名为 `v7.05` 的 Tag 或 Release。README 另外提及计划中的 `v0.2.0`。规划、已合并代码与生产运行状态必须分开核对。
+> 编号说明：`Step 7.05` 是内部开发任务编号，不代表 GitHub 已发布名为 `v7.05` 的 Tag 或 Release。GitHub 已正式发布 `v0.2.0`。规划、已合并代码与生产运行状态必须分开核对。
 
 ## 1. Version and scope decisions / 编号及范围决议
 
@@ -31,9 +31,9 @@
 | 11.x | Automation/DevOps: Ansible, client rollout, config/systemd and CI | Proposed / 待开发 | Stable deployment design |
 | 12.x | Documentation/Portfolio/release readiness, eventual v1.0.0 target | Proposed / 待开发 | Prior Steps |
 
-GitHub evidence verified 2026-10-13: `main` merges PR #7 (`2e0ded4`), PR #8 (`dda1877`), PR #9 (`d776e7e`). Repository had no `docs/ROADMAP.md` at review time and no open PRs. These are **repository observations**, not proof of the HP working tree or production service state.
+Historical snapshot (2026-10-13): PR #7, #8 and #9 were merged while this ROADMAP was still being prepared; PR #10 subsequently merged the document. By 2026-10-19, Step 7.03 was expanded and linked to Issue #11. **Repository merges do not establish actual HP deployment, timer or archive health; verify those separately on the host.**
 
-2026-10-13 核验：GitHub `main` 有上述合并提交，但无法据此推定 HP 本地开发目录、生产目录、实际数据库、timer 或部署版本；这些必须在未来开始开发前通过 HP 实机检查。
+历史快照：2026-10-13 时 PR #7–#9 已合并，而路线图尚在准备；之后 PR #10 已正式合并。至 10 月 19 日，Step 7.03 已扩大范围并引用 Issue #11。GitHub 合并不等于 HP 实际部署状态。
 
 ## 2. Approved Step 7.05 — Security Events / 已批准范围
 
