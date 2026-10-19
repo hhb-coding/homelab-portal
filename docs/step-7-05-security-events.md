@@ -1,8 +1,12 @@
-# HomeLab Portal v7.05 — Security Events（已确认需求 / Approved Plan）
+# HomeLab Portal Step 7.05 — Security Events（已确认需求 / Approved Plan）
 
-**Status:** 已批准的规划（approved scope），**未开始实现、未部署**。
+**Status:** 已批准的规划（approved scope）；2026-10-14 完成 Caddy JSON 日志格式、轮换与访问权限的只读开发前检查（Phase 0）；**Phase A–C 尚未开始实现、未部署**。
 **Project:** `hhb-coding/homelab-portal`
 **Coordination:** 这份文件可放入 GitHub 仓库 `docs/`，并在其他 ChatGPT Project / Codex 对话中引用；真正的权威基线始终是 HP 机器上的最新 Git 工作树与生产部署状态。
+
+> **Naming:** “Step 7.05” is an internal work package, not a GitHub `v7.05` Release. The actual latest published release is [v0.2.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0). The Phase 0 log check did not install a collector or modify Caddy. The least-privilege log-reader access design remains pending.
+>
+> **命名与进度：**Step 7.05 是内部开发编号，不是正式的 v7.05 发布。Phase 0 仅检查现有日志，未安装采集器；未来需要解决日志只读授权及轮换兼容性。
 
 ## 0. 开发前必须核对
 
