@@ -1,5 +1,10 @@
 # Fresh installation acceptance / 全新安装验收
 
+> **Historical acceptance snapshot / 历史验收记录.** The checkout, branch names, SHA references, test counts and release-preparation status below describe an earlier isolated installation check, not current `main` or a production-host acceptance. For current setup use [README](../README.md), and for release history use [CHANGELOG](../CHANGELOG.md).
+>
+> **历史说明：**下方分支、测试数量和发布准备状态属于当时验收快照，不作为当前安装与生产运行依据。
+
+
 ## Scope and source / 范围与来源
 
 Date: 2026-10-08. Source: a fresh HTTPS clone of GitHub
