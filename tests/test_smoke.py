@@ -155,6 +155,75 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertIsNone(data["devices"][0]["disk_total"])
         self.assertEqual(data["devices"][0]["lan_ip"], "192.0.2.10")
 
+    def test_frequency_auth_identity_and_validation(self):
+        from datetime import datetime, timezone
+        from test_frequency_pipeline import observation
+        row = observation(when=datetime.now(timezone.utc))
+        route = '/api/telemetry/cpu-frequency'
+        headers = {'X-Heartbeat-Token':'smoke-test-only'}
+        payload = {'device_id':'test-device','samples':[row]}
+        self.assertEqual(self.client.post(route,json=payload).status_code,401)
+        with patch.object(self.config,'HEARTBEAT_TOKEN',''):
+            self.assertEqual(self.client.post(route,json=payload,headers=headers).status_code,503)
+        self.assertEqual(self.client.post(route,json=payload,headers=headers).status_code,403)
+        self.heartbeat()
+        response=self.client.post(route,json=payload,headers=headers)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json['accepted'],[row['sample_id']])
+        self.assertEqual(self.client.post(route,json=payload,headers=headers).json['duplicates'],[row['sample_id']])
+        payload['samples'][0]['cpu_frequency_ghz']=3
+        self.assertEqual(self.client.post(route,json=payload,headers=headers).status_code,409)
+        payload['samples'][0]['source']=[]
+        self.assertEqual(self.client.post(route,json=payload,headers=headers).status_code,400)
+        self.assertEqual(self.client.post(route,data='x'*131073,headers=headers).status_code,413)
+
+    def test_frequency_receive_does_not_update_heartbeat(self):
+        from datetime import datetime, timezone
+        from test_frequency_pipeline import observation
+        self.heartbeat()
+        old=self.client.get('/api/devices/test-device').json['last_seen']
+        with patch('frequency.receive',return_value={'accepted':[],'duplicates':[]}):
+            self.assertEqual(self.client.post('/api/telemetry/cpu-frequency',
+                json={'device_id':'test-device','samples':[observation(when=datetime.now(timezone.utc))]},
+                headers={'X-Heartbeat-Token':'smoke-test-only'}).status_code,200)
+        self.assertEqual(self.client.get('/api/devices/test-device').json['last_seen'],old)
+
+    def test_frequency_inbox_busy_and_overflow_feedback(self):
+        from frequency import TelemetryError
+        import sqlite3
+        payload={'device_id':'test-device','samples':[]}
+        headers={'X-Heartbeat-Token':'smoke-test-only'}
+        for error in [TelemetryError('queue_full',503),sqlite3.OperationalError('synthetic')]:
+            with patch('frequency.receive',side_effect=error):
+                response=self.client.post('/api/telemetry/cpu-frequency',json=payload,headers=headers)
+                self.assertEqual(response.status_code,503)
+
+    def test_frequency_history_disabled_by_default(self):
+        self.assertEqual(self.client.get('/api/history/v2').status_code,503)
+
+    def test_frequency_history_query_only_synthetic_archive(self):
+        from datetime import datetime, timedelta, timezone
+        from test_frequency_pipeline import observation
+        from frequency import receive, drain, stamp
+        from frequency_migration import migrate
+        from metrics_archive import writer
+        self.heartbeat()
+        now=datetime.now(timezone.utc)
+        archive=Path(self.temp.name)/'query-history.db'
+        receive(self.config.DATABASE_PATH,'test-device',[observation(800,when=now)],now)
+        with writer(archive,lambda p:p) as c:
+            migrate(c,2,lambda:None);drain(c,self.config.DATABASE_PATH,lambda:None,now)
+        args={'device_id':'test-device','start':stamp(now-timedelta(seconds=1)),'end':stamp(now+timedelta(seconds=1))}
+        with patch.object(self.config,'FREQUENCY_HISTORY_ENABLED',True), \
+             patch.dict('os.environ',{'METRICS_ARCHIVE_PATH':str(archive)}), \
+             patch('metrics_archive.require_hdd',side_effect=lambda p,*a:p):
+            response=self.client.get('/api/history/v2',query_string=args)
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.json['unit'],'GHz')
+            self.assertTrue(response.json['points'])
+            self.assertEqual(self.client.get('/api/history/v2',query_string=dict(args,metric='cpu_percent')).status_code,400)
+            self.assertEqual(self.client.get('/api/history/v2',query_string=dict(args,limit='bad')).status_code,400)
+
     def test_metrics_and_history_without_credentials(self):
         self.assertEqual(self.client.get("/api/metrics").status_code, 503)
         self.assertEqual(self.client.get("/api/history").status_code, 502)

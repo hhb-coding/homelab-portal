@@ -45,6 +45,9 @@ HEARTBEAT_TOKEN = os.getenv("HEARTBEAT_TOKEN", "")
 # Portal 所在主机的注册 device_id；留空则禁用本机采集，避免误配其他设备。
 LOCAL_DEVICE_ID = os.getenv("LOCAL_DEVICE_ID", "").strip()
 
+# Opt-in archive reading; never open HDD during startup / 显式启用，启动不打开 HDD。
+FREQUENCY_HISTORY_ENABLED = os.getenv("FREQUENCY_HISTORY_ENABLED", "false").lower() == "true"
+
 # --- Beszel integration / Beszel 集成 ---
 
 # Internal address of the Beszel Hub.

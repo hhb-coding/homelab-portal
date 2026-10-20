@@ -15,6 +15,7 @@ LAN IPv4 地址以及可选的 ZeroTier IPv4 地址。
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
+Import-Module (Join-Path $PSScriptRoot 'portal-transport.psm1') -Force
 
 
 function Get-ZeroTierAdapter {
@@ -134,8 +135,6 @@ function Send-Heartbeat {
         throw "device_id is missing from configuration."
     }
 
-    $portalUrl = $config.portal_url.TrimEnd("/")
-
     $payload = @{
         device_id    = $config.device_id
         hostname     = $env:COMPUTERNAME
@@ -144,19 +143,8 @@ function Send-Heartbeat {
         zerotier_ip  = Get-ZeroTierIPv4
     }
 
-    $headers = @{
-        "X-Heartbeat-Token" = $config.heartbeat_token
-    }
-
-    $response = Invoke-RestMethod `
-        -Uri "$portalUrl/api/heartbeat" `
-        -Method Post `
-        -Headers $headers `
-        -ContentType "application/json" `
-        -Body ($payload | ConvertTo-Json -Compress) `
-        -TimeoutSec 10
-
-    Write-Output ($response | ConvertTo-Json -Compress)
+    $null = Send-PortalJson $config '/api/heartbeat' $payload
+    Write-Output 'Heartbeat accepted'
 }
 
 
@@ -165,6 +153,6 @@ try {
     exit 0
 }
 catch {
-    Write-Error "Heartbeat failed: $($_.Exception.Message)"
+    Write-Error "Heartbeat failed"
     exit 1
 }

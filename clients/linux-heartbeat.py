@@ -10,13 +10,12 @@ to the HomeLab Portal heartbeat API.
 LAN IP 和可选的 ZeroTier IP。
 """
 
-import json
 import os
 import socket
 import subprocess
 import sys
 import urllib.error
-import urllib.request
+from heartbeat_transport import send_json
 
 
 def run_command(command):
@@ -130,37 +129,21 @@ def send_heartbeat():
         "zerotier_ip": zerotier_ip,
     }
 
-    request_data = json.dumps(payload).encode("utf-8")
-
-    request = urllib.request.Request(
-        f"{portal_url}/api/heartbeat",
-        data=request_data,
-        method="POST",
-        headers={
-            "Content-Type": "application/json",
-            "X-Heartbeat-Token": heartbeat_token,
-        },
-    )
-
     try:
-        with urllib.request.urlopen(
-            request,
-            timeout=10,
-        ) as response:
-            response_body = response.read().decode("utf-8")
+        send_json(f"{portal_url}/api/heartbeat", heartbeat_token, payload)
 
     except urllib.error.HTTPError as error:
-        body = error.read().decode("utf-8", errors="replace")
+        error.close()
         raise RuntimeError(
-            f"Portal returned HTTP {error.code}: {body}"
+            f"Portal returned HTTP {error.code}"
         ) from error
 
     except urllib.error.URLError as error:
         raise RuntimeError(
-            f"Unable to reach HomeLab Portal: {error.reason}"
+            "Unable to reach HomeLab Portal"
         ) from error
 
-    print(response_body)
+    print("Heartbeat accepted")
 
 
 def main():

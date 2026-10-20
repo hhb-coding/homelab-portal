@@ -3,6 +3,13 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  windows-frequency:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Windows PowerShell 5.1 synthetic frequency tests
+        shell: powershell
+        run: ./tests/test_windows_frequency.ps1
   test:
     runs-on: ubuntu-latest
     steps:

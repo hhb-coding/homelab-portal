@@ -1,0 +1,10 @@
+[Unit]
+Description=One current CPU frequency observation and upload
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/homelab-portal/heartbeat.env
+ExecStart=/usr/bin/python3 -B %h/homelab-portal/clients/linux-frequency.py
+UMask=0077
+NoNewPrivileges=true
+TimeoutStartSec=50s

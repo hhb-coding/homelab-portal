@@ -1,5 +1,10 @@
 # Step 7.04 Historical Metrics Archive / 历史指标归档
 
+Step 7.03 extension under review: [CPU frequency design](cpu-frequency.md).
+The compatible writer accepts v1/v2 but never auto-migrates. Beszel tables stay
+unchanged; an explicit backed-up migration adds frequency history on the same HDD.
+V1 remains supported. / 7.03 扩展需显式备份迁移，不自动升级，不改变 Beszel 原始表。
+
 > **Status context / 阶段说明 (reviewed 2026-10-19):** Step 7.04 code was merged into `main` via [PR #9](https://github.com/hhb-coding/homelab-portal/pull/9) on 2026-10-12. The Phase B “not deployed” statements below are an **accurate historical description of that development phase**, not a claim that the HP host is still undeployed. Later operator checks reported an enabled archive timer and successful initial collection; continued production health, the current running checkout, and archive counts require fresh read-only verification on HP. Existing Portal historical charts continue querying Beszel; archive-backed charts are planned for Step 7.06.
 >
 > **状态说明：**Phase B“未部署”是历史阶段记录。之后用户曾核验计时器与首次采集，但本仓库不能直接证明如今 HP 的实时运行状态。Step 7.04 源码已合并，Step 7.06 历史页面仍待开发。
