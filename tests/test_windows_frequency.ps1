@@ -46,7 +46,10 @@ try {
     Assert-Equal @(Get-Content -Raw $path | ConvertFrom-Json).Count 1
     function Send-PortalJson($Config,$Path,$Payload) { @{accepted=@($Payload.samples | ForEach-Object {$_.sample_id});duplicates=@()} }
     Invoke-FrequencyPass $config $path $partial
-    Assert-Equal @(Get-Content -Raw $path | ConvertFrom-Json).Count 0
+    Assert-Equal (Get-Content -Raw $path) '[]'
+    # Reopen an empty queue on the next minute / 验证下一轮能读取已排空队列。
+    Invoke-FrequencyPass $config $path $row
+    Assert-Equal (Get-Content -Raw $path) '[]'
     Assert-Throws { Save-FrequencyQueue $path (@($row)*1441) }
     Assert-Throws { Save-FrequencyQueue $path @(@{value=('x'*1048577)}) }
     function Send-PortalJson { @{accepted=@();duplicates=@()} }

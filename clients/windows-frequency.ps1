@@ -87,7 +87,10 @@ function Invoke-FrequencyPass {
         $rows = @()
         if (Test-Path $Path) {
             if ((Get-Item $Path).Length -gt 1048576) { throw 'client_queue_full' }
-            $rows = @(Get-Content -Raw $Path | ConvertFrom-Json)
+            # PS 5.1 emits a JSON array as one pipeline object; unwrap after assignment.
+            # 先赋值再展开，避免 [] 被误当作一个待发送对象。
+            $decoded = Get-Content -Raw $Path | ConvertFrom-Json
+            if ($null -ne $decoded) { $rows = @($decoded) }
         }
         $cutoff = [DateTime]::UtcNow.AddHours(-24)
         $retained = @($rows | Where-Object { [DateTimeOffset]::Parse($_.sampled_utc).UtcDateTime -ge $cutoff })

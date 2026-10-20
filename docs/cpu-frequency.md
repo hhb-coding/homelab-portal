@@ -159,7 +159,9 @@ executed on production.** 以下仅为后续运维步骤，本阶段未执行。
    independent hardware-aware tool. No production stress testing is implied.
 
 Rollback: stop only newly approved frequency tasks, disable frequency flags, keep
-the v1/v2-compatible writer and preserve v2 data so Beszel can continue. Never run
+the reviewed v1/v2-compatible runner (including frequency retention) and preserve
+v2 data so Beszel can continue. The first writer-only compatibility commit is a
+schema compatibility checkpoint, not a complete operational rollback release. Never run
 the old v1-only executable on v2. Explicit --to 1 requires another backup and
 refuses any nonempty frequency table; no collected history is dropped. Physical
 restore needs separate approval, quiesced writers and integrity/record/checkpoint
