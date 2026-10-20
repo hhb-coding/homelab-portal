@@ -70,7 +70,9 @@ function Save-FrequencyQueue {
     $bytes = [Text.Encoding]::UTF8.GetBytes($json)
     $stream = [IO.File]::Open($temporary, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None)
     try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, $null) } else { [IO.File]::Move($temporary, $Path) }
+    # PS 5.1 casts $null to an empty string for this .NET string parameter.
+    # PS 5.1 必须显式传递 null 字符串，否则备份路径会变成无效空字符串。
+    if ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, [NullString]::Value) } else { [IO.File]::Move($temporary, $Path) }
 }
 
 function Invoke-FrequencyPass {
