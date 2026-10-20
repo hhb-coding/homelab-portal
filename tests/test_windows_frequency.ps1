@@ -29,6 +29,15 @@ Assert-Equal $missing.cpu_frequency_ghz $null
 Assert-Equal $missing.quality 'unavailable'
 $duplicate=Convert-FrequencyCounters @($counters[0],$counters[0]) 2600 2
 Assert-Equal $duplicate.valid_cpu_count 1
+$invalid=@(
+    [pscustomobject]@{InstanceName='0,0';CookedValue=[double]::NaN;Status=0},
+    [pscustomobject]@{InstanceName='0,1';CookedValue=[double]::PositiveInfinity;Status=0},
+    [pscustomobject]@{InstanceName='0,2';CookedValue=-1;Status=0},
+    [pscustomobject]@{InstanceName='0,3';CookedValue=0;Status=0}
+)
+$invalidRow=Convert-FrequencyCounters $invalid 2600 4
+Assert-Equal $invalidRow.valid_cpu_count 0
+Assert-Equal $invalidRow.cpu_frequency_ghz $null
 Assert-Throws { Convert-FrequencyCounters $counters 2600 1 }
 # Stub localized lookup and acquisition; verify second counter set is used.
 # 替代计数器和本地化读取，验证使用第二组动态样本。
@@ -49,6 +58,11 @@ try {
     Assert-Equal (Get-Content -Raw $path) '[]'
     # Reopen an empty queue on the next minute / 验证下一轮能读取已排空队列。
     Invoke-FrequencyPass $config $path $row
+    Assert-Equal (Get-Content -Raw $path) '[]'
+    $old=$row.Clone()
+    $old.sampled_utc=[DateTime]::UtcNow.AddHours(-25).ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    Save-FrequencyQueue $path @($old)
+    Assert-Throws { Invoke-FrequencyPass $config $path $partial }
     Assert-Equal (Get-Content -Raw $path) '[]'
     Assert-Throws { Save-FrequencyQueue $path (@($row)*1441) }
     Assert-Throws { Save-FrequencyQueue $path @(@{value=('x'*1048577)}) }
