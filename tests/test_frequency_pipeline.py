@@ -201,9 +201,8 @@ class FrequencyPipelineTests(unittest.TestCase):
         with writer(self.archive,self.guard) as c: migrate(c,2,lambda:None)
         with patch.dict('os.environ', {'METRICS_ARCHIVE_PATH':str(self.archive),'FREQUENCY_ARCHIVE_ENABLED':'true'}), \
              patch.object(runner,'require_hdd',side_effect=lambda p,*a:Path(p)), \
-             patch.multiple(config,DATABASE_PATH=self.registry,BESZEL_TOKEN='',BESZEL_EMAIL='',BESZEL_PASSWORD=''), \
-             patch.object(runner,'drain',side_effect=lambda c,p,g:drain(c,p,g,NOW)):
-            self.assertEqual(runner.main(),1)
+             patch.multiple(config,DATABASE_PATH=self.registry,BESZEL_TOKEN='',BESZEL_EMAIL='',BESZEL_PASSWORD=''):
+            self.assertEqual(runner.main(now=NOW),1)
         with writer(self.archive,self.guard) as c:
             self.assertEqual(c.execute('SELECT count(*) FROM cpu_frequency_samples').fetchone()[0],1)
 
@@ -317,3 +316,16 @@ class FrequencyPipelineTests(unittest.TestCase):
             heartbeat.send_heartbeat()
             self.assertEqual(transport.call_args.args[:2],('https://example.invalid/api/heartbeat','synthetic-test'))
             self.assertNotIn('samples',transport.call_args.args[2])
+
+    def test_beszel_collection_still_works_on_v2(self):
+        from test_metrics_archive import FakeClient, sample
+        records=[sample(i) for i in range(1,4)]
+        self.receive()
+        with writer(self.archive,self.guard) as c:
+            migrate(c,2,lambda:None)
+            self.assertEqual(collect(c,FakeClient(records),now=NOW)['inserted'],3)
+            before=c.execute('SELECT * FROM samples ORDER BY record_id').fetchall()
+            drain(c,self.registry,lambda:None,NOW)
+            self.assertEqual(collect(c,FakeClient(records),now=NOW)['inserted'],0)
+            self.assertEqual(c.execute('SELECT * FROM samples ORDER BY record_id').fetchall(),before)
+            self.assertEqual(c.execute('PRAGMA integrity_check').fetchone()[0],'ok')

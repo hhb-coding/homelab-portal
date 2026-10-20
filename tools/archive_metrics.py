@@ -12,11 +12,12 @@ from metrics_archive import collect, require_hdd, writer
 from frequency import drain, stamp, queue_status
 
 
-def main():
+def main(now=None):
     # Reuse this checkout's existing config only. Never auto-load production.
     # 仅使用当前安装目录配置，不自动读取其他生产目录。
     client = None
     try:
+        now = now or datetime.now(timezone.utc)
         import config
         database = Path(os.getenv("METRICS_ARCHIVE_PATH", "/srv/data/homelab-portal-archive/metrics.sqlite3"))
         mount = Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data"))
@@ -30,7 +31,7 @@ def main():
             if os.getenv("FREQUENCY_ARCHIVE_ENABLED", "false").lower() == "true":
                 try:
                     for _ in range(120):
-                        count = drain(conn, config.DATABASE_PATH, lambda: guard(database))
+                        count = drain(conn, config.DATABASE_PATH, lambda: guard(database), now=now)
                         report["frequency_archived"] += count
                         if count < 120:
                             break
@@ -46,7 +47,7 @@ def main():
                     client.authenticate_with_password(config.BESZEL_EMAIL, config.BESZEL_PASSWORD)
                 else:
                     raise ValueError("Credentials unavailable")
-                report.update(collect(conn, client, check_mount=lambda: guard(database)))
+                report.update(collect(conn, client, now=now, check_mount=lambda: guard(database)))
             except Exception as exc:
                 report["failed"] = 1
                 print("Beszel archive failed: " + type(exc).__name__, file=sys.stderr)
@@ -55,7 +56,7 @@ def main():
                 guard(database)
                 with conn:
                     report["frequency_pruned"] = conn.execute("DELETE FROM cpu_frequency_samples WHERE sampled_utc < ?",
-                        (stamp(datetime.now(timezone.utc)-timedelta(days=180)),)).rowcount
+                        (stamp(now-timedelta(days=180)),)).rowcount
         print(json.dumps(report, sort_keys=True))
         return 1 if report["failed"] or report["frequency_failed"] else 0
     except Exception as exc:
