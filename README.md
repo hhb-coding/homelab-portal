@@ -1,5 +1,11 @@
 # HomeLab Portal
 
+Step 7.03 adds isolated one-minute CPU frequency clients, a bounded authenticated
+inbox and explicit v2 history migration. Existing five-minute Heartbeat is unchanged.
+**Implementation under review, not deployed.** See [design, API, deployment and
+rollback](docs/cpu-frequency.md). / 新增一分钟频率采集及统一历史扩展；未部署，
+生产迁移与任务安装需单独批准，现有五分钟心跳保持不变。
+
 Step 7.01: Device Detail displays **Temp/Freq**, for example `39.0 °C / 1.40 GHz`.
 Temperature still comes from Beszel with its existing precision. Set `LOCAL_DEVICE_ID`
 in your private `.env` to the exact registered `device_id` of the Linux host running

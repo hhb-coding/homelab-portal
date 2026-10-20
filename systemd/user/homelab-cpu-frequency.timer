@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample current CPU frequency approximately every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=5s
+Persistent=false
+Unit=homelab-cpu-frequency.service
+
+[Install]
+WantedBy=timers.target

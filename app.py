@@ -24,6 +24,62 @@ from db import (
 app = Flask(__name__)
 
 
+@app.route("/api/telemetry/cpu-frequency", methods=["POST"])
+def cpu_frequency_receive():
+    """Authenticated inbox, independent of Heartbeat / 独立认证接收，不更新心跳。"""
+    from frequency import TelemetryError, receive
+    import sqlite3
+    if not config.HEARTBEAT_TOKEN:
+        return jsonify(error="heartbeat_not_configured"), 503
+    token = request.headers.get("X-Heartbeat-Token", "")
+    if not token or not compare_digest(token.encode("utf-8"), config.HEARTBEAT_TOKEN.encode("utf-8")):
+        return jsonify(error="unauthorized"), 401
+    if request.content_length is None or request.content_length > 128 * 1024:
+        return jsonify(error="body_too_large"), 413
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) != {"device_id", "samples"}:
+        return jsonify(error="invalid_payload"), 400
+    try:
+        return jsonify(receive(config.DATABASE_PATH, payload["device_id"], payload["samples"]))
+    except TelemetryError as exc:
+        return jsonify(error=exc.code), exc.status
+    except sqlite3.Error:
+        return jsonify(error="queue_unavailable"), 503
+
+
+@app.route("/api/history/v2")
+def archive_history_api():
+    """Read-only, paged frequency contract for 7.06 / 分页只读频率历史。"""
+    from contextlib import closing
+    import os
+    from pathlib import Path
+    import sqlite3
+    from frequency import TelemetryError
+    from frequency_history import query
+    from metrics_archive import require_hdd
+    if not config.FREQUENCY_HISTORY_ENABLED:
+        return jsonify(error="archive_history_disabled"), 503
+    device_id = request.args.get("device_id", "")
+    if get_device(device_id) is None:
+        return jsonify(error="device_not_found"), 404
+    if request.args.get("metric", "cpu_frequency_ghz") != "cpu_frequency_ghz":
+        return jsonify(error="unsupported_metric"), 400
+    try:
+        database = Path(os.getenv("METRICS_ARCHIVE_PATH", "/srv/data/homelab-portal-archive/metrics.sqlite3"))
+        require_hdd(database, Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.getenv("METRICS_ARCHIVE_UUID", ""))
+        with closing(sqlite3.connect(database.resolve().as_uri()+"?mode=ro", uri=True, timeout=2)) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            result = query(conn, device_id, request.args.get("start"), request.args.get("end"),
+                           request.args.get("cursor"), int(request.args.get("limit", "2000")))
+        return jsonify(result)
+    except TelemetryError as exc:
+        return jsonify(error=exc.code), exc.status
+    except (ValueError, TypeError):
+        return jsonify(error="invalid_query"), 400
+    except Exception:
+        return jsonify(error="archive_unavailable"), 503
+
+
 # Initialize SQLite when the application starts.
 # 应用启动时自动初始化 SQLite 数据库。
 init_db()
