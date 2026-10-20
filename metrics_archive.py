@@ -135,9 +135,16 @@ def writer(database, guard=require_hdd):
             tables = {row[0] for row in conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             )}
-            if (version not in (0, 1) or (version == 0 and tables)
-                    or (version == 1 and tables != {"samples", "checkpoints"})):
+            expected = {"samples", "checkpoints"}
+            if version == 2:
+                expected.add("cpu_frequency_samples")
+            if (version not in (0, 1, 2) or (version == 0 and tables)
+                    or (version in (1, 2) and tables != expected)):
                 raise ArchiveError("Destination is not a supported archive database")
+            if version == 2:
+                columns = [row[1] for row in conn.execute("PRAGMA table_info(cpu_frequency_samples)")]
+                if columns != ["device_id", "sample_id", "sampled_utc", "payload", "received_utc", "archived_utc"]:
+                    raise ArchiveError("Unsupported frequency history columns")
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=FULL")
             conn.execute("PRAGMA busy_timeout=10000")
@@ -159,8 +166,9 @@ def writer(database, guard=require_hdd):
                     system_id TEXT PRIMARY KEY,
                     created_utc TEXT NOT NULL
                 );
-                PRAGMA user_version=1;
             """)
+            if version == 0:
+                conn.execute("PRAGMA user_version=1")
             yield conn
         finally:
             conn.close()
