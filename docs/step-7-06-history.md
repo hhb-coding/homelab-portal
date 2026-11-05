@@ -1,7 +1,7 @@
 # Step 7.06 simplified Phase 1 / 简化版历史面板
 
-Step 7.06 is deployed; Step 7.06.1 readability changes are for review, **not deployed**.
-7.06 已部署；7.06.1 可读性增量供审阅，**未部署**。
+Step 7.06.1 is deployed at `d6f2eb56df5027c9364feb422ffb705a204b677c` (user-confirmed baseline).
+7.06.1 已部署（用户确认基线）；7.06.2 开发供审核，未批准合并或部署。
 
 ## Current frequency / 当前主频
 
@@ -108,3 +108,7 @@ unchanged. No database, migration, client, timer or production change is involve
 三排布局保留，第三排右侧共用1h/6h/24h选择器。三图统一UTC起点/中点/终点刻度；
 Usage从0起按原始峰值自适应，另两图动态留白。取消逐点圆圈，缺口断线，孤立/部分桶
 以竖向短线标记；均值/峰值仍来自原始有效观测。History继续支持原有范围及设备选择。
+
+## Step 7.06.2 Local time and freshness
+
+Shared charts use browser Local time with per-instant UTC offsets (ES5 Date, including DST). Custom inputs and API requests remain UTC. Each metric shows the maximum valid last_sample within the queried range, or —, never a bucket/window end or sync execution time. Refresh and cache cadence remain unchanged.

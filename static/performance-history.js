@@ -10,17 +10,29 @@ var PerformanceHistory = (function () {
   }
   function numeric(v) { return typeof v === "number" && isFinite(v); }
   function text(v, unit) { return numeric(v) ? v.toFixed(unit === "GHz" ? 2 : 1) + " " + unit : "—"; }
+  function pad(v) { return v < 10 ? '0' + v : String(v); }
   function dateText(value) {
-    var t = OfflineSeen.parse(value);
-    return t === null ? "—" : new Date(t).toISOString().slice(0, 16).replace("T", " ");
+    var t = OfflineSeen.parse(value), d, offset, sign;
+    if (t === null) { return '—'; }
+    d = new Date(t); offset = -d.getTimezoneOffset(); sign = offset < 0 ? '-' : '+';
+    offset = Math.abs(offset);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+      + ' Local (UTC' + sign + pad(Math.floor(offset / 60)) + ':' + pad(offset % 60) + ')';
+  }
+  function latestSample(series) {
+    var latest = null, i, p, stamp;
+    for (i = 0; i < series.points.length; i += 1) {
+      p = series.points[i]; stamp = OfflineSeen.parse(p.last_sample);
+      if (numeric(p.value) && p.count > 0 && stamp !== null && (latest === null || stamp > latest)) { latest = stamp; }
+    }
+    return latest === null ? '—' : dateText(new Date(latest).toISOString());
   }
   function timeAxis(start, end) {
-    var html = '<div class="performance-time-axis" aria-label="UTC time">', i, value, label;
-    var dates = end - start > 6 * 3600000 || new Date(start).getUTCDate() !== new Date(end).getUTCDate();
+    var html = '<div class="performance-time-axis" aria-label="Local time">', i, value;
     for (i = 0; i < 3; i += 1) {
-      value = new Date(start + (end - start) * i / 2).toISOString();
-      label = dates ? value.slice(5, 10) + ' ' + value.slice(11, 16) : value.slice(11, 16);
-      html += '<span title="' + esc(dateText(value) + ' UTC') + '">' + esc(label) + '</span>';
+      value = dateText(new Date(start + (end - start) * i / 2).toISOString());
+      html += '<span title="' + esc(value) + '">' + esc(value) + '</span>';
     }
     return html + '</div>';
   }
@@ -79,10 +91,12 @@ var PerformanceHistory = (function () {
       html += '<div class="chart-box"><div class="chart-title">' + esc(s.label + " " + s.unit) + '</div>'
         + chart(s, start, end) + '<div class="history-stats">Avg / 平均 ' + esc(text(stats.average, s.unit))
         + '<br>Peak / 峰值 ' + esc(text(stats.peak, s.unit)) + '<br>Valid / 有效 ' + esc(stats.count)
+        + '<br>Latest archived sample source time / 最新归档样本来源时间: ' + esc(latestSample(s))
         + (s.sensor ? '<br>Sensor: ' + esc(s.sensor) : '') + '</div></div>';
     }
     return html + '</div><p class="history-note">' + esc(dateText(data.start) + " – " + dateText(data.end))
-      + ' UTC · ' + esc(data.bucket_seconds) + 's buckets / 桶均值；峰值取原始有效样本。缺失留空，孤立或部分缺失桶以短线标记。</p>'
+      + ' · ' + esc(data.bucket_seconds) + 's buckets / 桶均值；峰值取原始有效样本。缺失留空，孤立或部分缺失桶以短线标记。</p>'
+      + '<p class="history-note">Page re-queries about every 60s; archive sync usually every 5 minutes; row 1 live curves update every 5s. / 页面约60秒重新查询，归档通常每5分钟增量同步，第一排5秒实时曲线变化更快。Sample source time is not archive sync execution time / 样本来源时间并非归档同步执行时间。</p>'
       + '<p class="history-note">' + esc(data.mapping_note) + '</p>';
   }
   function placeholders(message) {

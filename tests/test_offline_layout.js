@@ -143,7 +143,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    assert(await evalJS('document.querySelectorAll("#history-result svg").length===3'));
    await evalJS('document.getElementById("history-range").value="custom";document.getElementById("history-range").onchange();document.getElementById("history-start").value="2026-01-01 00:00";document.getElementById("history-end").value="2026-01-02 00:00";document.getElementById("history-form").onsubmit()');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
-   assert(await evalJS('document.getElementById("history-result").textContent.indexOf("2026-01-01 00:00")>=0'));
+   assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Local (UTC")>=0'));
    console.log('Performance history: three columns, narrow wrapping, preserved trends, device/range/custom controls PASS');
   }
 

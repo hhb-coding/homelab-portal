@@ -1,6 +1,7 @@
 /* Key page regressions with a synthetic DOM / 合成 DOM 关键页面回归。 */
 (function () {
   'use strict';
+  process.env.TZ = 'America/Montreal';
   var fs = require('fs'), vm = require('vm'), assert = require('assert');
   var nodes = {}, requests = [], timers = [], clock = Date.UTC(2026, 0, 2), mono = 0;
   function node(id) {
@@ -45,13 +46,32 @@
   var html = c.PerformanceHistory.charts(payload('example-x230'));
   assert.strictEqual((html.match(/class="chart-box"/g) || []).length, 3);
   assert(html.indexOf('CPU Frequency') < html.indexOf('CPU Usage') && html.indexOf('CPU Usage') < html.indexOf('CPU Temperature'));
-  assert(html.indexOf(' L') < 0, 'Null and partial buckets cannot be bridged');
+  assert(html.search(/ L[0-9]/) < 0, 'Null and partial buckets cannot be bridged');
   assert(html.indexOf('Avg / 平均') >= 0 && html.indexOf('Peak / 峰值') >= 0);
   assert(html.indexOf('<circle') < 0, 'No per-point circles');
   assert.strictEqual((html.match(/class="performance-time-axis"/g) || []).length, 3, 'One time axis per chart');
   var axes = html.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
   assert.strictEqual(axes[0], axes[1]); assert.strictEqual(axes[1], axes[2]);
-  assert(axes[0].indexOf('01-01 00:00') >= 0 && axes[0].indexOf('01-01 12:00') >= 0 && axes[0].indexOf('01-02 00:00') >= 0);
+  assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
+  var seasonal = payload('seasonal');
+  seasonal.start = '2026-03-08T06:00:00Z'; seasonal.end = '2026-03-08T08:00:00Z';
+  html = c.PerformanceHistory.charts(seasonal);
+  assert(html.indexOf('01:00:00 Local (UTC-05:00)') >= 0);
+  assert(html.indexOf('03:00:00 Local (UTC-04:00)') >= 0);
+  seasonal.start = '2026-11-01T05:00:00Z'; seasonal.end = '2026-11-01T07:00:00Z';
+  html = c.PerformanceHistory.charts(seasonal);
+  assert(html.indexOf('01:00:00 Local (UTC-04:00)') >= 0);
+  assert(html.indexOf('01:00:00 Local (UTC-05:00)') >= 0);
+  seasonal.series.forEach(function (s, i) {
+    s.points[0].last_sample = '2026-07-01T00:0' + i + ':00Z';
+    s.points[1].last_sample = '2026-07-02T00:00:00Z';
+  });
+  html = c.PerformanceHistory.charts(seasonal);
+  [0, 1, 2].forEach(function (i) { assert(html.indexOf('2026-06-30 20:0' + i + ':00 Local (UTC-04:00)') >= 0); });
+  assert(html.indexOf('2026-07-01 20:00:00') < 0, 'Null values cannot supply freshness');
+  html = c.PerformanceHistory.charts(payload('missing'));
+  assert.strictEqual((html.match(/最新归档样本来源时间: —/g) || []).length, 3);
+  assert(html.indexOf('60s') >= 0 && html.indexOf('5 minutes') >= 0);
   var low = payload('low'); low.series[1].stats.peak = 4.2;
   assert(c.PerformanceHistory.charts(low).indexOf('5.0 %') >= 0, 'Usage scales to raw peak with headroom');
   low.series[1].stats.peak = 42;
@@ -66,7 +86,7 @@
   var continuous = payload('continuous');
   continuous.series.forEach(function (s) { s.points[1].value = 1; });
   html = c.PerformanceHistory.charts(continuous);
-  assert(html.indexOf(' L') >= 0 && html.indexOf('<circle') < 0, 'Continuous observations retain lines');
+  assert(html.search(/ L[0-9]/) >= 0 && html.indexOf('<circle') < 0, 'Continuous observations retain lines');
   assert(html.indexOf('chart-isolated') >= 0, 'Partial bucket remains a separate short mark');
 
   assert.strictEqual(c.PerformanceHistory.parseInput('2026-02-30 00:00'), null);
@@ -94,6 +114,7 @@
   assert(node('history-result').innerHTML.indexOf('UTC时间范围无效') >= 0);
   node('history-start').value = '2026-01-01 00:00'; node('history-end').value = '2026-01-02 00:00';
   node('history-form').onsubmit();
+  assert(decodeURIComponent(requests[requests.length - 1].url).indexOf('start=2026-01-01T00:00:00.000Z') >= 0, 'Custom input remains UTC');
   var custom = requests[requests.length - 1]; custom.status = 503; custom.readyState = 4; custom.onreadystatechange();
   assert(node('history-result').innerHTML.indexOf('未启用') >= 0);
   c.renderDevicePanels([device]);

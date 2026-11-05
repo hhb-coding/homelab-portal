@@ -371,7 +371,7 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .performance-range { float:right; font-weight:normal; font-size:12px; }
 .performance-range select { font:inherit; padding:3px; }
 .performance-time-axis { overflow:hidden; font-size:10px; color:#666; margin-top:3px; }
-.performance-time-axis span { display:inline-block; width:33.33%; box-sizing:border-box; text-align:center; }
+.performance-time-axis span { display:inline-block; width:33.33%; box-sizing:border-box; text-align:center; padding:0 2px; overflow-wrap:break-word; word-wrap:break-word; }
 .performance-time-axis span:first-child { text-align:left; }
 .performance-time-axis span:last-child { text-align:right; }
 .chart-isolated { fill:none; stroke:#444; stroke-width:2; }
