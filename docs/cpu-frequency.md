@@ -1,10 +1,12 @@
 # Step 7.03 CPU Frequency / 跨平台 CPU 主频
 
-Phase 1 implementation for review: **not deployed or hardware-accepted**.
+**Current deployment snapshot (operator-confirmed, 2026-11-05):** HP Linux and ThinkPad X230 Windows one-minute CPU frequency collection and history are deployed and producing valid samples. **Dell is not accepted/deployed for CPU frequency collection** and is pending operating-system reinstallation/follow-up. The original Phase 1 tests and architecture below remain historical design records; synthetic tests alone did not establish production status. This internal Step number is not a GitHub Release.
+
 Sources: [Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11),
 [ROADMAP](ROADMAP.md), [archive](historical-metrics-archive.md),
-[CONTRIBUTING](../CONTRIBUTING.md). All development tests use synthetic data.
-本实现供审阅，未部署、未完成三台实机验收，不代表正式发布版本。
+[CONTRIBUTING](../CONTRIBUTING.md).
+
+**中文：**用户于 2026-11-05 确认 HP 和 X230 的主频采集与历史数据可用。Dell 尚待系统重装及采集部署，不能宣称三台机器全部完成。下文 Phase 1 为当时的技术设计与隔离测试记录。
 
 ## Architecture / 架构
 

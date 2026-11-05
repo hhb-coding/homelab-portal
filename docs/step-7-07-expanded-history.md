@@ -1,7 +1,8 @@
 # Step 7.07 — History Dashboard Enhancement
 
-Development only, based on main `b630a52a48e9523baf2c0e298dfdca365d169483`.
-Merge, deployment and service restart require separate review/authorization.
+**Current status (2026-11-05): COMPLETED / 已完成。** [PR #21](https://github.com/hhb-coding/homelab-portal/pull/21) (7.07) and [PR #22](https://github.com/hhb-coding/homelab-portal/pull/22) (7.07.1) were squash-merged. The operator confirmed deployment and visual acceptance on HP. GitHub `main` at closeout: `5808ffadeee4f34c8e0092ca5768b8037e8617e3`; the same commit is the operator-reported HP production baseline. Check the host again before future operations. This internal Step is not a GitHub Release.
+
+**历史开发基线：**7.07 基于 `b630a52a48e9523baf2c0e298dfdca365d169483`，7.07.1 基于 `432b00f893e5652ede6eea3a57bfa74afda284c3`；早期“待合并/待部署”描述仅指当时阶段。
 
 History requests `/api/history/v2/performance` with `extended=1`. The default
 response still has exactly CPU frequency (GHz), CPU usage (%) and CPU temperature
@@ -20,7 +21,7 @@ each direction retains separate raw statistics and latest `last_sample` time.
 B/s uses decimal kB/s, MB/s or GB/s in numeric labels as needed (1000-based).
 Device retains its existing three-chart layout, 1h/6h/24h controls and refresh.
 Local pickers, UTC conversion, DST gaps/occurrences, 24h/7d/30d/Custom, ES5/XHR/SVG
-and the old Safari text fallback are retained. Full cache version: `707-expanded-history`.
+and the old Safari text fallback are retained. The 7.07 cache version was `707-expanded-history`; current 7.07.1 assets use `7071-device-y-axis`.
 
 ## Archive field contract
 
@@ -57,11 +58,10 @@ other visible with its own freshness/statistics.
 - Chrome fixture tests cover History single-column/shared axes/left ticks and
   network curves at 320/375/768/1024px without overflow; retain Device layout,
   Full/Lite and DST/Custom controls checks. Fixtures use local synthetic data.
-- Review actual visual appearance, native picker interaction and old iOS9 Safari
-  text/touch fallback manually. Production extended API acceptance remains for a
-  separately authorized deployment. Full ROADMAP cleanup remains deferred.
+- The operator visually accepted History's six rows and Device's three left-axis charts after deployment. The production default/extended APIs returned 3/7 series for HP and X230, with real archived metrics and null gaps. One-time read-only performance checks: HP 7d about 1.06 s, X230 30d about 2.51 s (not a future performance guarantee). Native calendar-picker interaction and iOS 9 Safari text/touch fallback remain additional hardware checks; automated Chrome tests do not substitute for those.
+- GitHub merge and HP deployment were separately authorized and completed. Archive schema, collectors, timers and environment were not modified; this is a historical, operator-reported acceptance record.
 
-## Step 7.07.1 — Device Y-axis refinement (development only)
+## Step 7.07.1 — Device Y-axis refinement (deployed / 已部署)
 
 Based on main `432b00f893e5652ede6eea3a57bfa74afda284c3`. Device's three CPU
 plots now place max/mid/min ticks on the left, with pale references at SVG
@@ -73,5 +73,4 @@ axes, statistics and refresh remain. History markup/styles and API logic are
 unchanged. Full's four related asset URLs use `7071-device-y-axis`.
 Node and isolated Chrome cover values, pixel alignment, old top-tick removal,
 three references, 320/375/768/1024px, History six rows, API modes, Full/Lite and
-Local/DST. Actual appearance and iOS9 Safari touch/text fallback remain manual
-checks. No backend, archive or service changes; merge/deployment await approval.
+Local/DST. User accepted the Device/History visual result on 2026-11-05; native picker and iOS9 Safari touch/text fallback remain manual checks. No backend, archive schema or collector changes; [PR #22](https://github.com/hhb-coding/homelab-portal/pull/22) merged and HP application deployed with an authorized Portal-only restart.
