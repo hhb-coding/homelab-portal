@@ -190,8 +190,50 @@ var PerformanceHistory = (function () {
     for (i = 0; i < list.length; i += 1) { if (list[i].device_id === previous) { el('history-device').value = previous; } }
     if (pageOpened) { queryPage(); }
   }
-  function parseInput(value) {
-    return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value) ? OfflineSeen.parse(value.replace(' ', 'T') + ':00Z') : null;
+  function localCandidates(value) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})$/.exec(value), result = [], base, t, d;
+    if (!m || Number(m[1]) < 1000) { return result; }
+    base = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+    // Enumerate possible UTC instants; local getters reject normalized dates and DST gaps.
+    for (t = base - 24 * 3600000; t <= base + 24 * 3600000; t += 60000) {
+      d = new Date(t);
+      if (d.getFullYear() === Number(m[1]) && d.getMonth() + 1 === Number(m[2]) && d.getDate() === Number(m[3])
+          && d.getHours() === Number(m[4]) && d.getMinutes() === Number(m[5])) { result.push(t); }
+    }
+    return result;
+  }
+  function parseInput(value, choice) {
+    var candidates = localCandidates(value), i;
+    if (candidates.length === 1) { return candidates[0]; }
+    for (i = 0; i < candidates.length; i += 1) { if (String(candidates[i]) === choice) { return candidates[i]; } }
+    return null;
+  }
+  function updateInput(id) {
+    var candidates = localCandidates(el(id).value), select = el(id + '-choice'), previous = select.value, html = '', i;
+    el(id + '-choice-label').className = candidates.length > 1 ? '' : 'hidden';
+    if (candidates.length > 1) {
+      html = '<option value="">Choose occurrence / 选择重复时刻</option>';
+      for (i = 0; i < candidates.length; i += 1) {
+        html += '<option value="' + candidates[i] + '">' + (i === 0 ? 'First / 第一次 ' : 'Second / 第二次 ')
+          + esc(dateText(new Date(candidates[i]).toISOString())) + '</option>';
+      }
+    }
+    select.innerHTML = html; select.value = previous;
+    el(id + '-offset').innerHTML = candidates.length === 1 ? esc(dateText(new Date(candidates[0]).toISOString()))
+      : candidates.length ? 'Ambiguous Local time / 当地时间重复，请选择' : 'Invalid or nonexistent Local time / 无效或不存在的当地时间';
+  }
+  function setupInput(id, stamp) {
+    var input = el(id), d = new Date(stamp);
+    // Unsupported datetime-local implementations fall back to a plain text field.
+    if (input.type !== 'datetime-local') { input.type = 'text'; }
+    input.value = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + (input.type === 'datetime-local' ? 'T' : ' ') + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    input.oninput = input.onchange = function () { el(id + '-choice').value = ''; updateInput(id); };
+    el(id + '-choice').onchange = function () {
+      var value = parseInput(input.value, this.value);
+      el(id + '-offset').innerHTML = value === null ? 'Choose occurrence / 请选择' : esc(dateText(new Date(value).toISOString()));
+    };
+    updateInput(id);
   }
   function queryPage() {
     var range, start, end, device = el('history-device').value;
@@ -200,20 +242,24 @@ var PerformanceHistory = (function () {
     pageState.xhr = null;
     if (!device) { el('history-result').innerHTML = 'No supported devices / 无支持的设备'; return; }
     if (el('history-range').value === 'custom') {
-      start = parseInput(el('history-start').value); end = parseInput(el('history-end').value);
+      updateInput('history-start'); updateInput('history-end');
+      start = parseInput(el('history-start').value, el('history-start-choice').value);
+      end = parseInput(el('history-end').value, el('history-end-choice').value);
       if (start === null || end === null || end <= start || end-start > 180*86400000) {
-        el('history-result').innerHTML = 'Invalid UTC range / UTC时间范围无效（最长180天）'; return;
+        el('history-result').innerHTML = 'Invalid, nonexistent or ambiguous Local range / 当地时间无效、不存在或重复未选择（最长180天）'; return;
       }
       range = [new Date(start).toISOString(), new Date(end).toISOString()];
     } else { range = preset(Number(el('history-range').value)); }
     request(pageState, 'history-result', device, range[0], range[1]);
   }
   function open() { if (!pageOpened) { pageOpened = true; queryPage(); } }
+  setupInput('history-start', new Date().getTime() - 86400000);
+  setupInput('history-end', new Date().getTime());
   el('history-form').onsubmit = function (event) { if (event && event.preventDefault) { event.preventDefault(); } queryPage(); return false; };
   el('history-device').onchange = queryPage;
   el('history-range').onchange = function () {
     el('history-custom').className = this.value === 'custom' ? '' : 'hidden';
     if (this.value !== 'custom') { queryPage(); }
   };
-  return {controls: controls, changeRange: changeRange, devices: devices, detail: detail, open: open, charts: charts, parseInput: parseInput};
+  return {controls: controls, changeRange: changeRange, devices: devices, detail: detail, open: open, charts: charts, parseInput: parseInput, localCandidates: localCandidates};
 }());

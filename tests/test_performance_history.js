@@ -55,7 +55,7 @@
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
   var template = fs.readFileSync('templates/index.html', 'utf8');
   ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
-    assert(template.indexOf("filename='" + asset + "') }}?v=7062-local-time-freshness") >= 0);
+    assert(template.indexOf("filename='" + asset + "') }}?v=7063-custom-local-time") >= 0);
   });
   function axisLabels(data) {
     var output = c.PerformanceHistory.charts(data), all = output.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
@@ -103,7 +103,23 @@
   assert(html.indexOf('chart-isolated') >= 0, 'Partial bucket remains a separate short mark');
 
   assert.strictEqual(c.PerformanceHistory.parseInput('2026-02-30 00:00'), null);
-  assert.strictEqual(c.PerformanceHistory.parseInput('2026-01-01T00:00'), null);
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-01-01T00:00'), Date.parse('2026-01-01T05:00:00Z'));
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-07-01 23:30'), Date.parse('2026-07-02T03:30:00Z'));
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-03-08T02:30'), null);
+  var repeated = c.PerformanceHistory.localCandidates('2026-11-01T01:30');
+  assert.strictEqual(repeated.length, 2);
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-11-01T01:30'), null);
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-11-01T01:30', String(repeated[0])), Date.parse('2026-11-01T05:30Z'));
+  assert.strictEqual(c.PerformanceHistory.parseInput('2026-11-01T01:30', String(repeated[1])), Date.parse('2026-11-01T06:30Z'));
+  ['2026-13-01 00:00', '2026-01-01 24:00', '2026-01-01 00:60', 'bad'].forEach(function (v) { assert.strictEqual(c.PerformanceHistory.parseInput(v), null); });
+  assert.strictEqual(node('history-start').type, 'text', 'Unsupported control uses text fallback');
+  node('history-start').value = '2026-03-08 01:30'; node('history-start').oninput();
+  node('history-end').value = '2026-03-08 03:30'; node('history-end').oninput();
+  assert(node('history-start-offset').innerHTML.indexOf('UTC-05:00') >= 0);
+  assert(node('history-end-offset').innerHTML.indexOf('UTC-04:00') >= 0);
+  var retained = node('history-start').value;
+  c.PerformanceHistory.devices([]);
+  assert.strictEqual(node('history-start').value, retained);
   node('history-device').value = 'example-x230'; node('history-range').value = '7';
   c.PerformanceHistory.devices([device, {device_id: 'example-dell'}]);
   assert(node('history-device').innerHTML.indexOf('&lt;X230&gt;') >= 0);
@@ -124,10 +140,12 @@
   node('history-start').value = 'bad'; node('history-end').value = 'bad';
   var count = requests.length; node('history-form').onsubmit({preventDefault: function () {}});
   assert.strictEqual(requests.length, count, 'Invalid custom range makes no request');
-  assert(node('history-result').innerHTML.indexOf('UTC时间范围无效') >= 0);
+  assert(node('history-result').innerHTML.indexOf('当地时间无效') >= 0);
+  node('history-start').value = '2025-01-01 00:00'; node('history-end').value = '2026-01-02 00:00';
+  count = requests.length; node('history-form').onsubmit(); assert.strictEqual(requests.length, count, 'Over 180 days rejected');
   node('history-start').value = '2026-01-01 00:00'; node('history-end').value = '2026-01-02 00:00';
   node('history-form').onsubmit();
-  assert(decodeURIComponent(requests[requests.length - 1].url).indexOf('start=2026-01-01T00:00:00.000Z') >= 0, 'Custom input remains UTC');
+  assert(decodeURIComponent(requests[requests.length - 1].url).indexOf('start=2026-01-01T05:00:00.000Z') >= 0, 'Local input serializes UTC');
   var custom = requests[requests.length - 1]; custom.status = 503; custom.readyState = 4; custom.onreadystatechange();
   assert(node('history-result').innerHTML.indexOf('未启用') >= 0);
   c.renderDevicePanels([device]);

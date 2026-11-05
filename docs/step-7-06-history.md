@@ -62,7 +62,7 @@ Full keeps Live trends and Historical trends, and adds a third Performance histo
 row (default 24h, shared 1h/6h/24h selector): Frequency GHz, Usage %, Temperature °C. All three use the same requested
 time axis, independent vertical scales, legacy floats, and narrow-screen wrapping.
 History is a sibling of Device/Network, with supported-device selection,
-24h/7d/30d presets and custom UTC text input `YYYY-MM-DD HH:mm` (≤180 days), plus
+24h/7d/30d presets and custom Local date/time input (converted to UTC at submission) (≤180 days), plus
 average/peak/count statistics. Requests ignore superseded responses. Detail data
 is cached for one minute; History refreshes on explicit range/device/query action.
 ES5, XHR and SVG are retained; no new frontend runtime dependency.
@@ -94,7 +94,7 @@ reading disabled. Deployment and any gate enablement require separate approval.
 Full retains all three chart rows. Only Performance history gains a shared range
 selector on the right; changing it fetches all three metrics once with one time
 window, retains the selection across refresh/device switches, and ignores late
-responses. History retains its existing presets and custom UTC range inputs.
+responses. History retains its existing presets and custom Local range inputs (since 7.06.3).
 
 The common SVG renderer removes per-point circles. CPU Usage starts at zero and
 sets its upper bound from the raw whole-range peak (10% headroom, rounded steps,
@@ -111,4 +111,10 @@ Usage从0起按原始峰值自适应，另两图动态留白。取消逐点圆�
 
 ## Step 7.06.2 Local time and freshness
 
-Shared charts use browser Local time with per-instant UTC offsets (ES5 Date, including DST). Custom inputs and API requests remain UTC. Each metric shows the maximum valid last_sample within the queried range, or —, never a bucket/window end or sync execution time. Refresh and cache cadence remain unchanged.
+Shared charts use browser Local time with per-instant UTC offsets (ES5 Date, including DST). In 7.06.2 custom inputs remained UTC; 7.06.3 changes inputs to Local, while API requests remain UTC. Each metric shows the maximum valid last_sample within the queried range, or —, never a bucket/window end or sync execution time. Refresh and cache cadence remain unchanged.
+
+## Step 7.06.3 (development; not deployed)
+
+Custom Start/End use browser Local time, native datetime-local where available and text fallback YYYY-MM-DD HH:mm otherwise. Defaults initialize once to the preceding day and remain editable across dashboard refreshes. Each input shows its own offset. Strict local getter validation rejects invalid dates and spring DST gaps. Autumn repeated times require explicit first/second selection with UTC offsets; no silent disambiguation. Only submission converts to UTC ISO; API/storage stay UTC. Maximum range is 180 elapsed days. Browser timezone is authoritative; no Intl or date library required.
+
+Manual acceptance: native picker opening on actual Chrome devices; iOS 9 text fallback and touch operation. Automated Chrome layout and synthetic ES5 tests do not replace physical Safari acceptance.
