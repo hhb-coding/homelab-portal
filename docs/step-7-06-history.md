@@ -118,3 +118,7 @@ Shared charts use browser Local time with per-instant UTC offsets (ES5 Date, inc
 Custom Start/End use browser Local time, native datetime-local where available and text fallback YYYY-MM-DD HH:mm otherwise. Defaults initialize once to the preceding day and remain editable across dashboard refreshes. Each input shows its own offset. Strict local getter validation rejects invalid dates and spring DST gaps. Autumn repeated times require explicit first/second selection with UTC offsets; no silent disambiguation. Only submission converts to UTC ISO; API/storage stay UTC. Maximum range is 180 elapsed days. Browser timezone is authoritative; no Intl or date library required.
 
 Manual acceptance: native picker opening on actual Chrome devices; iOS 9 text fallback and touch operation. Automated Chrome layout and synthetic ES5 tests do not replace physical Safari acceptance.
+
+## Step 7.06.3.1 (review only)
+
+An explicit `.history-controls label.hidden` rule overrides the label display rule so occurrence selectors stay hidden for ordinary times. Existing DST logic alone controls visibility. Full static resource version: `70631-hide-occurrence`. Chrome regression checks computed visibility for ordinary and repeated times and 320/375px overflow.

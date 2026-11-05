@@ -380,3 +380,8 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 #history-custom input { width:230px; }
 #history-custom input, #history-custom select { max-width:100%; box-sizing:border-box; }
 #history-start-offset, #history-end-offset { display:block; font-size:12px; overflow-wrap:break-word; }
+
+.history-controls label.hidden { display:none; }
+
+#history-start-choice-label, #history-end-choice-label { max-width:100%; }
+#history-start-choice, #history-end-choice { width:230px; }
