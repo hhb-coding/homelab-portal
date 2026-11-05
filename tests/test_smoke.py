@@ -49,7 +49,7 @@ class PortalSmokeTests(unittest.TestCase):
         self.assertEqual(full.status_code, 200)
         for marker in (b'href="/lite"', b'id="mini-devices"', b'id="devices"', b'dashboard.js'):
             self.assertIn(marker, full.data)
-        for marker in (b'id="device-panel"', b'id="network-panel" class="hidden"', b'id="network-summary"', b'id="network-devices"'):
+        for marker in (b'id="device-panel"', b'id="network-panel" class="hidden"', b'id="network-summary"', b'id="network-devices"', b'id="tab-history"', b'id="history-panel" class="hidden"', b'performance-history.js'):
             self.assertIn(marker, full.data)
         self.assertNotIn(b'disabled="disabled"', full.data)
         self.assertNotIn(b'Select a mini card above', full.data)
@@ -60,7 +60,7 @@ class PortalSmokeTests(unittest.TestCase):
             self.assertIn(marker, lite.data)
         for marker in (b'dashboard.js', b'/api/history', b'<svg'):
             self.assertNotIn(marker, lite.data)
-        for path in ("/static/lite.js", "/static/lite.css", "/static/dashboard.js", "/static/style.css", "/static/offline-seen.js"):
+        for path in ("/static/lite.js", "/static/lite.css", "/static/dashboard.js", "/static/style.css", "/static/offline-seen.js", "/static/performance-history.js"):
             response = self.client.get(path)
             self.assertEqual(response.status_code, 200)
             response.close()
@@ -80,7 +80,7 @@ class PortalSmokeTests(unittest.TestCase):
     def test_legacy_frontend_guards(self):
         """Guard known iOS 9 incompatibilities / 防止引入已知的 iOS 9 不兼容语法。"""
         root = Path(__file__).resolve().parents[1]
-        for name in ("dashboard.js", "lite.js", "offline-seen.js"):
+        for name in ("dashboard.js", "lite.js", "offline-seen.js", "performance-history.js"):
             source = (root / "static" / name).read_text()
             code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
             self.assertNotRegex(code, r"\b(?:const|let)\s+\w|=>|\?\.|\bfetch\s*\(")
@@ -223,6 +223,48 @@ class PortalSmokeTests(unittest.TestCase):
             self.assertTrue(response.json['points'])
             self.assertEqual(self.client.get('/api/history/v2',query_string=dict(args,metric='cpu_percent')).status_code,400)
             self.assertEqual(self.client.get('/api/history/v2',query_string=dict(args,limit='bad')).status_code,400)
+
+    def test_x230_frequency_survives_beszel_failure_and_retains_source_time(self):
+        from datetime import datetime, timezone
+        from frequency import stamp
+        self.heartbeat(device_id="example-x230")
+        sample = {"sample_id": "a"*32, "sampled_utc": stamp(datetime.now(timezone.utc)),
+                  "cpu_frequency_ghz": 1.19, "quality": "ok", "source": "windows_processor_performance",
+                  "logical_cpu_count": 4, "valid_cpu_count": 4, "window_ms": 1000, "error": None}
+        response = self.client.post("/api/telemetry/cpu-frequency", json={"device_id": "example-x230", "samples": [sample]},
+                                    headers={"X-Heartbeat-Token": "smoke-test-only"})
+        self.assertEqual(response.status_code, 200)
+        data = self.client.get("/api/dashboard").json["devices"][0]
+        self.assertFalse(data["metrics_available"])
+        self.assertTrue(data["performance_history_supported"])
+        self.assertEqual(data["cpu_frequency_ghz"], 1.19)
+        self.assertEqual(data["frequency_sampled_utc"], sample["sampled_utc"])
+        self.assertEqual(data["frequency_freshness"], "fresh")
+
+    def test_performance_api_isolated_archive_and_disabled_default(self):
+        import sqlite3
+        from performance_history import query as real_query
+        self.heartbeat(device_id="example-x230")
+        self.assertEqual(self.client.get("/api/history/v2/performance?device_id=example-x230").status_code, 503)
+        archive = Path(self.temp.name)/"performance.sqlite3"
+        with sqlite3.connect(archive) as conn:
+            conn.executescript("PRAGMA user_version=2; CREATE TABLE samples(system_id,record_id,created_utc,stats_json); CREATE TABLE cpu_frequency_samples(device_id,sample_id,sampled_utc,payload);")
+        args = "?device_id=example-x230&start=2026-01-01T00:00:00Z&end=2026-01-02T00:00:00Z"
+        with patch.object(self.config, "FREQUENCY_HISTORY_ENABLED", True), \
+             patch.dict("os.environ", {"METRICS_ARCHIVE_PATH": str(archive)}), \
+             patch("metrics_archive.require_hdd"):
+            def checked_query(conn, *args):
+                self.assertEqual(conn.execute("PRAGMA query_only").fetchone()[0], 1)
+                return real_query(conn, *args)
+            with patch("performance_history.query", side_effect=checked_query):
+                response = self.client.get("/api/history/v2/performance"+args)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json["series"]), 3)
+            self.assertLessEqual(len(response.json["series"][0]["points"]), 500)
+            self.assertEqual(self.client.get("/api/history/v2/performance?device_id=example-x230").status_code, 400)
+            self.assertEqual(self.client.get("/api/history/v2/performance?device_id=missing").status_code, 404)
+            self.heartbeat(device_id="example-dell")
+            self.assertEqual(self.client.get("/api/history/v2/performance?device_id=example-dell").status_code, 400)
 
     def test_metrics_and_history_without_credentials(self):
         self.assertEqual(self.client.get("/api/metrics").status_code, 503)

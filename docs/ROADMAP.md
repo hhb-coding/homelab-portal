@@ -24,7 +24,7 @@
 | 7.03 | **Cross-platform CPU Frequency Collection** — HP Linux + Dell Linux + ThinkPad X230 Windows; ~1-minute sampling / 跨平台 CPU 主频采集 | **Phase 1 implementation for review; not deployed or hardware-accepted / 隔离实现供审阅，未部署、未实机验收**; [Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11), [design](cpu-frequency.md) | Reuse/extend Step 7.04 performance history architecture; unified storage for Step 7.06; no X230-only history system |
 | 7.04 | Beszel 1-minute metrics archive, separate 180-day SQLite, 1TB HDD guard and 5-minute timer | **Merged PR #9** (`d776e7e`); production timer/data still require direct HP verification / GitHub 已合并，HP 运行实况待核 | Beszel Hub |
 | **7.05** | **Security Events: Caddy-authenticated Portal requests, HTTP 401 and anomalies** | **Approved plan, not implemented / 已批准但未开发** | Caddy JSON access log; independent SQLite/timer |
-| **7.06** | **Long-term History Dashboard: query archived performance data (24h/7d/30d/custom)** | **Proposed, not implemented / 原 7.05 提议顺延，未开发** | 7.04 archive storage |
+| **7.06** | **Long-term History Dashboard: query archived performance data (24h/7d/30d/custom)** | **Simplified Phase 1 implemented for review, not deployed / 简化版 Phase 1 已实现供审阅，未部署**; [details](step-7-06-history.md) | 7.04 Schema v2 archive storage |
 | 8.x | Network Monitoring: Gateway, Internet, DNS, LAN, ZeroTier latency/loss/recovery | Proposed / 待开发 | Existing Network tab |
 | 9.x | Service Monitoring: Portal, Beszel, qBittorrent, Samba, VM/Docker status | Proposed / 待开发 | Service API/status checks |
 | 10.x | General Event/Alert: device, IP, CPU/RAM/temp, service alerts, later notifications | Proposed / 待开发 | Historical/network/service data |

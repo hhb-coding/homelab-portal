@@ -239,8 +239,8 @@ function frequency(v) {
 }
 
 function temp(v) {
-  var n = Number(v);
-  if (num(v, 1) === "—" || n <= 0) { return "—"; }
+  var n = v;
+  if (typeof n !== "number" || !isFinite(n) || n <= 0) { return "—"; }
   return n.toFixed(1) + " °C";
 }
 
@@ -627,6 +627,7 @@ function renderDevicePanels(list) {
   document.getElementById("devices").innerHTML = detail;
   fitDiskLabels();
   equalMiniCards();
+  if (typeof PerformanceHistory !== "undefined") { PerformanceHistory.detail(chosen); }
 }
 
 function selectDeviceCard(element) {
@@ -654,7 +655,7 @@ function card(d) {
     + '</td><th scope="row">ZeroTier</th><td>' + esc(d.zerotier_ip || "—") + '</td></tr>'
     + '<tr><th scope="row">Last Seen</th><td>' + seenTime(d.last_seen)
     + '</td><th scope="row">Uptime</th><td>' + esc(uptime(d.uptime_seconds)) + '</td></tr>'
-    + '<tr><th scope="row">Temp/Freq</th><td>' + temp(d.temperature) + ' / ' + frequency(d.cpu_frequency_ghz)
+    + '<tr><th scope="row">Temp/Freq</th><td>' + temp(d.metrics_available && state === "online" ? d.temperature : null) + ' / ' + OfflineSeen.frequencyHtml(d, d.metrics_available && state === "online")
     + '</td><th scope="row">Load 1m / 5m</th><td>' + num(d.load_1,2) + ' / ' + num(d.load_5,2)
     + '</td></tr></tbody></table>';
 
@@ -669,20 +670,29 @@ function card(d) {
   }
 
   h += chartSection(d);
+  if (typeof PerformanceHistory !== "undefined" && d.performance_history_supported) {
+    h += '<div class="chart-section"><div class="chart-header">Performance history <span>24h</span></div>'
+      + '<div id="performance-detail">Loading / 加载中…</div></div>';
+  }
 
   return h + '</div>';
 }
 
-/* Switching panels never fetches data or resets selection / 切换不请求数据、不重置设备选择。 */
+/* Preserve Device/Network selection; History loads on demand / 保留设备选择，历史按需加载。 */
 function selectDashboardTab(tab) {
-  var network = tab === "network";
-  document.getElementById("device-panel").className = network ? "hidden" : "";
-  document.getElementById("network-panel").className = network ? "" : "hidden";
-  document.getElementById("tab-device").className = "dashboard-tab" + (network ? "" : " active-tab");
-  document.getElementById("tab-network").className = "dashboard-tab" + (network ? " active-tab" : "");
-  document.getElementById("tab-device").setAttribute("aria-pressed", network ? "false" : "true");
-  document.getElementById("tab-network").setAttribute("aria-pressed", network ? "true" : "false");
-  if (!network) { fitDiskLabels(); }
+  var names = ["device", "network", "history"], i, active, panel, button;
+  for (i = 0; i < names.length; i += 1) {
+    active = names[i] === tab;
+    panel = document.getElementById(names[i] + "-panel");
+    button = document.getElementById("tab-" + names[i]);
+    if (panel) { panel.className = active ? "" : "hidden"; }
+    if (button) {
+      button.className = "dashboard-tab" + (active ? " active-tab" : "");
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+  }
+  if (tab === "device") { fitDiskLabels(); }
+  if (tab === "history" && typeof PerformanceHistory !== "undefined") { PerformanceHistory.open(); }
 }
 
 /* Missing status is unknown, not a failed LAN check / 缺失状态为未知，并非 LAN 检测失败。 */
@@ -756,6 +766,7 @@ function render(data) {
     document.getElementById("metrics-status").innerHTML = '<span class="bad">UNAVAILABLE</span>';
   }
 
+  if (typeof PerformanceHistory !== "undefined") { PerformanceHistory.devices(list); }
   renderDevicePanels(list);
   renderNetworkPanels(list, data.sources);
   document.getElementById("dashboard-error").className = "error hidden";
@@ -900,6 +911,7 @@ function loadDashboard() {
 
 document.getElementById("tab-device").onclick = function () { selectDashboardTab("device"); };
 document.getElementById("tab-network").onclick = function () { selectDashboardTab("network"); };
+if (document.getElementById("tab-history")) { document.getElementById("tab-history").onclick = function () { selectDashboardTab("history"); }; }
 
 loadHistory();
 loadDashboard();

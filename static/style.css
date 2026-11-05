@@ -357,3 +357,11 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 /* Offline status and heartbeat each occupy a readable, separate line. */
 .mini-card-head .offline-status-row { display:block; }
 .mini-card-head .offline-seen { display:block; margin-top:4px; color:#555; font-size:13px; font-weight:normal; line-height:1.5; word-wrap:break-word; }
+
+/* Archive charts reuse legacy floats / 历史图表复用旧浏览器浮动布局。 */
+.performance-grid .sparkline { height:120px; }
+.performance-grid .chart-box { margin-bottom:10px; }
+.history-controls label { display:inline-block; margin:6px 12px 6px 0; }
+.history-controls input { width:145px; }
+.history-controls input, .history-controls select, .history-controls button { font:inherit; padding:5px; }
+.history-stats, .history-note { font-size:12px; color:#666; margin-top:6px; word-wrap:break-word; }

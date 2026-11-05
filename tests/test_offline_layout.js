@@ -8,13 +8,24 @@ let chrome, ws, server;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let online = false;
 const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_status:'ok'},devices:[
-  {device_id:'a',display_name:'Offline Device',beszel_status:online?'up':'down',last_seen:new Date(Date.now()-3720000).toISOString()},
+  {device_id:'a',performance_history_supported:true,display_name:'Offline Device',beszel_status:online?'up':'down',last_seen:new Date(Date.now()-3720000).toISOString()},
   {device_id:'b',display_name:'Multi-day Offline Device With A Very Long Name That Wraps',beszel_status:online?'up':'paused',last_seen:new Date(Date.now()-7*86400000-3720000).toISOString()},
   {device_id:'c',display_name:'Missing Time',beszel_status:online?'up':'down'},
-  {device_id:'d',display_name:'Online Device',beszel_status:'up',metrics_available:true,temperature:42,cpu_frequency_ghz:1.4}]});
+  {device_id:'d',performance_history_supported:true,display_name:'Online Device',beszel_status:'up',metrics_available:true,temperature:42,cpu_frequency_ghz:1.4}]});
 (async () => {
  server = http.createServer((req,res) => {
   const path = req.url.split('?')[0];
+  if(path==='/api/history/v2/performance') {
+   const params=new URL(req.url,'http://localhost').searchParams;
+   const start=params.get('start'),end=params.get('end'),base=Date.parse(start);
+   res.setHeader('Content-Type','application/json');
+   res.end(JSON.stringify({status:'ok',device_id:params.get('device_id'),start,end,bucket_seconds:180,mapping_note:'Current mapping / 当前关联',
+    series:['CPU Frequency','CPU Usage','CPU Temperature'].map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c'][i],unit:['GHz','%','°C'][i],stats:{count:3,average:2,peak:3},points:[
+     {timestamp:start,value:1,count:1},{timestamp:new Date(base+180000).toISOString(),value:2,count:1},
+     {timestamp:new Date(base+360000).toISOString(),value:null,count:0},
+     {timestamp:new Date(base+540000).toISOString(),value:3,count:1,gap:true}]}))}));return;
+  }
+  if(path==='/api/history') {res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'ok',devices:[{device_id:'a',points:[{timestamp:new Date(Date.now()-60000).toISOString(),cpu_percent:10},{timestamp:new Date().toISOString(),cpu_percent:20}]}]}));return;}
   if(path.startsWith('/api/')) {res.setHeader('Content-Type','application/json');res.end(JSON.stringify(path==='/api/dashboard'?sample():{status:'ok',devices:[]}));return;}
   if(path==='/' || path==='/lite') {
    let html=fs.readFileSync('templates/'+(path==='/'?'index':'lite')+'.html','utf8');
@@ -102,5 +113,26 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   assert(await evalJS('document.querySelectorAll(".offline-seen").length === 0'));
   assert(await evalJS('Array.prototype.every.call(document.querySelectorAll(".mini-card"),function(c){return c.style.height === "";})'));
   console.log(path,'ONLINE recovery hides all hints PASS');
+  if(path==='/') {
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
+   assert(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'));
+   assert(await evalJS('document.getElementById("devices").textContent.indexOf("Live trends")>=0 && document.getElementById("devices").textContent.indexOf("Historical trends")>=0'));
+   for(const width of [320,375,768,1024]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
+    assert(await evalJS(`(function(){var b=document.querySelectorAll('#performance-detail .chart-box'),a=b[0].getBoundingClientRect(),c=b[1].getBoundingClientRect(),d=b[2].getBoundingClientRect();return document.documentElement.scrollWidth<=innerWidth+1&&(innerWidth>600?Math.abs(a.top-c.top)<1&&Math.abs(c.top-d.top)<1&&c.left>=a.right&&d.left>=c.right:c.top>=a.bottom&&d.top>=c.bottom);}())`),'Three-chart layout '+width);
+   }
+   await evalJS('document.getElementById("tab-history").click()');
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
+   assert(await evalJS('document.querySelectorAll("#history-device option").length===2 && document.querySelectorAll("#history-result svg").length===3'));
+   assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Peak / 峰值")>=0'));
+   await evalJS('document.getElementById("history-device").value="d";document.getElementById("history-range").value="30";document.getElementById("history-device").onchange()');
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
+   assert(await evalJS('document.querySelectorAll("#history-result svg").length===3'));
+   await evalJS('document.getElementById("history-range").value="custom";document.getElementById("history-range").onchange();document.getElementById("history-start").value="2026-01-01 00:00";document.getElementById("history-end").value="2026-01-02 00:00";document.getElementById("history-form").onsubmit()');
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
+   assert(await evalJS('document.getElementById("history-result").textContent.indexOf("2026-01-01 00:00")>=0'));
+   console.log('Performance history: three columns, narrow wrapping, preserved trends, device/range/custom controls PASS');
+  }
+
  }
 })().then(()=>{if(ws)ws.close();if(chrome)chrome.kill('SIGTERM');if(server)server.close();}).catch(e=>{console.error(e);if(ws)ws.close();if(chrome)chrome.kill('SIGTERM');if(server)server.close();process.exitCode=1;});

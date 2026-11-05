@@ -153,6 +153,8 @@ def build_dashboard() -> Dict[str, Any]:
     LAN IP 始终来自 HomeLab Portal heartbeat。
     """
 
+    from performance_history import device_role, latest_frequency
+
     registry_devices = _get_registry_devices()
 
     # Only an explicit, unique registry match may receive host-local metrics.
@@ -160,6 +162,7 @@ def build_dashboard() -> Dict[str, Any]:
     local_matches = [d for d in registry_devices
                      if config.LOCAL_DEVICE_ID and d.get("device_id") == config.LOCAL_DEVICE_ID]
     local_frequency = local_cpu_frequency_ghz() if len(local_matches) == 1 else None
+    local_sampled_utc = datetime.now(timezone.utc).isoformat()
 
     metrics_status = "ok"
     metrics_error = None
@@ -271,6 +274,16 @@ def build_dashboard() -> Dict[str, Any]:
                 ),
             }
         )
+
+    for registry, device in zip(registry_devices, devices):
+        role = device_role(registry, config.LOCAL_DEVICE_ID)
+        device["performance_history_supported"] = role is not None
+        if role == "x230":
+            device.update(latest_frequency(config.DATABASE_PATH, device["device_id"]))
+        elif role == "hp":
+            device.update(frequency_sampled_utc=local_sampled_utc,
+                          frequency_source="local_scaling_cur_freq", frequency_quality="ok" if local_frequency else "unavailable",
+                          frequency_freshness="fresh" if local_frequency else "unavailable")
 
     server_now = time.time()
     observations = [source_timestamp(d.get("last_seen"), server_now)

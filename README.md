@@ -716,3 +716,9 @@ uses a separate HDD SQLite database with UUID protection; timer templates are pr
 
 Step 7.04 归档采集器及部署边界见上述文档：独立 HDD SQLite、UUID 挂载保护及
 timer 模板。早期 Phase B 文档记录的是未部署阶段，并不代表如今 HP 主机的实时状态；需在机器上核验实际 timer。现有图表继续读取 Beszel。
+
+### Step 7.06 History Dashboard / 历史面板
+
+Simplified Phase 1 implements archive-backed three-metric charts and the History tab for review; **not deployed**. See [API, limitations and rollback](docs/step-7-06-history.md).
+
+简化版 Phase 1 已实现 HP/X230 三指标历史、History 标签及最新主频过期显示，供 PR 审阅，**未部署**；读取开关未启用，详见上述说明。
