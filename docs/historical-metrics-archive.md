@@ -1,25 +1,27 @@
 # Step 7.04 Historical Metrics Archive / 历史指标归档
 
-Step 7.03 extension under review: [CPU frequency design](cpu-frequency.md).
+Step 7.03 frequency design: [CPU frequency design](cpu-frequency.md). HP and X230 collection is operator-confirmed deployed as of 2026-11-05; Dell collection is pending its operating-system rebuild.
 The compatible writer accepts v1/v2 but never auto-migrates. Beszel tables stay
 unchanged; an explicit backed-up migration adds frequency history on the same HDD.
 V1 remains supported. / 7.03 扩展需显式备份迁移，不自动升级，不改变 Beszel 原始表。
 
-> **Status context / 阶段说明 (reviewed 2026-10-19):** Step 7.04 code was merged into `main` via [PR #9](https://github.com/hhb-coding/homelab-portal/pull/9) on 2026-10-12. The Phase B “not deployed” statements below are an **accurate historical description of that development phase**, not a claim that the HP host is still undeployed. Later operator checks reported an enabled archive timer and successful initial collection; continued production health, the current running checkout, and archive counts require fresh read-only verification on HP. Existing Portal historical charts continue querying Beszel; archive-backed charts are planned for Step 7.06.
+> **Status reconciliation / 当前状态（2026-11-05）：** The Step 7.04 collector was merged in [PR #9](https://github.com/hhb-coding/homelab-portal/pull/9) and subsequently deployed on HP. Operator reports confirm a protected independent SQLite archive on the 1TB HDD, minute-level Beszel `system_stats`, ~5-minute incremental collection and 180-day retention. Later Steps [7.06](step-7-06-history.md) and [7.07](step-7-07-expanded-history.md) added read-only archive-backed Device/History charts; the older `/api/history` endpoint still uses Beszel directly. The Phase B no-deployment statements below describe 2026-10-12 only, not the current system. Future work must still verify the live HP host.
 >
-> **状态说明：**Phase B“未部署”是历史阶段记录。之后用户曾核验计时器与首次采集，但本仓库不能直接证明如今 HP 的实时运行状态。Step 7.04 源码已合并，Step 7.06 历史页面仍待开发。
+> **中文：**2026-11-05 用户验收确认 7.04 已在 HP 运行，独立历史库位于 1TB HDD，按约 5 分钟增量归档 Beszel 分钟数据并保留 180 天。7.06/7.07 已能只读查询该库。下方 Phase B「未部署」仅是历史记录，不代表目前状态。
 
 
-## Status / 状态
+## Historical Phase B status (2026-10-12) / 历史开发阶段记录
 
-Phase B implements an independent collector, SQLite schema, HDD guard, timer
-templates and isolated tests. It has **not** been deployed or run against the
-production HDD. The existing `/api/history` and charts still read Beszel directly.
-No service or timer has been installed, enabled or restarted.
+During the original Phase B implementation, collector, schema, HDD guard, timer
+templates and isolated tests existed **but had not yet been installed on the HP
+production HDD**. This statement records the original development gate only.
+The later operator-confirmed production state is documented above. The original
+`/api/history` endpoint continues to use Beszel; the Step 7.06/7.07 performance
+history endpoint reads the separate SQLite archive.
 
-Phase B 已实现独立采集器、SQLite 结构、HDD 保护、timer 模板及隔离测试。
-尚未部署，也未在正式 HDD 上运行。现有 `/api/history` 和图表仍直接读取 Beszel。
-未安装、启用或重启任何服务或 timer。
+Phase B 开发时已实现归档程序、SQLite、硬盘保护和 timer 模板，但**当时尚未部署**；
+这是一段历史阶段说明。后来已在 HP 部署并验收。旧 `/api/history` 仍读 Beszel，
+7.06/7.07 的性能历史接口只读独立归档数据库。
 
 ## Collection contract / 采集约定
 

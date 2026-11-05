@@ -1,7 +1,8 @@
-# Step 7.06 simplified Phase 1 / 简化版历史面板
+# Step 7.06 — Archive-backed History (completed) / 历史面板已完成
 
-Step 7.06.1 is deployed at `d6f2eb56df5027c9364feb422ffb705a204b677c` (user-confirmed baseline).
-7.06.1 已部署（用户确认基线）；7.06.2 开发供审核，未批准合并或部署。
+**Current status (as of 2026-11-05):** Steps 7.06 through 7.06.3.1 were merged via PRs [#16](https://github.com/hhb-coding/homelab-portal/pull/16)–[#20](https://github.com/hhb-coding/homelab-portal/pull/20), deployed to HP and accepted by the operator. The final 7.06.3.1 HP baseline was `b630a52a48e9523baf2c0e298dfdca365d169483`. Later [Step 7.07/7.07.1](step-7-07-expanded-history.md) further expanded charts; the operator-reported HP version at documentation closeout is `5808ffadeee4f34c8e0092ca5768b8037e8617e3`. These are deployment snapshots, not a new GitHub Release or live status check.
+
+**当前状态：**7.06～7.06.3.1 已合并、部署并验收。7.06.1 当时的验收基线为 `d6f2eb56df5027c9364feb422ffb705a204b677c`；文档后续各节描述功能演进，不表示如今仍处于审核或未部署阶段。旧 Safari 日期控件触摸体验仍需实机验证。
 
 ## Current frequency / 当前主频
 
@@ -81,13 +82,15 @@ layout test uses a local mock server and verifies 320/375/768/1024px layouts,
 Full/Lite, preserved trends, three charts and History controls. It does not use
 production APIs. Chrome results do not constitute iOS 9 physical-device acceptance.
 
-No production database, timer, service or private configuration is changed.
-Rollback application/static files to the previous version; leave Schema v2,
-frequency collection and archives intact. Existing history gate can keep archive
-reading disabled. Deployment and any gate enablement require separate approval.
+The Step 7.06 application releases did not modify production databases, archive
+timers or private configuration; authorized deployments restarted the Portal
+service. Rollback is limited to Portal application/static files, preserving
+Schema v2, frequency collectors and historical archives. The history read gate
+remains a deliberate opt-in for each installation; HP production was separately
+verified with archive-backed history enabled.
 
 测试仅使用合成数据和隔离临时库；Chrome 回归不代表 iOS 9 实机验收。
-回滚应用/静态资源即可，无数据库迁移或数据删除；部署、启用读取仍需单独批准。
+7.06 部署经单独批准，Portal 服务曾按受控流程重启；未修改历史数据库、归档定时器或私有配置。回滚仅限应用/静态资源，不迁移或删除历史归档。其他安装仍需单独启用读取开关。
 
 ## Step 7.06.1 chart readability / 图表可读性增量
 
@@ -99,13 +102,13 @@ responses. History retains its existing presets and custom Local range inputs (s
 The common SVG renderer removes per-point circles. CPU Usage starts at zero and
 sets its upper bound from the raw whole-range peak (10% headroom, rounded steps,
 minimum 1%, capped at 100%), not from bucket averages. Frequency/temperature keep
-dynamic padded scales. Each chart shows identical start/mid/end UTC ticks; dates
+dynamic padded scales. Each chart shows identical start/mid/end Local time ticks (since 7.06.2); dates
 appear for long ranges or midnight crossings. Empty buckets break lines;
 isolated/partial buckets use a short vertical mark so they remain visible without
 inventing a connecting line or time coverage. Raw means/peaks and collection are
 unchanged. No database, migration, client, timer or production change is involved.
 
-三排布局保留，第三排右侧共用1h/6h/24h选择器。三图统一UTC起点/中点/终点刻度；
+三排布局保留，第三排右侧共用1h/6h/24h选择器。自 7.06.2 起三图统一显示浏览器 Local 起点/中点/终点刻度；
 Usage从0起按原始峰值自适应，另两图动态留白。取消逐点圆圈，缺口断线，孤立/部分桶
 以竖向短线标记；均值/峰值仍来自原始有效观测。History继续支持原有范围及设备选择。
 
@@ -113,12 +116,12 @@ Usage从0起按原始峰值自适应，另两图动态留白。取消逐点圆�
 
 Shared charts use browser Local time with per-instant UTC offsets (ES5 Date, including DST). In 7.06.2 custom inputs remained UTC; 7.06.3 changes inputs to Local, while API requests remain UTC. Each metric shows the maximum valid last_sample within the queried range, or —, never a bucket/window end or sync execution time. Refresh and cache cadence remain unchanged.
 
-## Step 7.06.3 (development; not deployed)
+## Step 7.06.3 (implemented and deployed / 已部署)
 
 Custom Start/End use browser Local time, native datetime-local where available and text fallback YYYY-MM-DD HH:mm otherwise. Defaults initialize once to the preceding day and remain editable across dashboard refreshes. Each input shows its own offset. Strict local getter validation rejects invalid dates and spring DST gaps. Autumn repeated times require explicit first/second selection with UTC offsets; no silent disambiguation. Only submission converts to UTC ISO; API/storage stay UTC. Maximum range is 180 elapsed days. Browser timezone is authoritative; no Intl or date library required.
 
 Manual acceptance: native picker opening on actual Chrome devices; iOS 9 text fallback and touch operation. Automated Chrome layout and synthetic ES5 tests do not replace physical Safari acceptance.
 
-## Step 7.06.3.1 (review only)
+## Step 7.06.3.1 (implemented and deployed / 已部署)
 
-An explicit `.history-controls label.hidden` rule overrides the label display rule so occurrence selectors stay hidden for ordinary times. Existing DST logic alone controls visibility. Full static resource version: `70631-hide-occurrence`. Chrome regression checks computed visibility for ordinary and repeated times and 320/375px overflow.
+An explicit `.history-controls label.hidden` rule overrides the label display rule so occurrence selectors stay hidden for ordinary times. Existing DST logic alone controls visibility. The historical 7.06.3.1 static asset version was `70631-hide-occurrence`; the current 7.07.1 assets use `7071-device-y-axis`. Chrome regression checks computed visibility for ordinary and repeated times and 320/375px overflow.

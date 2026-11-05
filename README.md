@@ -1,10 +1,17 @@
 # HomeLab Portal
 
-Step 7.03 adds isolated one-minute CPU frequency clients, a bounded authenticated
-inbox and explicit v2 history migration. Existing five-minute Heartbeat is unchanged.
-**Implementation under review, not deployed.** See [design, API, deployment and
-rollback](docs/cpu-frequency.md). / 新增一分钟频率采集及统一历史扩展；未部署，
-生产迁移与任务安装需单独批准，现有五分钟心跳保持不变。
+**Current main / 已验收生产快照（2026-11-05）：** Step 7.07.1 at commit
+`5808ffadeee4f34c8e0092ca5768b8037e8617e3` was merged and operator-reported
+deployed to HP, with Device/History visual acceptance. This is an as-of record,
+not a live service-health guarantee or GitHub Release. See [ROADMAP](docs/ROADMAP.md).
+
+Step 7.03 provides isolated one-minute CPU frequency clients, a bounded authenticated
+inbox and explicit v2 archive migration. **HP and X230 are deployed and producing
+frequency history; Dell remains pending an OS rebuild and follow-up deployment.**
+The existing five-minute Heartbeat is unchanged. Details: [CPU frequency](docs/cpu-frequency.md).
+
+**中文：**HP 与 X230 的分钟级 CPU 主频采集已上线，Dell 尚待重装系统后继续处理。
+7.04 归档和 7.06/7.07 历史展示已部署；内部 Step 编号不代表正式 Release。
 
 Step 7.01: Device Detail displays **Temp/Freq**, for example `39.0 °C / 1.40 GHz`.
 Temperature still comes from Beszel with its existing precision. Set `LOCAL_DEVICE_ID`
@@ -54,6 +61,9 @@ This README describes current `main`, including merged
 - Network tab: status/address counts, reported LAN/ZeroTier addresses and last Heartbeat.
 - Updated warning when the latest valid source observation is over 30 minutes old.
 - Offline-only Last seen with a readable separate line and an automatically updated age.
+- Step 7.04: protected 180-day SQLite metrics archive on an HP HDD, collecting Beszel minute samples about every five minutes.
+- Step 7.06/7.07: archive-backed History of CPU frequency, usage, temperature, memory, disk `dp`, and network upload/download (six full-width rows); Device retains three CPU charts with left Y-axis ticks.
+- History Local-range selection and UTC-backed API, up to 180 days. Default performance API is three series, `extended=1` returns seven series for six History rows.
 - ES5 JavaScript, XMLHttpRequest, responsive legacy CSS, missing-data placeholders
   and retained-data warnings after request failures.
 - Isolated Flask smoke tests, mocked frontend behavior tests and GitHub Actions CI.
@@ -435,11 +445,14 @@ node tests/test_network.js
 node tests/test_device_v3.js
 node tests/test_freshness.js
 node tests/test_offline_seen.js
+node tests/test_performance_history.js
 ```
 
-Current coverage: **44 Python test methods** across Flask/static compatibility, Beszel
-capacity estimates and source freshness; **59 Lite assertions**, **45 Network
-assertions**, and separate Device UI V3, Updated and offline Last seen suites.
+The older **44 Python test methods**, **59 Lite assertions** and **45 Network
+assertions** are historical counts from an earlier revision, not current totals.
+At Step 7.07 development review, **91 Python tests and six Node suites** passed;
+Step 7.07.1 also passed the Node suites and isolated Chrome layout checks.
+Run the test commands for the checked-out revision rather than assuming fixed counts.
 The isolated Python suite uses temporary SQLite, skips local `.env` loading and
 blocks live HTTP. JS behavior tests use mock DOM/XHR, including failures,
 selection, timestamps, clock skew, resume and online recovery. GitHub Actions
@@ -477,7 +490,7 @@ test counts are historical, not the installation guide for current main.
 - Leave `DEBUG=false`. Flask's built-in server is not a public-internet deployment
   solution. No public deployment or reverse-proxy configuration is bundled.
 - Protect and back up your SQLite database and private configuration independently.
-  Current `/api/history` charts still read Beszel; Step 7.04 adds a separate historical-metrics SQLite archive independent of Portal's registry database. Any host's deployment status must be checked separately.
+  Legacy `/api/history` charts still read Beszel; Step 7.04 provides a separate historical-metrics SQLite archive independent of Portal's registry database. The archive-backed `/api/history/v2/performance` endpoint serves Device/History long-range charts. Any host's actual deployment status must be checked separately.
 - Tokens/configuration should not be pasted into issue reports; sanitize probe
   output, logs and screenshots. Device display data is HTML-escaped by the UI,
   but Heartbeat only validates JSON object and nonempty string device ID;
@@ -485,7 +498,7 @@ test counts are historical, not the installation guide for current main.
 
 ## Roadmap
 
-For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Step 7.03's expanded cross-platform CPU-frequency scope is in [Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11); Step 7.05 covers Security Events, and Step 7.06 covers archive-backed historical charts. Approved plans are not yet implemented features.
+For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan; Step 8.x Network Quality Monitoring is proposed and not started. Internal Steps are separate from GitHub Releases.
 
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device
@@ -529,6 +542,9 @@ iPad mini 1 / 用户报告的 iOS 9.1.3 Safari 已有实际使用确认，但 An
 - Device UI V3：可选择的 Mini Card、容量信息、详情横条和实时/历史 SVG 趋势。
 - Lite 轻量实时卡片；Network 上报地址与状态摘要。
 - Full Updated 的源数据超过 30 分钟警告；OFFLINE 独立行 Last seen 与自动更新年龄。
+- 7.04 独立历史 SQLite 归档（HP 1TB HDD、180 天保留、约每 5 分钟增量写入 Beszel 分钟数据）。
+- 7.06/7.07 History 六行宽图：CPU 主频、使用率、温度、内存、归档 dp 磁盘使用率及网络上传/下载；Device 保留三张并排 CPU 图，左侧显示 Y 轴刻度。
+- HP 与 X230 的 CPU 主频及历史指标已验收；Dell 主频采集待系统重装后处理。
 - ES5/XHR、响应式旧式 CSS、缺失数据提示、失败保留旧数据及自动测试/CI。
 
 ### 系统架构
@@ -673,9 +689,10 @@ Updated 与 Last seen 采用服务器时间加墙钟/可用单调时间；服务
 
 ### 测试方法
 
-按英文 Testing 命令运行 unittest、Python AST、Node 语法及五套前端行为测试。
-当前有 **44 个 Python 测试方法、59 项 Lite 断言、45 项 Network 断言**，另有
-Device UI V3、Updated 和 OFFLINE Last seen 专项测试。
+按英文 Testing 命令运行 unittest、Python AST、Node 语法及六套前端行为测试。
+旧文档中 **44 个 Python 测试方法、59 项 Lite 断言、45 项 Network 断言**
+属于早期版本历史数量，并非当前总数。7.07 开发审核时报告 91 项 Python 与六组 Node 通过；
+7.07.1 另已通过 Node 和隔离 Chrome 布局测试。具体以当前代码及实际测试为准。
 Python 隔离测试使用临时数据库、不加载本地 `.env`、禁止真实 HTTP；JS 使用模拟 DOM/XHR。
 CI 运行这些行为与语法检查，不需要生产凭据。
 可选 `test_offline_layout.js` 需要独立安装 Chrome 和 Node 22，使用随机本地端口、
@@ -710,18 +727,32 @@ Copyright (c) 2026 Hongbin He
 
 ## Historical metrics archive / 历史指标归档
 
-Step 7.04 collector development and deployment boundaries are documented in
-[Historical Metrics Archive](docs/historical-metrics-archive.md). The archive
-uses a separate HDD SQLite database with UUID protection; timer templates are provided. This GitHub source reflects the pre-deployment Phase B documentation, not the running state of any particular host; verify installed timers on that host. Existing charts continue to query Beszel.
+**Step 7.04 completed on HP (operator-confirmed, 2026-11-05).** Beszel's
+one-minute `system_stats` are incrementally archived about every five minutes
+into a separate UUID-protected SQLite database on HP's 1TB HDD, with 180-day
+retention. Details: [Historical Metrics Archive](docs/historical-metrics-archive.md).
+The legacy `/api/history` still reads Beszel; the separate archive-backed
+`/api/history/v2/performance` serves long-range performance history.
 
-Step 7.04 归档采集器及部署边界见上述文档：独立 HDD SQLite、UUID 挂载保护及
-timer 模板。早期 Phase B 文档记录的是未部署阶段，并不代表如今 HP 主机的实时状态；需在机器上核验实际 timer。现有图表继续读取 Beszel。
+**7.04 已在 HP 部署并验收。** 独立 SQLite 位于 1TB HDD，约每五分钟增量归档
+Beszel 的一分钟记录，保留 180 天。原有 `/api/history` 仍读 Beszel，
+新增性能历史接口只读独立归档。
 
-### Step 7.06 History Dashboard / 历史面板
+### Steps 7.06–7.07.1 — Historical dashboard / 历史面板
 
-Simplified Phase 1 implements archive-backed three-metric charts and the History tab for review; **not deployed**. See [API, limitations and rollback](docs/step-7-06-history.md).
+**Deployed and visually accepted on HP (2026-11-05).** Step 7.06 completed
+archive-backed CPU frequency/usage/temperature charts, Local Custom date-time
+selection, UTC API conversion and `last_sample` freshness. Step 7.07 adds
+Memory Usage (%), Disk Usage (archived `dp` only) and network upload/download
+(B/s). History has **six full-width rows** backed by **seven data series**;
+Device retains three side-by-side CPU charts with left-side Y ticks and reference
+lines from Step 7.07.1. Default performance API = 3 series; `extended=1` = 7
+series. Current static asset cache: `7071-device-y-axis`.
 
-简化版 Phase 1 已实现 HP/X230 三指标历史、History 标签及最新主频过期显示，供 PR 审阅，**未部署**；读取开关未启用，详见上述说明。
-
-Step 7.07 开发范围：仅 History 扩展为六行历史图（CPU 三项、内存、归档 dp 对应磁盘、网络收发）；Device 保持原有三图和默认 API。
-扩展通过 `extended=1` 选择，缓存版本 `707-expanded-history`。字段契约、测试和待验项见 [7.07 开发说明](docs/step-7-07-expanded-history.md)。本步骤不包含合并或生产部署，也不执行整个 ROADMAP 收尾。
+**中文：**7.06～7.07.1 已合并并由用户验收。History 为六张全宽历史图（CPU 三项、
+内存、归档 `dp` 对应磁盘、网络收发双线），Device 仍为三图并排且 Y 轴刻度在左侧。
+Local 自定义时间在请求时转换 UTC。默认 API 三条序列；`extended=1` 七条序列。
+详情：[7.06 设计及演进](docs/step-7-06-history.md)、
+[7.07/7.07.1 实现与验收](docs/step-7-07-expanded-history.md)。
+旧 iOS 9 Safari 的新日期控件触控与文本后备仍待实机验收；
+这不影响用户已确认的现代浏览器视觉效果。
