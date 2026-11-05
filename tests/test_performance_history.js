@@ -47,6 +47,28 @@
   assert(html.indexOf('CPU Frequency') < html.indexOf('CPU Usage') && html.indexOf('CPU Usage') < html.indexOf('CPU Temperature'));
   assert(html.indexOf(' L') < 0, 'Null and partial buckets cannot be bridged');
   assert(html.indexOf('Avg / 平均') >= 0 && html.indexOf('Peak / 峰值') >= 0);
+  assert(html.indexOf('<circle') < 0, 'No per-point circles');
+  assert.strictEqual((html.match(/class="performance-time-axis"/g) || []).length, 3, 'One time axis per chart');
+  var axes = html.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
+  assert.strictEqual(axes[0], axes[1]); assert.strictEqual(axes[1], axes[2]);
+  assert(axes[0].indexOf('01-01 00:00') >= 0 && axes[0].indexOf('01-01 12:00') >= 0 && axes[0].indexOf('01-02 00:00') >= 0);
+  var low = payload('low'); low.series[1].stats.peak = 4.2;
+  assert(c.PerformanceHistory.charts(low).indexOf('5.0 %') >= 0, 'Usage scales to raw peak with headroom');
+  low.series[1].stats.peak = 42;
+  assert(c.PerformanceHistory.charts(low).indexOf('50.0 %') >= 0, 'Raw peak, not bucket average, determines usage range');
+  low.series[1].stats.peak = 100;
+  assert(c.PerformanceHistory.charts(low).indexOf('100.0 %') >= 0, 'Usage maximum remains bounded');
+  low.series[1].points.forEach(function (p) { p.value = 0; p.gap = false; }); low.series[1].stats.peak = 0;
+  html = c.PerformanceHistory.charts(low);
+  assert(html.indexOf('1.0 %') >= 0 && html.indexOf('NaN') < 0, 'Flat zero usage has valid positive scale span');
+  low.series[1].points.forEach(function (p) { p.value = null; }); low.series[1].stats.peak = null;
+  assert(c.PerformanceHistory.charts(low).indexOf('No data / 无数据') >= 0, 'Missing usage is not zero');
+  var continuous = payload('continuous');
+  continuous.series.forEach(function (s) { s.points[1].value = 1; });
+  html = c.PerformanceHistory.charts(continuous);
+  assert(html.indexOf(' L') >= 0 && html.indexOf('<circle') < 0, 'Continuous observations retain lines');
+  assert(html.indexOf('chart-isolated') >= 0, 'Partial bucket remains a separate short mark');
+
   assert.strictEqual(c.PerformanceHistory.parseInput('2026-02-30 00:00'), null);
   assert.strictEqual(c.PerformanceHistory.parseInput('2026-01-01T00:00'), null);
   node('history-device').value = 'example-x230'; node('history-range').value = '7';
@@ -80,6 +102,34 @@
   assert(node('devices').innerHTML.indexOf('Performance history') >= 0);
   assert.strictEqual((node('performance-detail').innerHTML.match(/class="chart-box"/g) || []).length, 3);
   count = requests.length; c.renderDevicePanels([device]); assert.strictEqual(requests.length, count, 'Reuse detail cache');
+  assert(c.PerformanceHistory.controls().indexOf('value="24" selected="selected"') >= 0, 'Default detail range is 24h');
+  var pendingRange;
+  ['1', '6', '24'].forEach(function (hours) {
+    var before = requests.length;
+    c.PerformanceHistory.changeRange(hours);
+    assert.strictEqual(requests.length, before + 1, 'One shared request for three charts');
+    var r = requests[requests.length - 1], params = new URL('http://test'+r.url).searchParams;
+    assert.strictEqual(Date.parse(params.get('end')) - Date.parse(params.get('start')), Number(hours)*3600000);
+    if (pendingRange) {
+      pendingRange.status = 200; pendingRange.responseText = JSON.stringify(payload('old-range'));
+      pendingRange.readyState = 4; pendingRange.onreadystatechange();
+      assert(node('performance-detail').innerHTML.indexOf('Loading') >= 0, 'Late range response ignored');
+    }
+    pendingRange = r;
+    c.renderDevicePanels([device]);
+    assert.strictEqual(requests.length, before + 1, 'Dashboard refresh preserves pending range');
+    assert(c.PerformanceHistory.controls().indexOf('value="'+hours+'" selected="selected"') >= 0);
+  });
+  var rangeData = payload('example-x230');
+  pendingRange.status = 200; pendingRange.responseText = JSON.stringify(rangeData); pendingRange.readyState = 4; pendingRange.onreadystatechange();
+  assert(node('performance-detail').innerHTML.indexOf('<circle') < 0);
+  count = requests.length; c.PerformanceHistory.changeRange('bad'); assert.strictEqual(requests.length, count);
+  c.PerformanceHistory.changeRange('6');
+  var other = {device_id: 'example-hp', performance_history_supported: true}; c.renderDevicePanels([other]);
+  var last = requests[requests.length - 1];
+  assert.strictEqual(new URL('http://test'+last.url).searchParams.get('device_id'), 'example-hp');
+  assert(c.PerformanceHistory.controls().indexOf('value="6" selected="selected"') >= 0, 'Range survives device switch');
+
   c.selectDashboardTab('network'); assert.strictEqual(node('history-panel').className, 'hidden');
   console.log('Performance history key page regressions passed');
 }());

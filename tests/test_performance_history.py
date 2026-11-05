@@ -73,6 +73,39 @@ class PerformanceHistoryTests(unittest.TestCase):
         self.assertTrue(usage['points'][1]['gap'])
         self.assertIsNone(usage['points'][2]['value'])
 
+    def test_readability_ranges_density_raw_statistics_and_gaps(self):
+        self.sample(0, 10, {'CPU Package': 40})
+        self.sample(1, 90, {'CPU Package': 60})
+        self.sample(3, 20, {})
+        self.sample(59, 40, {'CPU Package': 50})
+        for minute, value in [(0, 1.0), (1, 3.0), (59, 2.0)]:
+            self.conn.execute('INSERT INTO cpu_frequency_samples VALUES (?,?,?,?)',
+                ('example-x230', str(minute), stamp(NOW+timedelta(minutes=minute)),
+                 json.dumps({'cpu_frequency_ghz': value, 'quality': 'ok'})))
+        self.conn.execute('PRAGMA query_only=ON')
+        reference = None
+        for minutes, width, count in [(60, 60, 60), (360, 300, 72), (1440, 900, 96)]:
+            with self.subTest(minutes=minutes):
+                data = self.result(minutes=minutes)
+                self.assertEqual(data['bucket_seconds'], width)
+                self.assertEqual([len(s['points']) for s in data['series']], [count]*3)
+                stats = [s['stats'] for s in data['series']]
+                if reference is None: reference = stats
+                else: self.assertEqual(stats, reference)
+                self.assertEqual(stats[0]['average'], 2.0)
+                self.assertEqual(stats[0]['peak'], 3.0)
+                self.assertEqual(stats[1]['average'], 40)
+                self.assertEqual(stats[1]['peak'], 90)
+                self.assertEqual(stats[2]['count'], 3)
+                self.assertEqual(stats[2]['average'], 50)
+                self.assertEqual(stats[2]['peak'], 60)
+                if minutes > 60:
+                    self.assertLess(max(p['value'] for p in data['series'][1]['points'] if p['value'] is not None), 90)
+                    self.assertTrue(data['series'][1]['points'][0]['gap'])
+                    self.assertTrue(any(p['value'] is None for p in data['series'][1]['points']))
+        self.assertEqual(self.result(minutes=7*1440)['bucket_seconds'], 1260)
+        self.assertLessEqual(len(self.result(minutes=30*1440)['series'][0]['points']), 500)
+
     def test_invalid_values_and_range(self):
         for i, value in enumerate([None, True, '3', -1, 101]):
             self.sample(i, value, {'CPU Package': value})

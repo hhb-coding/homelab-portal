@@ -1,6 +1,7 @@
 # Step 7.06 simplified Phase 1 / 简化版历史面板
 
-Implementation for review, **not deployed**. / 已实现供审阅，**未部署**。
+Step 7.06 is deployed; Step 7.06.1 readability changes are for review, **not deployed**.
+7.06 已部署；7.06.1 可读性增量供审阅，**未部署**。
 
 ## Current frequency / 当前主频
 
@@ -25,6 +26,7 @@ Full/Lite 统一温度一位、主频两位小数。HP 保留本机实现；X230
   this change does **not** enable it. Connections use `mode=ro` and `query_only`.
 - Existing `/api/history` and `/api/history/v2` responses remain compatible.
 - Range is `[start,end)`, greater than zero and at most 180 days. Bins are
+  60s for ≤1h, 300s for ≤6h, 900s for ≤24h; longer ranges retain
   `max(60, ceil(range_seconds / 500 / 60) * 60)` seconds, anchored at request start.
   Thus each of three series has at most 500 points, including empty bins.
 - Frequency comes from `cpu_frequency_samples.payload.cpu_frequency_ghz` with
@@ -44,7 +46,7 @@ Full/Lite 统一温度一位、主频两位小数。HP 保留本机实现；X230
   record times; frequency keeps its own sampling timestamps. No nearest-neighbor join.
 
 只读复用 Schema v2、现有开关及保护逻辑；最多180天，每指标最多500桶。
-24h 默认3分钟桶、7d 默认21分钟桶、30d 默认87分钟桶；每次请求统一桶宽和范围。
+1h 为1分钟桶（60点）、6h 为5分钟桶（72点）、24h 为15分钟桶（96点）；7d 默认21分钟桶、30d 默认87分钟桶；每次请求统一桶宽和范围。
 均值按有效原始观测加权，峰值取原始观测；缺失留空、部分缺失桶断线，不插值。
 
 ## Device identity and UI / 设备身份及界面
@@ -57,7 +59,7 @@ Other devices are excluded. Usage/temperature use the current registered
 link can change which old observations are displayed. No mapping-version table.
 
 Full keeps Live trends and Historical trends, and adds a third Performance history
-row (24h): Frequency GHz, Usage %, Temperature °C. All three use the same requested
+row (default 24h, shared 1h/6h/24h selector): Frequency GHz, Usage %, Temperature °C. All three use the same requested
 time axis, independent vertical scales, legacy floats, and narrow-screen wrapping.
 History is a sibling of Device/Network, with supported-device selection,
 24h/7d/30d presets and custom UTC text input `YYYY-MM-DD HH:mm` (≤180 days), plus
@@ -86,3 +88,23 @@ reading disabled. Deployment and any gate enablement require separate approval.
 
 测试仅使用合成数据和隔离临时库；Chrome 回归不代表 iOS 9 实机验收。
 回滚应用/静态资源即可，无数据库迁移或数据删除；部署、启用读取仍需单独批准。
+
+## Step 7.06.1 chart readability / 图表可读性增量
+
+Full retains all three chart rows. Only Performance history gains a shared range
+selector on the right; changing it fetches all three metrics once with one time
+window, retains the selection across refresh/device switches, and ignores late
+responses. History retains its existing presets and custom UTC range inputs.
+
+The common SVG renderer removes per-point circles. CPU Usage starts at zero and
+sets its upper bound from the raw whole-range peak (10% headroom, rounded steps,
+minimum 1%, capped at 100%), not from bucket averages. Frequency/temperature keep
+dynamic padded scales. Each chart shows identical start/mid/end UTC ticks; dates
+appear for long ranges or midnight crossings. Empty buckets break lines;
+isolated/partial buckets use a short vertical mark so they remain visible without
+inventing a connecting line or time coverage. Raw means/peaks and collection are
+unchanged. No database, migration, client, timer or production change is involved.
+
+三排布局保留，第三排右侧共用1h/6h/24h选择器。三图统一UTC起点/中点/终点刻度；
+Usage从0起按原始峰值自适应，另两图动态留白。取消逐点圆圈，缺口断线，孤立/部分桶
+以竖向短线标记；均值/峰值仍来自原始有效观测。History继续支持原有范围及设备选择。

@@ -671,7 +671,7 @@ function card(d) {
 
   h += chartSection(d);
   if (typeof PerformanceHistory !== "undefined" && d.performance_history_supported) {
-    h += '<div class="chart-section"><div class="chart-header">Performance history <span>24h</span></div>'
+    h += '<div class="chart-section"><div class="chart-header performance-header">Performance history ' + PerformanceHistory.controls() + '</div>'
       + '<div id="performance-detail">Loading / 加载中…</div></div>';
   }
 

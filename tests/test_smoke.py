@@ -260,7 +260,15 @@ class PortalSmokeTests(unittest.TestCase):
                 response = self.client.get("/api/history/v2/performance"+args)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(len(response.json["series"]), 3)
-            self.assertLessEqual(len(response.json["series"][0]["points"]), 500)
+            self.assertEqual(response.json["bucket_seconds"], 900)
+            self.assertEqual(len(response.json["series"][0]["points"]), 96)
+            for hours, width, count in [(1, 60, 60), (6, 300, 72)]:
+                end = "2026-01-01T%02d:00:00Z" % hours
+                response = self.client.get("/api/history/v2/performance", query_string={
+                    "device_id": "example-x230", "start": "2026-01-01T00:00:00Z", "end": end})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json["bucket_seconds"], width)
+                self.assertEqual(len(response.json["series"][0]["points"]), count)
             self.assertEqual(self.client.get("/api/history/v2/performance?device_id=example-x230").status_code, 400)
             self.assertEqual(self.client.get("/api/history/v2/performance?device_id=missing").status_code, 404)
             self.heartbeat(device_id="example-dell")
