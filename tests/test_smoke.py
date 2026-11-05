@@ -253,13 +253,19 @@ class PortalSmokeTests(unittest.TestCase):
         with patch.object(self.config, "FREQUENCY_HISTORY_ENABLED", True), \
              patch.dict("os.environ", {"METRICS_ARCHIVE_PATH": str(archive)}), \
              patch("metrics_archive.require_hdd"):
-            def checked_query(conn, *args):
+            def checked_query(conn, *args, **kwargs):
                 self.assertEqual(conn.execute("PRAGMA query_only").fetchone()[0], 1)
-                return real_query(conn, *args)
+                return real_query(conn, *args, **kwargs)
             with patch("performance_history.query", side_effect=checked_query):
                 response = self.client.get("/api/history/v2/performance"+args)
             self.assertEqual(response.status_code, 200)
             self.assertEqual(len(response.json["series"]), 3)
+            extended = self.client.get("/api/history/v2/performance"+args+"&extended=1")
+            self.assertEqual(extended.status_code, 200)
+            self.assertEqual(len(extended.json["series"]), 7)
+            for value in ['0', 'true', 'unknown']:
+                legacy = self.client.get("/api/history/v2/performance"+args+"&extended="+value)
+                self.assertEqual(len(legacy.json['series']), 3)
             self.assertEqual(response.json["bucket_seconds"], 900)
             self.assertEqual(len(response.json["series"][0]["points"]), 96)
             for hours, width, count in [(1, 60, 60), (6, 300, 72)]:

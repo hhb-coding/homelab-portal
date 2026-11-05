@@ -385,3 +385,16 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 
 #history-start-choice-label, #history-end-choice-label { max-width:100%; }
 #history-start-choice, #history-end-choice { width:230px; }
+
+/* History tab only: keep Device/Lite chart geometry unchanged. / 仅 History 单列布局。 */
+.history-expanded .chart-box { float:none; width:100%; margin-right:0; }
+.history-expanded .history-plot { position:relative; padding-left:82px; }
+.history-expanded .history-y-axis { position:absolute; left:0; top:0; width:76px; height:120px; color:#777; font-size:10px; text-align:right; }
+.history-expanded .history-y-axis span { position:absolute; right:0; top:0; }
+.history-expanded .history-y-axis span + span { top:54px; }
+.history-expanded .history-y-axis span + span + span { top:108px; }
+.history-expanded .history-reference { stroke:#e8e8e8; stroke-width:1; }
+.history-expanded .history-upload { color:#246c98; stroke:#246c98; }
+.history-expanded .history-download { color:#a75b20; stroke:#a75b20; stroke-dasharray:5 3; }
+.history-expanded .history-legend { font-size:11px; margin-bottom:5px; }
+.history-expanded .history-stats { overflow-wrap:break-word; word-wrap:break-word; }

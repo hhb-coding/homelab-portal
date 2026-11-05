@@ -9,7 +9,13 @@ var PerformanceHistory = (function () {
       .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function numeric(v) { return typeof v === "number" && isFinite(v); }
-  function text(v, unit) { return numeric(v) ? v.toFixed(unit === "GHz" ? 2 : 1) + " " + unit : "—"; }
+  function text(v, unit) {
+    if (numeric(v) && unit === 'B/s') {
+      if (v >= 1000000000) { return (v / 1000000000).toFixed(1) + ' GB/s'; }
+      if (v >= 1000000) { return (v / 1000000).toFixed(1) + ' MB/s'; }
+      if (v >= 1000) { return (v / 1000).toFixed(1) + ' kB/s'; }
+    }
+    return numeric(v) ? v.toFixed(unit === "GHz" ? 2 : 1) + " " + unit : "—"; }
   function pad(v) { return v < 10 ? '0' + v : String(v); }
   function dateText(value) {
     var t = OfflineSeen.parse(value), d, offset, sign;
@@ -48,24 +54,27 @@ var PerformanceHistory = (function () {
     }
     return html + '</div>';
   }
-  function chart(series, start, end) {
+  function chart(series, start, end, expanded, companion) {
     var points = series.points, i, p, value, stamp, x, y, last = null, paths = "", path = "", length = 0;
-    var min = null, max = null, span, padding, peak, step, singletonX, singletonY;
+    var min = null, max = null, span, padding, peak, step, singletonX, singletonY, j, lines = companion ? [series, companion] : [series], color = "";
     function flush() {
       if (length === 1) {
         // A short vertical mark locates an isolated bucket, without inventing time coverage.
         // 孤立/部分桶仅用竖向短线定位，不制造时间覆盖或连接缺口。
-        paths += '<path class="chart-isolated" d="M' + singletonX + ',' + (singletonY - 2).toFixed(2)
+        paths += '<path class="chart-isolated' + color + '" d="M' + singletonX + ',' + (singletonY - 2).toFixed(2)
           + ' V' + (singletonY + 2).toFixed(2) + '"><title>Isolated/partial bucket / 孤立或部分缺失桶</title></path>';
-      } else if (path) { paths += '<path d="' + path + '" class="chart-line"></path>'; }
+      } else if (path) { paths += '<path d="' + path + '" class="chart-line' + color + '"></path>'; }
       path = ""; length = 0;
     }
-    for (i = 0; i < points.length; i += 1) {
-      value = points[i].value;
-      if (numeric(value)) { min = min === null ? value : Math.min(min, value); max = max === null ? value : Math.max(max, value); }
+    for (j = 0; j < lines.length; j += 1) {
+      points = lines[j].points;
+      for (i = 0; i < points.length; i += 1) {
+        value = points[i].value;
+        if (numeric(value)) { min = min === null ? value : Math.min(min, value); max = max === null ? value : Math.max(max, value); }
+      }
     }
-    if (min === null) { return '<div class="chart-wait">No data / 无数据</div>' + timeAxis(start, end); }
-    if (series.metric === 'cpu_percent') {
+    if (min === null) { return (expanded ? '<div class="history-plot"><div class="history-plot-area">' : '') + '<div class="chart-wait">' + (expanded ? 'No archived data / 未读取到历史数据' : 'No data / 无数据') + '</div>' + timeAxis(start, end) + (expanded ? '</div></div>' : ''); }
+    if (series.metric === 'cpu_percent' || (expanded && series.unit === '%')) {
       min = 0;
       peak = Math.max(max, numeric(series.stats.peak) ? series.stats.peak : 0);
       step = peak <= 10 ? 1 : peak <= 50 ? 5 : 10;
@@ -75,35 +84,50 @@ var PerformanceHistory = (function () {
       padding = span * 0.08;
       if (max - min < span) { min -= span / 2; max += span / 2; }
       min -= padding; max += padding;
-      if (series.unit === 'GHz') { min = Math.max(0, min); }
+      if (series.unit === 'GHz' || series.unit === 'B/s') { min = Math.max(0, min); }
     }
-    for (i = 0; i < points.length; i += 1) {
-      p = points[i]; value = p.value; stamp = OfflineSeen.parse(p.timestamp);
-      if (!numeric(value) || stamp === null) { flush(); last = null; continue; }
-      x = ((stamp - start) / (end - start)) * 300;
-      y = 115 - (value - min) / (max - min) * 110;
-      if (p.gap || last === null || last.gap) { flush(); }
-      if (!length) { path = "M" + x.toFixed(2) + "," + y.toFixed(2); singletonX = x.toFixed(2); singletonY = y; }
-      else { path += " L" + x.toFixed(2) + "," + y.toFixed(2); }
-      length += 1; last = p;
+    for (j = 0; j < lines.length; j += 1) {
+      points = lines[j].points; last = null; color = companion ? (j ? ' history-download' : ' history-upload') : '';
+      for (i = 0; i < points.length; i += 1) {
+        p = points[i]; value = p.value; stamp = OfflineSeen.parse(p.timestamp);
+        if (!numeric(value) || stamp === null) { flush(); last = null; continue; }
+        x = ((stamp - start) / (end - start)) * 300;
+        y = 115 - (value - min) / (max - min) * 110;
+        if (p.gap || last === null || last.gap) { flush(); }
+        if (!length) { path = "M" + x.toFixed(2) + "," + y.toFixed(2); singletonX = x.toFixed(2); singletonY = y; }
+        else { path += " L" + x.toFixed(2) + "," + y.toFixed(2); }
+        length += 1; last = p;
+      }
+      flush();
     }
-    flush();
+    if (expanded) {
+      return '<div class="history-plot"><div class="history-y-axis" aria-label="Y axis / 坐标轴刻度">'
+        + '<span>' + esc(text(max, series.unit)) + '</span><span>' + esc(text((min + max) / 2, series.unit))
+        + '</span><span>' + esc(text(min, series.unit)) + '</span></div><div class="history-plot-area">'
+        + '<svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="' + esc(series.label + ' ' + series.unit) + '">'
+        + '<path d="M0,5 H300 M0,60 H300 M0,115 H300" class="history-reference"></path>'
+        + paths + '</svg>' + timeAxis(start, end) + '</div></div>';
+    }
     return '<div class="chart-axis"><span>' + esc(text(min, series.unit)) + '</span><span>' + esc(text(max, series.unit))
       + '</span></div><svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none">'
       + '<path d="M0,119 H300 M0,116 V120 M150,116 V120 M300,116 V120" class="chart-baseline"></path>'
       + paths + '</svg>' + timeAxis(start, end);
   }
-  function charts(data) {
-    var html = '<div class="chart-grid performance-grid">', i, s, stats;
+  function charts(data, expanded) {
+    var html = '<div class="chart-grid performance-grid' + (expanded ? ' history-expanded' : '') + '">', i, s, stats, companion;
     var start = OfflineSeen.parse(data.start), end = OfflineSeen.parse(data.end);
-    if (!data.series || data.series.length !== 3 || start === null || end === null || end <= start) { throw new Error("Invalid history"); }
-    for (i = 0; i < data.series.length; i += 1) {
-      s = data.series[i]; stats = s.stats;
+    if (!data.series || data.series.length !== (expanded ? 7 : 3) || start === null || end === null || end <= start) { throw new Error("Invalid history"); }
+    for (i = 0; i < (expanded ? 6 : data.series.length); i += 1) {
+      s = data.series[i]; stats = s.stats; companion = expanded && i === 5 ? data.series[6] : null;
+      if (companion && (!companion.points || companion.points.length > 500 || !companion.stats || companion.unit !== s.unit)) { throw new Error("Invalid network series"); }
       if (!s.points || s.points.length > 500 || !stats) { throw new Error("Invalid series"); }
-      html += '<div class="chart-box"><div class="chart-title">' + esc(s.label + " " + s.unit) + '</div>'
-        + chart(s, start, end) + '<div class="history-stats">Avg / 平均 ' + esc(text(stats.average, s.unit))
+      html += '<div class="chart-box"><div class="chart-title">' + esc(companion ? "Network Traffic " + s.unit : s.label + " " + s.unit) + '</div>'
+        + (companion ? '<div class="history-legend"><span class="history-upload">Upload / 上传</span> · <span class="history-download">Download / 下载</span></div>' : '')
+        + chart(s, start, end, expanded, companion) + '<div class="history-stats">' + (companion ? 'Upload / 上传: ' : '') + 'Avg / 平均 ' + esc(text(stats.average, s.unit))
         + '<br>Peak / 峰值 ' + esc(text(stats.peak, s.unit)) + '<br>Valid / 有效 ' + esc(stats.count)
         + '<br>Latest archived sample source time / 最新归档样本来源时间: ' + esc(latestSample(s))
+        + (companion ? '<br>Download / 下载: Avg ' + esc(text(companion.stats.average, companion.unit)) + ' · Peak ' + esc(text(companion.stats.peak, companion.unit)) + ' · Valid ' + esc(companion.stats.count) + '<br>Latest download sample / 最新下载样本: ' + esc(latestSample(companion)) : '')
+        + (expanded && i === 4 ? '<br>Archived dp disk only / 仅归档 dp 对应磁盘' : '')
         + (s.sensor ? '<br>Sensor: ' + esc(s.sensor) : '') + '</div></div>';
     }
     return html + '</div><p class="history-note">' + esc(dateText(data.start) + " – " + dateText(data.end))
@@ -111,8 +135,9 @@ var PerformanceHistory = (function () {
       + '<p class="history-note">Page re-queries about every 60s; archive sync usually every 5 minutes; row 1 live curves update every 5s. / 页面约60秒重新查询，归档通常每5分钟增量同步，第一排5秒实时曲线变化更快。Sample source time is not archive sync execution time / 样本来源时间并非归档同步执行时间。</p>'
       + '<p class="history-note">' + esc(data.mapping_note) + '</p>';
   }
-  function placeholders(message) {
-    var labels = ['CPU Frequency GHz', 'CPU Usage %', 'CPU Temperature °C'], html = '<div class="chart-grid performance-grid">', i;
+  function placeholders(message, expanded) {
+    var labels = ['CPU Frequency GHz', 'CPU Usage %', 'CPU Temperature °C'], html = '<div class="chart-grid performance-grid' + (expanded ? ' history-expanded' : '') + '">', i;
+    if (expanded) { labels = labels.concat(['Memory Usage %', 'Disk Usage %', 'Network Traffic']); }
     for (i = 0; i < labels.length; i += 1) {
       html += '<div class="chart-box"><div class="chart-title">' + labels[i] + '</div><div class="chart-wait">' + esc(message) + '</div></div>';
     }
@@ -121,9 +146,9 @@ var PerformanceHistory = (function () {
   function draw(state, target) {
     var node = el(target);
     if (!node) { return; }
-    if (state.error) { node.innerHTML = placeholders(state.error); }
-    else if (state.data) { node.innerHTML = charts(state.data); }
-    else { node.innerHTML = placeholders('Loading / 加载中…'); }
+    if (state.error) { node.innerHTML = placeholders(state.error, target === 'history-result'); }
+    else if (state.data) { node.innerHTML = charts(state.data, target === 'history-result'); }
+    else { node.innerHTML = placeholders('Loading / 加载中…', target === 'history-result'); }
   }
   function request(state, target, device, start, end) {
     var version, xhr;
@@ -139,7 +164,7 @@ var PerformanceHistory = (function () {
           state.error = 'History unavailable or disabled / 历史不可用或未启用';
         } else {
           state.data = JSON.parse(xhr.responseText);
-          charts(state.data);
+          charts(state.data, target === 'history-result');
         }
         draw(state, target);
       } catch (e) { state.data = null; state.error = 'Invalid history response / 历史响应无效'; draw(state, target); }
@@ -147,7 +172,7 @@ var PerformanceHistory = (function () {
     xhr.onreadystatechange = function () { if (xhr.readyState === 4) { finish(false); } };
     xhr.onerror = xhr.ontimeout = function () { finish(true); };
     xhr.open('GET', '/api/history/v2/performance?device_id=' + encodeURIComponent(device)
-      + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end), true);
+      + (target === 'history-result' ? '&extended=1' : '') + '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end), true);
     xhr.timeout = 10000; xhr.send(null);
   }
   function preset(days) {
