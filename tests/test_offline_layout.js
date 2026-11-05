@@ -23,7 +23,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    performanceRequests.push({device:params.get('device_id'),seconds,width,count});
    res.setHeader('Content-Type','application/json');
    res.end(JSON.stringify({status:'ok',device_id:params.get('device_id'),start,end,bucket_seconds:width,mapping_note:'Current mapping / 当前关联',
-    series:['CPU Frequency','CPU Usage','CPU Temperature'].map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c'][i],unit:['GHz','%','°C'][i],stats:{count:count-1,average:2,peak:3},points:Array.from({length:count},(_,n)=>({timestamp:new Date(base+n*width*1000).toISOString(),value:n===2?null:n%3+1,count:n===2?0:1,gap:n===3}))}))}));return;
+    series:(params.get('extended')==='1'?['CPU Frequency','CPU Usage','CPU Temperature','Memory Usage','Disk Usage','Upload','Download']:['CPU Frequency','CPU Usage','CPU Temperature']).map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c','memory_percent','disk_percent','network_upload_bytes_per_second','network_download_bytes_per_second'][i],unit:['GHz','%','°C','%','%','B/s','B/s'][i],stats:{count:count-1,average:2,peak:3},points:Array.from({length:count},(_,n)=>({timestamp:new Date(base+n*width*1000).toISOString(),value:n===2?null:n%3+1,count:n===2?0:1,gap:n===3}))}))}));return;
   }
   if(path==='/api/history') {res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'ok',devices:[{device_id:'a',points:[{timestamp:new Date(Date.now()-60000).toISOString(),cpu_percent:10},{timestamp:new Date().toISOString(),cpu_percent:20}]}]}));return;}
   if(path.startsWith('/api/')) {res.setHeader('Content-Type','application/json');res.end(JSON.stringify(path==='/api/dashboard'?sample():{status:'ok',devices:[]}));return;}
@@ -135,14 +135,33 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
    assert(await evalJS('document.getElementById("performance-detail-range").value==="6"'));
    await evalJS('document.getElementById("tab-history").click()');
-   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
-   assert(await evalJS('document.querySelectorAll("#history-device option").length===2 && document.querySelectorAll("#history-result svg").length===3'));
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===6'))break;await sleep(100);}
+   assert(await evalJS('document.querySelectorAll("#history-device option").length===2 && document.querySelectorAll("#history-result svg").length===6'));
    assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Peak / 峰值")>=0'));
+   for(const width of [320,375,768,1024]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
+    assert(await evalJS(`(function(){
+      var boxes=document.querySelectorAll('#history-result .chart-box'),left=null,previous=null;
+      if(boxes.length!==6 || document.querySelectorAll('#history-result .chart-axis').length!==0){return false;}
+      for(var i=0;i<boxes.length;i++){
+        var r=boxes[i].getBoundingClientRect(),svg=boxes[i].querySelector('svg').getBoundingClientRect();
+        var ticks=boxes[i].querySelectorAll('.history-y-axis span');
+        if(ticks.length!==3 || ticks[0].getBoundingClientRect().right>svg.left || (left!==null&&Math.abs(left-svg.left)>1)){return false;}
+        if(previous!==null&&r.top<previous || boxes[i].scrollWidth>boxes[i].clientWidth+1){return false;}
+        left=svg.left;previous=r.bottom;
+      }
+      var axes=document.querySelectorAll('#history-result .performance-time-axis');
+      return axes.length===6&&Array.prototype.every.call(axes,function(a){return a.innerHTML===axes[0].innerHTML;})
+        &&document.querySelectorAll('#history-result .chart-line.history-upload').length>0
+        &&document.querySelectorAll('#history-result .chart-line.history-download').length>0
+        &&document.documentElement.scrollWidth<=innerWidth+1;
+    }())`),'Six rows, left Y ticks, shared time axes and network at '+width);
+   }
    await evalJS('document.getElementById("history-device").value="d";document.getElementById("history-range").value="30";document.getElementById("history-device").onchange()');
-   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
-   assert(await evalJS('document.querySelectorAll("#history-result svg").length===3'));
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===6'))break;await sleep(100);}
+   assert(await evalJS('document.querySelectorAll("#history-result svg").length===6'));
    await evalJS('document.getElementById("history-range").value="custom";document.getElementById("history-range").onchange();document.getElementById("history-start").value="2026-01-01T00:00";document.getElementById("history-end").value="2026-01-02T00:00";document.getElementById("history-form").onsubmit()');
-   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===6'))break;await sleep(100);}
    assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Local (UTC")>=0'));
    assert(await evalJS('document.getElementById("history-start").type === "datetime-local"'));
    for (const width of [320,375,768,1024]) {
@@ -163,7 +182,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    const retainedInput = await evalJS('document.getElementById("history-start").value');
    await evalJS('renderDevicePanels([])');
    assert.strictEqual(await evalJS('document.getElementById("history-start").value'), retainedInput);
-   console.log('Performance history: three columns, narrow wrapping, preserved trends, device/range/custom controls PASS');
+   console.log('Performance history: Device unchanged; History six rows, Y axes, network and 320/375/768/1024 layouts; Local/DST controls PASS');
   }
 
  }

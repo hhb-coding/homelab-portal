@@ -117,6 +117,60 @@ class PerformanceHistoryTests(unittest.TestCase):
         self.conn.execute('PRAGMA user_version=1')
         with self.assertRaisesRegex(TelemetryError, 'archive_migration_required'): self.result()
 
+    def test_extended_metrics_strict_values_statistics_and_default_compatibility(self):
+        rows = [
+            {'cpu': 4, 'mp': 25, 'dp': 60, 'b': [1000, 2000]},
+            {'mp': 75, 'dp': 80, 'b': [3000, 6000]},
+            {'mp': None, 'dp': '20', 'b': [None, 8000]},
+            {'mp': True, 'dp': 101, 'b': [False, -1]},
+            {'mp': -1, 'dp': {}, 'b': [1]},
+            {'mp': '30', 'b': 'unknown', 'ns': 1, 'nr': 2},
+            {'mp': float('nan'), 'dp': float('inf'), 'b': [float('inf'), '4']},
+            {'mp': 0, 'dp': 0, 'b': [0, 0]},
+        ]
+        for i, row in enumerate(rows):
+            self.conn.execute('INSERT INTO samples VALUES (?,?,?,?)',
+                ('example-system', str(i), stamp(NOW+timedelta(minutes=i)), json.dumps(row)))
+        self.conn.execute('PRAGMA query_only=ON')
+        default = self.result()
+        data = query(self.conn, self.device, 'x230', stamp(NOW), stamp(NOW+timedelta(minutes=10)), extended=True)
+        self.assertEqual(data['series'][:3], default['series'])
+        self.assertEqual(len(default['series']), 3)
+        self.assertEqual(len(data['series']), 7)
+        memory, disk, upload, download = data['series'][3:]
+        self.assertEqual([s['unit'] for s in data['series'][3:]], ['%', '%', 'B/s', 'B/s'])
+        self.assertAlmostEqual(memory['stats']['average'], 100/3)
+        self.assertEqual(disk['stats']['peak'], 80)
+        self.assertEqual(upload['stats']['average'], 4000/3)
+        self.assertEqual(download['stats']['average'], 4000)
+        self.assertIsNone(upload['points'][2]['value'])
+        self.assertEqual(download['points'][2]['value'], 8000)
+        self.assertEqual(upload['points'][7]['value'], 0)
+        for item in data['series'][3:]:
+            self.assertIsNone(item['points'][5]['value'])
+            self.assertIsNone(item['points'][6]['value'])
+        aggregated = query(self.conn, self.device, 'hp', stamp(NOW), stamp(NOW+timedelta(hours=6)), extended=True)
+        self.assertTrue(all(s['points'][0]['gap'] for s in aggregated['series'][3:]))
+        long = query(self.conn, self.device, 'hp', stamp(NOW), stamp(NOW+timedelta(days=180)), extended=True)
+        self.assertTrue(all(len(s['points']) <= 500 for s in long['series']))
+        self.assertEqual(long['series'][5]['stats'], upload['stats'])
+
+    def test_extended_missing_has_no_fabricated_zero_or_legacy_network_units(self):
+        self.sample(0, 5)
+        data = query(self.conn, self.device, 'hp', stamp(NOW), stamp(NOW+timedelta(hours=1)), extended=True)
+        for item in data['series'][3:]:
+            self.assertEqual(item['stats']['count'], 0)
+            self.assertIsNone(item['stats']['average'])
+            self.assertTrue(all(p['value'] is None for p in item['points']))
+
+    def test_extended_timeout_releases_progress_handler(self):
+        from unittest.mock import patch
+        self.sample(0, 5)
+        with patch('performance_history.time.monotonic', side_effect=[0, 6]):
+            with self.assertRaisesRegex(TelemetryError, 'query_timeout'):
+                query(self.conn, self.device, 'hp', stamp(NOW), stamp(NOW+timedelta(hours=1)), extended=True)
+        self.assertEqual(self.result()['series'][1]['stats']['count'], 1)
+
     def test_device_scope(self):
         self.assertEqual(device_role({'device_id': 'local'}, 'local'), 'hp')
         self.assertEqual(device_role({'device_id': 'example-x230'}, ''), 'x230')

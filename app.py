@@ -82,7 +82,7 @@ def archive_history_api():
 
 @app.route("/api/history/v2/performance")
 def performance_history_api():
-    """Archive-backed three metric query / 三指标归档查询。"""
+    """Archive metrics; extended=1 opts into History additions / 默认三指标，扩展需显式启用。"""
     from contextlib import closing
     import os
     from pathlib import Path
@@ -103,7 +103,8 @@ def performance_history_api():
         require_hdd(database, Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.getenv("METRICS_ARCHIVE_UUID", ""))
         with closing(sqlite3.connect(database.resolve().as_uri()+"?mode=ro", uri=True, timeout=2)) as conn:
             conn.execute("PRAGMA query_only=ON")
-            return jsonify(query(conn, device, role, request.args.get("start"), request.args.get("end")))
+            return jsonify(query(conn, device, role, request.args.get("start"), request.args.get("end"),
+                                 extended=request.args.get("extended") == "1"))
     except TelemetryError as exc:
         return jsonify(error=exc.code), exc.status
     except Exception:

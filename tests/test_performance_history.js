@@ -43,6 +43,33 @@
             {timestamp: '2026-01-01T00:09:00Z', value: 1, count: 1, gap: true}]};
       })};
   }
+  function expandedPayload(id) {
+    var data = payload(id);
+    ['Memory Usage', 'Disk Usage', 'Upload / 上传', 'Download / 下载'].forEach(function (label, i) {
+      var s = JSON.parse(JSON.stringify(data.series[1])); s.label = label;
+      s.metric = ['memory_percent', 'disk_percent', 'network_upload_bytes_per_second', 'network_download_bytes_per_second'][i];
+      s.unit = i < 2 ? '%' : 'B/s'; data.series.push(s);
+    });
+    return data;
+  }
+  var expanded = expandedPayload('example');
+  var expandedHtml = c.PerformanceHistory.charts(expanded, true);
+  assert.strictEqual((expandedHtml.match(/class="chart-box"/g) || []).length, 6);
+  assert.strictEqual((expandedHtml.match(/class="history-y-axis"/g) || []).length, 6);
+  assert.strictEqual((expandedHtml.match(/class="history-reference"/g) || []).length, 6);
+  assert(expandedHtml.indexOf('history-expanded') >= 0 && expandedHtml.indexOf('class="chart-axis"') < 0);
+  assert(expandedHtml.indexOf('history-upload') >= 0 && expandedHtml.indexOf('history-download') >= 0);
+  assert(expandedHtml.indexOf('Network Traffic B/s') >= 0 && expandedHtml.indexOf('仅归档 dp 对应磁盘') >= 0);
+  var expandedAxes = expandedHtml.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
+  assert.strictEqual(expandedAxes.length, 6); expandedAxes.forEach(function (axis) { assert.strictEqual(axis, expandedAxes[0]); });
+  expanded.series[5].points.forEach(function (p) { p.value = null; });
+  expandedHtml = c.PerformanceHistory.charts(expanded, true);
+  assert(expandedHtml.indexOf('class="chart-isolated history-download"') >= 0, 'Download works without upload');
+  expanded.series[6].points.forEach(function (p) { p.value = null; });
+  assert(c.PerformanceHistory.charts(expanded, true).indexOf('No archived data / 未读取到历史数据') >= 0);
+  expanded.series[5].points[0].value = 10000000000;
+  expandedHtml = c.PerformanceHistory.charts(expanded, true);
+  assert(expandedHtml.indexOf('GB/s') >= 0 && expandedHtml.indexOf('NaN') < 0);
   var html = c.PerformanceHistory.charts(payload('example-x230'));
   assert.strictEqual((html.match(/class="chart-box"/g) || []).length, 3);
   assert(html.indexOf('CPU Frequency') < html.indexOf('CPU Usage') && html.indexOf('CPU Usage') < html.indexOf('CPU Temperature'));
@@ -55,7 +82,7 @@
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
   var template = fs.readFileSync('templates/index.html', 'utf8');
   ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
-    assert(template.indexOf("filename='" + asset + "') }}?v=70631-hide-occurrence") >= 0);
+    assert(template.indexOf("filename='" + asset + "') }}?v=707-expanded-history") >= 0);
   });
   function axisLabels(data) {
     var output = c.PerformanceHistory.charts(data), all = output.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
@@ -129,12 +156,13 @@
   assert.strictEqual(node('device-panel').className, 'hidden');
   var first = requests[requests.length - 1];
   assert(first.url.indexOf('/api/history/v2/performance?') === 0);
+  assert(first.url.indexOf('&extended=1') >= 0);
   assert(decodeURIComponent(first.url).indexOf('2025-12-26') >= 0, '7d preset uses shared clock');
   node('history-device').value = 'example-hp'; node('history-device').onchange();
   var second = requests[requests.length - 1];
   first.status = 200; first.responseText = JSON.stringify(payload('old')); first.readyState = 4; first.onreadystatechange();
   assert(node('history-result').innerHTML.indexOf('Loading') >= 0, 'Ignore late result');
-  second.status = 200; second.responseText = JSON.stringify(payload('example-hp')); second.readyState = 4; second.onreadystatechange();
+  second.status = 200; second.responseText = JSON.stringify(expandedPayload('example-hp')); second.readyState = 4; second.onreadystatechange();
   assert(node('history-result').innerHTML.indexOf('CPU Temperature') >= 0);
   node('history-range').value = 'custom'; node('history-range').onchange.call(node('history-range'));
   node('history-start').value = 'bad'; node('history-end').value = 'bad';
@@ -150,6 +178,7 @@
   assert(node('history-result').innerHTML.indexOf('未启用') >= 0);
   c.renderDevicePanels([device]);
   var detail = requests[requests.length - 1];
+  assert(detail.url.indexOf('extended=') < 0);
   detail.status = 200; detail.responseText = JSON.stringify(payload('example-x230')); detail.readyState = 4; detail.onreadystatechange();
   assert(node('devices').innerHTML.indexOf('Performance history') >= 0);
   assert.strictEqual((node('performance-detail').innerHTML.match(/class="chart-box"/g) || []).length, 3);

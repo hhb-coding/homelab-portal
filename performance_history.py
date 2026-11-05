@@ -12,6 +12,19 @@ METRICS = (("cpu_frequency_ghz", "CPU Frequency", "GHz"),
            ("cpu_percent", "CPU Usage", "%"),
            ("cpu_temperature_c", "CPU Temperature", "°C"))
 
+EXTENDED_METRICS = (("memory_percent", "Memory Usage", "%"),
+                    ("disk_percent", "Disk Usage", "%"),
+                    ("network_upload_bytes_per_second", "Upload / 上传", "B/s"),
+                    ("network_download_bytes_per_second", "Download / 下载", "B/s"))
+
+
+def bandwidth(sample):
+    """Beszel stats.b = [sent B/s, received B/s]; never infer legacy ns/nr units."""
+    value = sample.get("b")
+    if not isinstance(value, list) or len(value) != 2:
+        return (None, None)
+    return tuple(number(v, 0, 10_000_000_000) for v in value)
+
 
 def device_role(device, local_device_id):
     if local_device_id and device.get("device_id") == local_device_id:
@@ -54,7 +67,7 @@ def latest_frequency(path, device_id, now=None):
     return result
 
 
-def query(conn, device, role, start, end):
+def query(conn, device, role, start, end, extended=False):
     start, end = parse_time(start), parse_time(end)
     seconds = (end-start).total_seconds()
     if not 0 < seconds <= 180 * 86400:
@@ -72,12 +85,13 @@ def query(conn, device, role, start, end):
         width = max(60, math.ceil(seconds / 500 / 60) * 60)
     size = math.ceil(seconds / width)
     sensor = "k10temp" if role == "hp" else "CPU Package"
+    metrics = METRICS + EXTENDED_METRICS if extended else METRICS
     series = []
-    for key, label, unit in METRICS:
+    for key, label, unit in metrics:
         series.append({"metric": key, "label": label, "unit": unit,
                        "sensor": sensor if key == "cpu_temperature_c" else None,
                        "points": [], "stats": {"count": 0, "average": None, "peak": None}})
-    bins = [[[] for _ in range(size)] for _ in METRICS]
+    bins = [[[] for _ in range(size)] for _ in metrics]
     # Each accumulator is constant-sized / 每桶仅保留固定大小累加器。
     def add(metric, timestamp, value):
         index = int((parse_time(timestamp)-start).total_seconds() // width)
@@ -123,6 +137,12 @@ def query(conn, device, role, start, end):
             temperatures = sample.get("t")
             add(1, timestamp, number(sample.get("cpu"), 0, 100))
             add(2, timestamp, number(temperatures.get(sensor), -50, 150) if isinstance(temperatures, dict) else None)
+            if extended:
+                add(3, timestamp, number(sample.get("mp"), 0, 100))
+                add(4, timestamp, number(sample.get("dp"), 0, 100))
+                upload, download = bandwidth(sample)
+                add(5, timestamp, upload)
+                add(6, timestamp, download)
             if time.monotonic() > deadline:
                 raise TelemetryError("query_timeout", 503)
     finally:

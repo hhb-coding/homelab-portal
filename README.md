@@ -722,3 +722,6 @@ timer 模板。早期 Phase B 文档记录的是未部署阶段，并不代表�
 Simplified Phase 1 implements archive-backed three-metric charts and the History tab for review; **not deployed**. See [API, limitations and rollback](docs/step-7-06-history.md).
 
 简化版 Phase 1 已实现 HP/X230 三指标历史、History 标签及最新主频过期显示，供 PR 审阅，**未部署**；读取开关未启用，详见上述说明。
+
+Step 7.07 开发范围：仅 History 扩展为六行历史图（CPU 三项、内存、归档 dp 对应磁盘、网络收发）；Device 保持原有三图和默认 API。
+扩展通过 `extended=1` 选择，缓存版本 `707-expanded-history`。字段契约、测试和待验项见 [7.07 开发说明](docs/step-7-07-expanded-history.md)。本步骤不包含合并或生产部署，也不执行整个 ROADMAP 收尾。
