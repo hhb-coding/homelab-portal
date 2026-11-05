@@ -149,6 +149,17 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
     assert(await evalJS('document.documentElement.scrollWidth <= innerWidth+1'), 'Custom controls overflow at '+width);
    }
+   await send('Emulation.setTimezoneOverride', {timezoneId:'America/Montreal'});
+   await evalJS('document.getElementById("history-start").value="2026-01-01T10:00";document.getElementById("history-end").value="2026-01-01T11:00";document.getElementById("history-start").oninput();document.getElementById("history-end").oninput()');
+   assert(await evalJS('["history-start-choice-label","history-end-choice-label"].every(function(id){return getComputedStyle(document.getElementById(id)).display === "none";})'), 'Ordinary dates hide both occurrence labels');
+   await evalJS('document.getElementById("history-start").value="2026-11-01T01:30";document.getElementById("history-start").oninput()');
+   assert(await evalJS('getComputedStyle(document.getElementById("history-start-choice-label")).display === "inline-block" && getComputedStyle(document.getElementById("history-end-choice-label")).display === "none"'), 'Only ambiguous endpoint shows occurrence');
+   await evalJS('document.getElementById("history-end").value="2026-11-01T01:45";document.getElementById("history-end").oninput()');
+   assert(await evalJS('getComputedStyle(document.getElementById("history-end-choice-label")).display === "inline-block"'), 'Ambiguous end shows occurrence');
+   for (const width of [320,375]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    assert(await evalJS('document.documentElement.scrollWidth <= innerWidth+1'), 'Occurrence controls overflow at '+width);
+   }
    const retainedInput = await evalJS('document.getElementById("history-start").value');
    await evalJS('renderDevicePanels([])');
    assert.strictEqual(await evalJS('document.getElementById("history-start").value'), retainedInput);
