@@ -53,6 +53,18 @@
   var axes = html.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
   assert.strictEqual(axes[0], axes[1]); assert.strictEqual(axes[1], axes[2]);
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
+  var template = fs.readFileSync('templates/index.html', 'utf8');
+  ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
+    assert(template.indexOf("filename='" + asset + "') }}?v=7062-local-time-freshness") >= 0);
+  });
+  function axisLabels(data) {
+    var output = c.PerformanceHistory.charts(data), all = output.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
+    assert.strictEqual(all[0], all[1]); assert.strictEqual(all[1], all[2]);
+    return Array.from(all[0].matchAll(/<span title="[^"]*">([^<]*)<\/span>/g), function (m) { return m[1]; });
+  }
+  assert.deepStrictEqual(axisLabels(payload('cross-day')), ['12-31 19:00', '01-01 07:00', '01-01 19:00']);
+  var compact = payload('same-day'); compact.start = '2026-01-01T15:00:00Z'; compact.end = '2026-01-01T17:00:00Z';
+  assert.deepStrictEqual(axisLabels(compact), ['10:00', '11:00', '12:00']);
   var seasonal = payload('seasonal');
   seasonal.start = '2026-03-08T06:00:00Z'; seasonal.end = '2026-03-08T08:00:00Z';
   html = c.PerformanceHistory.charts(seasonal);
@@ -62,6 +74,7 @@
   html = c.PerformanceHistory.charts(seasonal);
   assert(html.indexOf('01:00:00 Local (UTC-04:00)') >= 0);
   assert(html.indexOf('01:00:00 Local (UTC-05:00)') >= 0);
+  assert.deepStrictEqual(axisLabels(seasonal), ['01:00 UTC-04:00', '01:00 UTC-05:00', '02:00']);
   seasonal.series.forEach(function (s, i) {
     s.points[0].last_sample = '2026-07-01T00:0' + i + ':00Z';
     s.points[1].last_sample = '2026-07-02T00:00:00Z';

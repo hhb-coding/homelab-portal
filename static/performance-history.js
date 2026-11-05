@@ -29,10 +29,22 @@ var PerformanceHistory = (function () {
     return latest === null ? '—' : dateText(new Date(latest).toISOString());
   }
   function timeAxis(start, end) {
-    var html = '<div class="performance-time-axis" aria-label="Local time">', i, value;
+    var html = '<div class="performance-time-axis" aria-label="Local time">', i, j, value, label;
+    var dates = [], labels = [], first = new Date(start), last = new Date(end);
+    var crossDate = first.getFullYear() !== last.getFullYear() || first.getMonth() !== last.getMonth() || first.getDate() !== last.getDate();
     for (i = 0; i < 3; i += 1) {
-      value = dateText(new Date(start + (end - start) * i / 2).toISOString());
-      html += '<span title="' + esc(value) + '">' + esc(value) + '</span>';
+      dates[i] = new Date(start + (end - start) * i / 2);
+      labels[i] = (crossDate ? pad(dates[i].getMonth() + 1) + '-' + pad(dates[i].getDate()) + ' ' : '')
+        + pad(dates[i].getHours()) + ':' + pad(dates[i].getMinutes());
+    }
+    for (i = 0; i < 3; i += 1) {
+      value = dateText(dates[i].toISOString()); label = labels[i];
+      for (j = 0; j < 3; j += 1) {
+        if (i !== j && labels[i] === labels[j] && dates[i].getTimezoneOffset() !== dates[j].getTimezoneOffset()) {
+          label += ' ' + value.slice(value.indexOf('UTC'), -1); break;
+        }
+      }
+      html += '<span title="' + esc(value) + '">' + esc(label) + '</span>';
     }
     return html + '</div>';
   }
