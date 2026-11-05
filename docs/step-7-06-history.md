@@ -1,6 +1,6 @@
 # Step 7.06 — Archive-backed History (completed) / 历史面板已完成
 
-**Current status (as of 2026-11-05):** Steps 7.06 through 7.06.3.1 were merged via [PRs #16–#20](https://github.com/hhb-coding/homelab-portal/pulls?q=is%3Apr+is%3Amerged+16..20), deployed to HP and accepted by the operator. The final 7.06.3.1 HP baseline was `b630a52a48e9523baf2c0e298dfdca365d169483`. Later [Step 7.07/7.07.1](step-7-07-expanded-history.md) further expanded charts; the operator-reported HP version at documentation closeout is `5808ffadeee4f34c8e0092ca5768b8037e8617e3`. These are deployment snapshots, not a new GitHub Release or live status check.
+**Current status (as of 2026-11-05):** Steps 7.06 through 7.06.3.1 were merged via PRs [#16](https://github.com/hhb-coding/homelab-portal/pull/16)–[#20](https://github.com/hhb-coding/homelab-portal/pull/20), deployed to HP and accepted by the operator. The final 7.06.3.1 HP baseline was `b630a52a48e9523baf2c0e298dfdca365d169483`. Later [Step 7.07/7.07.1](step-7-07-expanded-history.md) further expanded charts; the operator-reported HP version at documentation closeout is `5808ffadeee4f34c8e0092ca5768b8037e8617e3`. These are deployment snapshots, not a new GitHub Release or live status check.
 
 **当前状态：**7.06～7.06.3.1 已合并、部署并验收。7.06.1 当时的验收基线为 `d6f2eb56df5027c9364feb422ffb705a204b677c`；文档后续各节描述功能演进，不表示如今仍处于审核或未部署阶段。旧 Safari 日期控件触摸体验仍需实机验证。
 
