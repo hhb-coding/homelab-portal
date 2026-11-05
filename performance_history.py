@@ -62,7 +62,14 @@ def query(conn, device, role, start, end):
     if conn.execute("PRAGMA user_version").fetchone()[0] != 2:
         raise TelemetryError("archive_migration_required", 503)
     # At most 500 bins; source rows stream, never fetchall / 最多500桶，流式读取原始行。
-    width = max(60, math.ceil(seconds / 500 / 60) * 60)
+    if seconds <= 3600:
+        width = 60
+    elif seconds <= 6 * 3600:
+        width = 300
+    elif seconds <= 24 * 3600:
+        width = 900
+    else:
+        width = max(60, math.ceil(seconds / 500 / 60) * 60)
     size = math.ceil(seconds / width)
     sensor = "k10temp" if role == "hp" else "CPU Package"
     series = []

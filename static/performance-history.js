@@ -2,7 +2,7 @@
 var PerformanceHistory = (function () {
   "use strict";
   var list = [], signature = "", pageOpened = false;
-  var detailState = {version: 0}, pageState = {version: 0};
+  var detailState = {version: 0}, pageState = {version: 0}, detailHours = 24, currentDevice = null;
   function el(id) { return document.getElementById(id); }
   function esc(v) {
     return String(v === null || v === undefined ? "" : v).replace(/&/g, "&amp;")
@@ -14,36 +14,60 @@ var PerformanceHistory = (function () {
     var t = OfflineSeen.parse(value);
     return t === null ? "—" : new Date(t).toISOString().slice(0, 16).replace("T", " ");
   }
+  function timeAxis(start, end) {
+    var html = '<div class="performance-time-axis" aria-label="UTC time">', i, value, label;
+    var dates = end - start > 6 * 3600000 || new Date(start).getUTCDate() !== new Date(end).getUTCDate();
+    for (i = 0; i < 3; i += 1) {
+      value = new Date(start + (end - start) * i / 2).toISOString();
+      label = dates ? value.slice(5, 10) + ' ' + value.slice(11, 16) : value.slice(11, 16);
+      html += '<span title="' + esc(dateText(value) + ' UTC') + '">' + esc(label) + '</span>';
+    }
+    return html + '</div>';
+  }
   function chart(series, start, end) {
-    var points = series.points, i, p, value, stamp, x, y, last = null, paths = "", path = "", dots = "";
-    var min = series.metric === "cpu_percent" ? 0 : null, max = series.metric === "cpu_percent" ? 100 : null;
+    var points = series.points, i, p, value, stamp, x, y, last = null, paths = "", path = "", length = 0;
+    var min = null, max = null, span, padding, peak, step, singletonX, singletonY;
+    function flush() {
+      if (length === 1) {
+        // A short vertical mark locates an isolated bucket, without inventing time coverage.
+        // 孤立/部分桶仅用竖向短线定位，不制造时间覆盖或连接缺口。
+        paths += '<path class="chart-isolated" d="M' + singletonX + ',' + (singletonY - 2).toFixed(2)
+          + ' V' + (singletonY + 2).toFixed(2) + '"><title>Isolated/partial bucket / 孤立或部分缺失桶</title></path>';
+      } else if (path) { paths += '<path d="' + path + '" class="chart-line"></path>'; }
+      path = ""; length = 0;
+    }
     for (i = 0; i < points.length; i += 1) {
       value = points[i].value;
       if (numeric(value)) { min = min === null ? value : Math.min(min, value); max = max === null ? value : Math.max(max, value); }
     }
-    if (min === null) { return '<div class="chart-wait">No data / 无数据</div>'; }
-    if (max - min < 0.1) { max = min + 0.1; }
+    if (min === null) { return '<div class="chart-wait">No data / 无数据</div>' + timeAxis(start, end); }
+    if (series.metric === 'cpu_percent') {
+      min = 0;
+      peak = Math.max(max, numeric(series.stats.peak) ? series.stats.peak : 0);
+      step = peak <= 10 ? 1 : peak <= 50 ? 5 : 10;
+      max = Math.min(100, Math.max(1, Math.ceil(peak * 1.1 / step) * step));
+    } else {
+      span = Math.max(max - min, series.unit === 'GHz' ? 0.1 : 1);
+      padding = span * 0.08;
+      if (max - min < span) { min -= span / 2; max += span / 2; }
+      min -= padding; max += padding;
+      if (series.unit === 'GHz') { min = Math.max(0, min); }
+    }
     for (i = 0; i < points.length; i += 1) {
       p = points[i]; value = p.value; stamp = OfflineSeen.parse(p.timestamp);
-      if (!numeric(value) || stamp === null) {
-        if (path) { paths += '<path d="' + path + '" class="chart-line"></path>'; }
-        path = ""; last = null; continue;
-      }
+      if (!numeric(value) || stamp === null) { flush(); last = null; continue; }
       x = ((stamp - start) / (end - start)) * 300;
       y = 115 - (value - min) / (max - min) * 110;
-      /* Partial buckets are isolated; never bridge known holes / 部分缺失桶独立显示，禁止跨缺口连线。 */
-      if (p.gap || last === null || (last && last.gap)) {
-        if (path) { paths += '<path d="' + path + '" class="chart-line"></path>'; }
-        path = "M" + x.toFixed(2) + "," + y.toFixed(2);
-      } else { path += " L" + x.toFixed(2) + "," + y.toFixed(2); }
-      dots += '<circle cx="' + x.toFixed(2) + '" cy="' + y.toFixed(2) + '" r="1.5" fill="#337ab7"><title>'
-        + esc(dateText(p.timestamp) + " UTC: " + text(value, series.unit) + "; n=" + p.count
-          + (p.gap ? "; partial / 部分缺失" : "")) + '</title></circle>';
-      last = p;
+      if (p.gap || last === null || last.gap) { flush(); }
+      if (!length) { path = "M" + x.toFixed(2) + "," + y.toFixed(2); singletonX = x.toFixed(2); singletonY = y; }
+      else { path += " L" + x.toFixed(2) + "," + y.toFixed(2); }
+      length += 1; last = p;
     }
-    if (path) { paths += '<path d="' + path + '" class="chart-line"></path>'; }
+    flush();
     return '<div class="chart-axis"><span>' + esc(text(min, series.unit)) + '</span><span>' + esc(text(max, series.unit))
-      + '</span></div><svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none">' + paths + dots + '</svg>';
+      + '</span></div><svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none">'
+      + '<path d="M0,119 H300 M0,116 V120 M150,116 V120 M300,116 V120" class="chart-baseline"></path>'
+      + paths + '</svg>' + timeAxis(start, end);
   }
   function charts(data) {
     var html = '<div class="chart-grid performance-grid">', i, s, stats;
@@ -58,7 +82,7 @@ var PerformanceHistory = (function () {
         + (s.sensor ? '<br>Sensor: ' + esc(s.sensor) : '') + '</div></div>';
     }
     return html + '</div><p class="history-note">' + esc(dateText(data.start) + " – " + dateText(data.end))
-      + ' UTC · ' + esc(data.bucket_seconds) + 's buckets / 桶均值；峰值取原始有效样本。缺失留空，部分缺失桶以孤立点显示。</p>'
+      + ' UTC · ' + esc(data.bucket_seconds) + 's buckets / 桶均值；峰值取原始有效样本。缺失留空，孤立或部分缺失桶以短线标记。</p>'
       + '<p class="history-note">' + esc(data.mapping_note) + '</p>';
   }
   function placeholders(message) {
@@ -109,10 +133,23 @@ var PerformanceHistory = (function () {
   }
   function detail(device) {
     var range;
+    currentDevice = device;
     if (!device || !device.performance_history_supported || !el('performance-detail')) { return; }
-    if (detailState.device !== device.device_id || (!detailState.xhr && new Date().getTime() - detailState.at > 60000)) {
-      range = preset(1); request(detailState, 'performance-detail', device.device_id, range[0], range[1]);
+    if (detailState.device !== device.device_id || detailState.hours !== detailHours || (!detailState.xhr && new Date().getTime() - detailState.at > 60000)) {
+      detailState.hours = detailHours;
+      range = preset(detailHours / 24); request(detailState, 'performance-detail', device.device_id, range[0], range[1]);
     } else { draw(detailState, 'performance-detail'); }
+  }
+  function controls() {
+    var hours = [1, 6, 24], html = '<label class="performance-range">Range / 范围 <select id="performance-detail-range" aria-label="Performance history range" onchange="PerformanceHistory.changeRange(this.value)">', i;
+    for (i = 0; i < hours.length; i += 1) {
+      html += '<option value="' + hours[i] + '"' + (hours[i] === detailHours ? ' selected="selected"' : '') + '>' + hours[i] + 'h</option>';
+    }
+    return html + '</select></label>';
+  }
+  function changeRange(value) {
+    if (value !== '1' && value !== '6' && value !== '24') { return; }
+    detailHours = Number(value); detail(currentDevice);
   }
   function devices(items) {
     var supported = [], i, sig, options = '', previous = el('history-device').value;
@@ -152,5 +189,5 @@ var PerformanceHistory = (function () {
     el('history-custom').className = this.value === 'custom' ? '' : 'hidden';
     if (this.value !== 'custom') { queryPage(); }
   };
-  return {devices: devices, detail: detail, open: open, charts: charts, parseInput: parseInput};
+  return {controls: controls, changeRange: changeRange, devices: devices, detail: detail, open: open, charts: charts, parseInput: parseInput};
 }());

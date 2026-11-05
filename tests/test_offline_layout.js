@@ -6,7 +6,7 @@ const chromeBin = process.env.CHROME_BIN || '/opt/google/chrome/chrome';
 const profile = fs.mkdtempSync('/tmp/portal-offline-layout-');
 let chrome, ws, server;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-let online = false;
+let online = false, performanceRequests = [];
 const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_status:'ok'},devices:[
   {device_id:'a',performance_history_supported:true,display_name:'Offline Device',beszel_status:online?'up':'down',last_seen:new Date(Date.now()-3720000).toISOString()},
   {device_id:'b',display_name:'Multi-day Offline Device With A Very Long Name That Wraps',beszel_status:online?'up':'paused',last_seen:new Date(Date.now()-7*86400000-3720000).toISOString()},
@@ -17,13 +17,13 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
   const path = req.url.split('?')[0];
   if(path==='/api/history/v2/performance') {
    const params=new URL(req.url,'http://localhost').searchParams;
-   const start=params.get('start'),end=params.get('end'),base=Date.parse(start);
+   const start=params.get('start'),end=params.get('end'),base=Date.parse(start),seconds=(Date.parse(end)-base)/1000;
+   const width=seconds<=3600?60:seconds<=21600?300:seconds<=86400?900:Math.ceil(seconds/500/60)*60;
+   const count=Math.ceil(seconds/width);
+   performanceRequests.push({device:params.get('device_id'),seconds,width,count});
    res.setHeader('Content-Type','application/json');
-   res.end(JSON.stringify({status:'ok',device_id:params.get('device_id'),start,end,bucket_seconds:180,mapping_note:'Current mapping / 当前关联',
-    series:['CPU Frequency','CPU Usage','CPU Temperature'].map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c'][i],unit:['GHz','%','°C'][i],stats:{count:3,average:2,peak:3},points:[
-     {timestamp:start,value:1,count:1},{timestamp:new Date(base+180000).toISOString(),value:2,count:1},
-     {timestamp:new Date(base+360000).toISOString(),value:null,count:0},
-     {timestamp:new Date(base+540000).toISOString(),value:3,count:1,gap:true}]}))}));return;
+   res.end(JSON.stringify({status:'ok',device_id:params.get('device_id'),start,end,bucket_seconds:width,mapping_note:'Current mapping / 当前关联',
+    series:['CPU Frequency','CPU Usage','CPU Temperature'].map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c'][i],unit:['GHz','%','°C'][i],stats:{count:count-1,average:2,peak:3},points:Array.from({length:count},(_,n)=>({timestamp:new Date(base+n*width*1000).toISOString(),value:n===2?null:n%3+1,count:n===2?0:1,gap:n===3}))}))}));return;
   }
   if(path==='/api/history') {res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'ok',devices:[{device_id:'a',points:[{timestamp:new Date(Date.now()-60000).toISOString(),cpu_percent:10},{timestamp:new Date().toISOString(),cpu_percent:20}]}]}));return;}
   if(path.startsWith('/api/')) {res.setHeader('Content-Type','application/json');res.end(JSON.stringify(path==='/api/dashboard'?sample():{status:'ok',devices:[]}));return;}
@@ -117,10 +117,23 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
    assert(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'));
    assert(await evalJS('document.getElementById("devices").textContent.indexOf("Live trends")>=0 && document.getElementById("devices").textContent.indexOf("Historical trends")>=0'));
+   assert(await evalJS('document.getElementById("performance-detail-range").value==="24"'));
+   for(const [hours,width,count] of [[1,60,60],[6,300,72],[24,900,96]]) {
+    const before=performanceRequests.length;
+    await evalJS('document.getElementById("performance-detail-range").value="'+hours+'";document.getElementById("performance-detail-range").dispatchEvent(new Event("change"))');
+    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
+    assert.strictEqual(performanceRequests.length,before+1,'Single shared request');
+    assert.deepStrictEqual(performanceRequests[performanceRequests.length-1],{device:'a',seconds:hours*3600,width,count});
+    assert(await evalJS(`(function(){var a=document.querySelectorAll('#performance-detail .performance-time-axis');return a.length===3&&a[0].innerHTML===a[1].innerHTML&&a[1].innerHTML===a[2].innerHTML&&document.querySelectorAll('#performance-detail circle').length===0&&document.querySelectorAll('#performance-detail .chart-isolated').length===3&&document.querySelectorAll('#performance-detail .chart-axis')[1].textContent.indexOf('4.0 %')>=0;}())`),'Shared axes and adaptive usage without circles');
+   }
+
    for(const width of [320,375,768,1024]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
     assert(await evalJS(`(function(){var b=document.querySelectorAll('#performance-detail .chart-box'),a=b[0].getBoundingClientRect(),c=b[1].getBoundingClientRect(),d=b[2].getBoundingClientRect();return document.documentElement.scrollWidth<=innerWidth+1&&(innerWidth>600?Math.abs(a.top-c.top)<1&&Math.abs(c.top-d.top)<1&&c.left>=a.right&&d.left>=c.right:c.top>=a.bottom&&d.top>=c.bottom);}())`),'Three-chart layout '+width);
    }
+   await evalJS('document.getElementById("performance-detail-range").value="6";document.getElementById("performance-detail-range").dispatchEvent(new Event("change"));selectDeviceCard({getAttribute:function(){return "d";}})');
+   for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
+   assert(await evalJS('document.getElementById("performance-detail-range").value==="6"'));
    await evalJS('document.getElementById("tab-history").click()');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
    assert(await evalJS('document.querySelectorAll("#history-device option").length===2 && document.querySelectorAll("#history-result svg").length===3'));
