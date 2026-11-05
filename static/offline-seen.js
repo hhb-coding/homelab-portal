@@ -65,13 +65,32 @@ var OfflineSeen = (function () {
     return '<span class="offline-seen" data-last-seen="' + escape(value)
       + '" title="Last valid heartbeat / 最后有效心跳；并非精确断线时间">' + text(value) + '</span>';
   }
+  /* Frequency expiry shares the server clock and existing timer / 频率过期复用服务端时钟和现有定时器。 */
+  function frequencyHtml(device, legacyAvailable) {
+    var value = device.cpu_frequency_ghz, sampled = parse(device.frequency_sampled_utc), current = now();
+    var valid = typeof value === "number" && isFinite(value) && value > 0;
+    if (!device.frequency_freshness) { return valid && legacyAvailable ? value.toFixed(2) + " GHz" : "—"; }
+    valid = valid && device.frequency_freshness === "fresh" && sampled !== null && current !== null
+      && current >= sampled && current - sampled <= 120000;
+    return '<span class="current-frequency" data-frequency-sampled="' + (sampled || 0)
+      + '" title="' + escape((device.frequency_source || "") + " / " + (device.frequency_sampled_utc || "")
+        + " / " + device.frequency_freshness) + '">' + (valid ? value.toFixed(2) + " GHz" : "—") + '</span>';
+  }
   function update() {
     var items = document.querySelectorAll ? document.querySelectorAll(".offline-seen") : [], i;
     for (i = 0; i < items.length; i += 1) { items[i].textContent = text(items[i].getAttribute("data-last-seen")); }
+    items = document.querySelectorAll ? document.querySelectorAll(".current-frequency") : [];
+    for (i = 0; i < items.length; i += 1) {
+      var sampled = Number(items[i].getAttribute("data-frequency-sampled")), current = now();
+      if (!sampled || current === null || current < sampled || current - sampled > 120000) {
+        items[i].textContent = "—";
+        items[i].setAttribute("title", "Frequency expired or unavailable / 主频过期或不可用");
+      }
+    }
     if (typeof equalMiniCards === "function") { equalMiniCards(); }
   }
   setInterval(update, 1000);
   if (document.addEventListener) { document.addEventListener("visibilitychange", update, false); }
   if (typeof window !== "undefined") { window.addEventListener("pageshow", update, false); }
-  return {sync: sync, parse: parse, text: text, html: html, update: update};
+  return {now: now, frequencyHtml: frequencyHtml, sync: sync, parse: parse, text: text, html: html, update: update};
 }());

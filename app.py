@@ -80,6 +80,36 @@ def archive_history_api():
         return jsonify(error="archive_unavailable"), 503
 
 
+@app.route("/api/history/v2/performance")
+def performance_history_api():
+    """Archive-backed three metric query / 三指标归档查询。"""
+    from contextlib import closing
+    import os
+    from pathlib import Path
+    import sqlite3
+    from frequency import TelemetryError
+    from performance_history import device_role, query
+    from metrics_archive import require_hdd
+    if not config.FREQUENCY_HISTORY_ENABLED:
+        return jsonify(error="archive_history_disabled"), 503
+    device = get_device(request.args.get("device_id", ""))
+    if device is None:
+        return jsonify(error="device_not_found"), 404
+    role = device_role(device, config.LOCAL_DEVICE_ID)
+    if role is None:
+        return jsonify(error="unsupported_device"), 400
+    try:
+        database = Path(os.getenv("METRICS_ARCHIVE_PATH", "/srv/data/homelab-portal-archive/metrics.sqlite3"))
+        require_hdd(database, Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.getenv("METRICS_ARCHIVE_UUID", ""))
+        with closing(sqlite3.connect(database.resolve().as_uri()+"?mode=ro", uri=True, timeout=2)) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            return jsonify(query(conn, device, role, request.args.get("start"), request.args.get("end")))
+    except TelemetryError as exc:
+        return jsonify(error=exc.code), exc.status
+    except Exception:
+        return jsonify(error="archive_unavailable"), 503
+
+
 # Initialize SQLite when the application starts.
 # 应用启动时自动初始化 SQLite 数据库。
 init_db()

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ app_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=11offline-lines">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=706-history">
 </head>
 <body>
 <div class="container">
@@ -26,6 +26,7 @@
   <div class="dashboard-tabs">
     <button type="button" class="dashboard-tab active-tab" id="tab-device" aria-pressed="true" aria-controls="device-panel">Device</button>
     <button type="button" class="dashboard-tab" id="tab-network" aria-pressed="false" aria-controls="network-panel">Network</button>
+    <button type="button" class="dashboard-tab" id="tab-history" aria-pressed="false" aria-controls="history-panel">History</button>
   </div>
 
   <div id="device-panel">
@@ -53,9 +54,25 @@
     <div id="network-devices"><div class="loading">Loading device addresses / 正在加载设备地址…</div></div>
   </div>
 
+  <div id="history-panel" class="hidden">
+    <div class="section-heading">Performance history / 性能历史</div>
+    <form id="history-form" class="history-controls">
+      <label>Device / 设备 <select id="history-device"></select></label>
+      <label>Range / 范围 <select id="history-range"><option value="1">24h</option><option value="7">7d</option><option value="30">30d</option><option value="custom">Custom / 自定义</option></select></label>
+      <span id="history-custom" class="hidden">
+        <label>Start UTC <input id="history-start" type="text" placeholder="2026-01-01 00:00" maxlength="16"></label>
+        <label>End UTC <input id="history-end" type="text" placeholder="2026-01-02 00:00" maxlength="16"></label>
+      </span>
+      <button type="submit">Query / 查询</button>
+    </form>
+    <p class="network-note">UTC: YYYY-MM-DD HH:mm; custom range ≤180 days. / 自定义最长180天。当前 Beszel 关联无法还原历史重绑定；缺失数据不插值。</p>
+    <div id="history-result">Select a device and range / 请选择设备及范围。</div>
+  </div>
+
   <p class="footer">HomeLab Portal - Legacy-compatible live dashboard</p>
 </div>
-<script src="{{ url_for('static', filename='offline-seen.js') }}?v=11offline-lines"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=11offline-lines"></script>
+<script src="{{ url_for('static', filename='offline-seen.js') }}?v=706-history"></script>
+<script src="{{ url_for('static', filename='performance-history.js') }}?v=706"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=706-history"></script>
 </body>
 </html>

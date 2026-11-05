@@ -1,0 +1,113 @@
+"""Small synthetic databases only / 仅使用小型合成数据库。"""
+from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
+import sqlite3
+import tempfile
+import unittest
+
+from frequency import TelemetryError, stamp
+from performance_history import query, latest_frequency, device_role
+
+NOW = datetime(2026, 1, 2, tzinfo=timezone.utc)
+
+
+def archive():
+    conn = sqlite3.connect(':memory:')
+    conn.executescript('''PRAGMA user_version=2;
+        CREATE TABLE samples(system_id,record_id,created_utc,stats_json);
+        CREATE TABLE cpu_frequency_samples(device_id,sample_id,sampled_utc,payload);''')
+    return conn
+
+
+class PerformanceHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.conn = archive()
+        self.addCleanup(self.conn.close)
+        self.device = {'device_id': 'example-x230', 'beszel_system_id': 'example-system'}
+
+    def sample(self, minute, cpu, temperature=None, system='example-system'):
+        self.conn.execute('INSERT INTO samples VALUES (?,?,?,?)',
+            (system, str(minute), stamp(NOW+timedelta(minutes=minute)),
+             json.dumps({'cpu': cpu, 't': temperature})))
+
+    def result(self, minutes=10, role='x230'):
+        return query(self.conn, self.device, role, stamp(NOW), stamp(NOW+timedelta(minutes=minutes)))
+
+    def test_sources_units_gaps_mapping_and_exclusive_end(self):
+        self.sample(0, 0, {'CPU Package': 49, 'ssd_0': 99, 'k10temp': 44})
+        self.sample(1, 100, {'ssd_0': 88})
+        self.sample(3, 30, {'CPU Package': 51})
+        self.sample(10, 99, {'CPU Package': 90})
+        self.sample(2, 88, {'CPU Package': 88}, system='other')
+        self.conn.execute('INSERT INTO cpu_frequency_samples VALUES (?,?,?,?)',
+            ('example-x230', 'a', stamp(NOW), json.dumps({'cpu_frequency_ghz': 1.19, 'quality': 'ok'})))
+        self.conn.execute('PRAGMA query_only=ON')
+        data = self.result()
+        frequency, usage, temperature = data['series']
+        self.assertEqual([s['unit'] for s in data['series']], ['GHz', '%', '°C'])
+        self.assertEqual(frequency['points'][0]['value'], 1.19)
+        self.assertEqual(usage['stats']['count'], 3)
+        self.assertAlmostEqual(usage['stats']['average'], 130/3)
+        self.assertEqual(usage['stats']['peak'], 100)
+        self.assertIsNone(usage['points'][2]['value'])
+        self.assertEqual(temperature['stats']['average'], 50)
+        self.assertEqual(temperature['sensor'], 'CPU Package')
+        self.assertIsNone(temperature['points'][1]['value'])
+        hp = self.result(role='hp')['series'][2]
+        self.assertEqual(hp['stats']['average'], 44)
+        self.assertIn('Current Beszel mapping', data['mapping_note'])
+
+    def test_aggregation_cap_weighted_statistics_and_partial_buckets(self):
+        # 30d => 87-minute bins; uneven occupancy must not bias the mean.
+        self.sample(0, 10, {'CPU Package': 40})
+        self.sample(1, 20, {'CPU Package': 42})
+        self.sample(100, 90, {})
+        data = self.result(minutes=30*1440)
+        for item in data['series']:
+            self.assertLessEqual(len(item['points']), 500)
+        usage = data['series'][1]
+        self.assertEqual(usage['points'][0]['value'], 15)
+        self.assertEqual(usage['stats']['average'], 40)
+        self.assertEqual(usage['stats']['peak'], 90)
+        self.assertTrue(usage['points'][1]['gap'])
+        self.assertIsNone(usage['points'][2]['value'])
+
+    def test_invalid_values_and_range(self):
+        for i, value in enumerate([None, True, '3', -1, 101]):
+            self.sample(i, value, {'CPU Package': value})
+        self.assertEqual(self.result()['series'][1]['stats']['count'], 0)
+        with self.assertRaises(TelemetryError): self.result(minutes=0)
+        with self.assertRaises(TelemetryError): self.result(minutes=181*1440)
+        with self.assertRaises(TelemetryError):
+            query(self.conn, self.device, 'x230', '2026-01-01', stamp(NOW))
+        self.conn.execute('PRAGMA user_version=1')
+        with self.assertRaisesRegex(TelemetryError, 'archive_migration_required'): self.result()
+
+    def test_device_scope(self):
+        self.assertEqual(device_role({'device_id': 'local'}, 'local'), 'hp')
+        self.assertEqual(device_role({'device_id': 'example-x230'}, ''), 'x230')
+        self.assertIsNone(device_role({'device_id': 'example-dell'}, 'local'))
+
+    def test_latest_sample_not_latest_arrival_and_strict_expiry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)/'registry.db'
+            with sqlite3.connect(path) as conn:
+                conn.execute('CREATE TABLE frequency_inbox(device_id,payload,archived)')
+                def insert(seconds, quality='ok', value=1.19, archived=0):
+                    payload = {'sampled_utc': stamp(NOW+timedelta(seconds=seconds)), 'sample_id': str(seconds),
+                               'quality': quality, 'source': 'windows_processor_performance', 'cpu_frequency_ghz': value}
+                    conn.execute('INSERT INTO frequency_inbox VALUES (?,?,?)', ('example-x230', json.dumps(payload), archived))
+                    conn.commit()
+                insert(-120, archived=1)
+                insert(-500)
+                self.assertEqual(latest_frequency(path, 'example-x230', NOW)['cpu_frequency_ghz'], 1.19)
+                self.assertIsNone(latest_frequency(path, 'example-x230', NOW+timedelta(milliseconds=1))['cpu_frequency_ghz'])
+                insert(-10, quality='unavailable', value=None)
+                self.assertIsNone(latest_frequency(path, 'example-x230', NOW)['cpu_frequency_ghz'])
+                insert(-5, quality='partial')
+                self.assertIsNone(latest_frequency(path, 'example-x230', NOW)['cpu_frequency_ghz'])
+                insert(1)
+                self.assertEqual(latest_frequency(path, 'example-x230', NOW)['frequency_freshness'], 'invalid')
+            self.assertIsNone(latest_frequency(Path(directory)/'missing.db', 'example-x230', NOW)['cpu_frequency_ghz'])
+            self.assertFalse((Path(directory)/'missing.db').exists())

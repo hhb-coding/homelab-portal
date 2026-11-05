@@ -57,7 +57,7 @@
      * 与 Full 保持精度一致，仅显示正数且有限的可靠样本。 */
     html += '<p class="temp-freq">Temp/Freq: '
       + number(available && device.temperature > 0 ? device.temperature : null, 1, " °C")
-      + ' / ' + number(available && device.cpu_frequency_ghz > 0 ? device.cpu_frequency_ghz : null, 2, " GHz") + '</p>';
+      + ' / ' + OfflineSeen.frequencyHtml(device, available) + '</p>';
     /* Offline values can be stale / 离线设备的指标可能过期，因此不显示。 */
     if (!available) { html += '<p class="note">Current metrics unavailable / 当前指标不可用</p>'; }
     return html + '</article>';
