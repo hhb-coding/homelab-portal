@@ -141,9 +141,17 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    await evalJS('document.getElementById("history-device").value="d";document.getElementById("history-range").value="30";document.getElementById("history-device").onchange()');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
    assert(await evalJS('document.querySelectorAll("#history-result svg").length===3'));
-   await evalJS('document.getElementById("history-range").value="custom";document.getElementById("history-range").onchange();document.getElementById("history-start").value="2026-01-01 00:00";document.getElementById("history-end").value="2026-01-02 00:00";document.getElementById("history-form").onsubmit()');
+   await evalJS('document.getElementById("history-range").value="custom";document.getElementById("history-range").onchange();document.getElementById("history-start").value="2026-01-01T00:00";document.getElementById("history-end").value="2026-01-02T00:00";document.getElementById("history-form").onsubmit()');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===3'))break;await sleep(100);}
    assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Local (UTC")>=0'));
+   assert(await evalJS('document.getElementById("history-start").type === "datetime-local"'));
+   for (const width of [320,375,768,1024]) {
+    await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+    assert(await evalJS('document.documentElement.scrollWidth <= innerWidth+1'), 'Custom controls overflow at '+width);
+   }
+   const retainedInput = await evalJS('document.getElementById("history-start").value');
+   await evalJS('renderDevicePanels([])');
+   assert.strictEqual(await evalJS('document.getElementById("history-start").value'), retainedInput);
    console.log('Performance history: three columns, narrow wrapping, preserved trends, device/range/custom controls PASS');
   }
 

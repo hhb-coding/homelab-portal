@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ app_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7062-local-time-freshness">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7063-custom-local-time">
 </head>
 <body>
 <div class="container">
@@ -60,19 +60,24 @@
       <label>Device / 设备 <select id="history-device"></select></label>
       <label>Range / 范围 <select id="history-range"><option value="1">24h</option><option value="7">7d</option><option value="30">30d</option><option value="custom">Custom / 自定义</option></select></label>
       <span id="history-custom" class="hidden">
-        <label>Start UTC <input id="history-start" type="text" placeholder="2026-01-01 00:00" maxlength="16"></label>
-        <label>End UTC <input id="history-end" type="text" placeholder="2026-01-02 00:00" maxlength="16"></label>
+        <label>Start Local <input id="history-start" type="datetime-local" step="60" placeholder="2026-01-01 00:00" maxlength="16"></label>
+        <label>End Local <input id="history-end" type="datetime-local" step="60" placeholder="2026-01-02 00:00" maxlength="16"></label>
+        <label id="history-start-choice-label" class="hidden">Start occurrence / 起点重复时刻 <select id="history-start-choice"></select></label>
+        <span id="history-start-offset"></span>
+        <label id="history-end-choice-label" class="hidden">End occurrence / 终点重复时刻 <select id="history-end-choice"></select></label>
+        <span id="history-end-offset"></span>
+        <span class="history-note">Local / 浏览器当地时间；text fallback / 文本后备格式 YYYY-MM-DD HH:mm。Repeated times require first/second selection / 重复时刻须选择第一次或第二次。</span>
       </span>
       <button type="submit">Query / 查询</button>
     </form>
-    <p class="network-note">UTC: YYYY-MM-DD HH:mm; custom range ≤180 days. / 自定义最长180天。当前 Beszel 关联无法还原历史重绑定；缺失数据不插值。</p>
+    <p class="network-note">Local input → UTC query; custom range ≤180 days. / 自定义最长180天。当前 Beszel 关联无法还原历史重绑定；缺失数据不插值。</p>
     <div id="history-result">Select a device and range / 请选择设备及范围。</div>
   </div>
 
   <p class="footer">HomeLab Portal - Legacy-compatible live dashboard</p>
 </div>
-<script src="{{ url_for('static', filename='offline-seen.js') }}?v=7062-local-time-freshness"></script>
-<script src="{{ url_for('static', filename='performance-history.js') }}?v=7062-local-time-freshness"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=7062-local-time-freshness"></script>
+<script src="{{ url_for('static', filename='offline-seen.js') }}?v=7063-custom-local-time"></script>
+<script src="{{ url_for('static', filename='performance-history.js') }}?v=7063-custom-local-time"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=7063-custom-local-time"></script>
 </body>
 </html>

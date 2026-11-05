@@ -375,3 +375,8 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .performance-time-axis span:first-child { text-align:left; }
 .performance-time-axis span:last-child { text-align:right; }
 .chart-isolated { fill:none; stroke:#444; stroke-width:2; }
+
+#history-custom { max-width:100%; }
+#history-custom input { width:230px; }
+#history-custom input, #history-custom select { max-width:100%; box-sizing:border-box; }
+#history-start-offset, #history-end-offset { display:block; font-size:12px; overflow-wrap:break-word; }
