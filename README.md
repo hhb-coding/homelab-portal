@@ -689,7 +689,7 @@ Updated 与 Last seen 采用服务器时间加墙钟/可用单调时间；服务
 
 ### 测试方法
 
-按英文 Testing 命令运行 unittest、Python AST、Node 语法及五套前端行为测试。
+按英文 Testing 命令运行 unittest、Python AST、Node 语法及六套前端行为测试。
 旧文档中 **44 个 Python 测试方法、59 项 Lite 断言、45 项 Network 断言**
 属于早期版本历史数量，并非当前总数。7.07 开发审核时报告 91 项 Python 与六组 Node 通过；
 7.07.1 另已通过 Node 和隔离 Chrome 布局测试。具体以当前代码及实际测试为准。
