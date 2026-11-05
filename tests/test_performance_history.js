@@ -72,6 +72,23 @@
   assert(expandedHtml.indexOf('GB/s') >= 0 && expandedHtml.indexOf('NaN') < 0);
   var html = c.PerformanceHistory.charts(payload('example-x230'));
   assert.strictEqual((html.match(/class="chart-box"/g) || []).length, 3);
+  assert.strictEqual((html.match(/class="device-history-y-axis"/g) || []).length, 3);
+  assert(html.indexOf('class="chart-axis"') < 0, 'Old top ticks are removed from Device');
+  assert.strictEqual((html.match(/d="M0,5 H300 M0,60 H300 M0,115 H300" class="device-history-reference"/g) || []).length, 3);
+  var scaled = payload('axis-values');
+  [[1, 3], [0, 42], [40, 60]].forEach(function (values, i) {
+    scaled.series[i].points = values.map(function (value, j) {
+      return {timestamp: j ? scaled.end : scaled.start, value: value, count: 1};
+    });
+    scaled.series[i].stats.peak = values[1];
+  });
+  var scaledHtml = c.PerformanceHistory.charts(scaled);
+  var yAxes = Array.from(scaledHtml.matchAll(/class="device-history-y-axis"[^>]*>([\s\S]*?)<\/div>/g), function (m) {
+    return Array.from(m[1].matchAll(/<span>([^<]*)<\/span>/g), function (tick) { return tick[1]; });
+  });
+  assert.deepStrictEqual(yAxes, [['3.16 GHz', '2.00 GHz', '0.84 GHz'], ['50.0 %', '25.0 %', '0.0 %'], ['61.6 °C', '50.0 °C', '38.4 °C']]);
+  assert(scaledHtml.indexOf('M0.00,107.41 L300.00,12.59') >= 0, 'Frequency/temperature points use the same bounds as their Y ticks');
+  assert(scaledHtml.indexOf('M0.00,115.00 L300.00,22.60') >= 0, 'Usage uses the unchanged dynamic percent scale');
   assert(html.indexOf('CPU Frequency') < html.indexOf('CPU Usage') && html.indexOf('CPU Usage') < html.indexOf('CPU Temperature'));
   assert(html.search(/ L[0-9]/) < 0, 'Null and partial buckets cannot be bridged');
   assert(html.indexOf('Avg / 平均') >= 0 && html.indexOf('Peak / 峰值') >= 0);
@@ -82,7 +99,7 @@
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
   var template = fs.readFileSync('templates/index.html', 'utf8');
   ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
-    assert(template.indexOf("filename='" + asset + "') }}?v=707-expanded-history") >= 0);
+    assert(template.indexOf("filename='" + asset + "') }}?v=7071-device-y-axis") >= 0);
   });
   function axisLabels(data) {
     var output = c.PerformanceHistory.charts(data), all = output.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);
@@ -123,6 +140,10 @@
   assert(html.indexOf('1.0 %') >= 0 && html.indexOf('NaN') < 0, 'Flat zero usage has valid positive scale span');
   low.series[1].points.forEach(function (p) { p.value = null; }); low.series[1].stats.peak = null;
   assert(c.PerformanceHistory.charts(low).indexOf('No data / 无数据') >= 0, 'Missing usage is not zero');
+  low.series.forEach(function (s) { s.points = []; s.stats = {count: 0, average: null, peak: null}; });
+  var emptyHtml = c.PerformanceHistory.charts(low);
+  assert.strictEqual((emptyHtml.match(/No data \/ 无数据/g) || []).length, 3);
+  assert(emptyHtml.indexOf('device-history-y-axis') < 0 && emptyHtml.indexOf('NaN') < 0, 'No fabricated ticks for missing data');
   var continuous = payload('continuous');
   continuous.series.forEach(function (s) { s.points[1].value = 1; });
   html = c.PerformanceHistory.charts(continuous);
