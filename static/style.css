@@ -398,3 +398,11 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .history-expanded .history-download { color:#a75b20; stroke:#a75b20; stroke-dasharray:5 3; }
 .history-expanded .history-legend { font-size:11px; margin-bottom:5px; }
 .history-expanded .history-stats { overflow-wrap:break-word; word-wrap:break-word; }
+
+/* Device's 120px plots use SVG y=5/60/115; account for its 1px border. */
+#performance-detail .device-history-plot { position:relative; padding-left:56px; }
+#performance-detail .device-history-y-axis { position:absolute; left:0; top:1px; width:50px; height:120px; font-size:10px; line-height:12px; color:#777; text-align:right; white-space:nowrap; }
+#performance-detail .device-history-y-axis span { position:absolute; right:0; top:5px; height:12px; margin-top:-6px; }
+#performance-detail .device-history-y-axis span + span { top:60px; }
+#performance-detail .device-history-y-axis span + span + span { top:115px; }
+#performance-detail .device-history-reference { stroke:#e8e8e8; stroke-width:1; }

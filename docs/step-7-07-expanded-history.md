@@ -60,3 +60,18 @@ other visible with its own freshness/statistics.
 - Review actual visual appearance, native picker interaction and old iOS9 Safari
   text/touch fallback manually. Production extended API acceptance remains for a
   separately authorized deployment. Full ROADMAP cleanup remains deferred.
+
+## Step 7.07.1 — Device Y-axis refinement (development only)
+
+Based on main `432b00f893e5652ede6eea3a57bfa74afda284c3`. Device's three CPU
+plots now place max/mid/min ticks on the left, with pale references at SVG
+y=5/60/115 using the existing dynamic scale (coordinate ticks, not alert limits).
+A Device-only 56px gutter, 10px type and explicit line height align tick centers
+with the 120px SVG content, including its 1px border. GHz keeps two decimals;
+%/°C keep one. Existing three-column/wrapped responsiveness, 1h/6h/24h, Local
+axes, statistics and refresh remain. History markup/styles and API logic are
+unchanged. Full's four related asset URLs use `7071-device-y-axis`.
+Node and isolated Chrome cover values, pixel alignment, old top-tick removal,
+three references, 320/375/768/1024px, History six rows, API modes, Full/Lite and
+Local/DST. Actual appearance and iOS9 Safari touch/text fallback remain manual
+checks. No backend, archive or service changes; merge/deployment await approval.

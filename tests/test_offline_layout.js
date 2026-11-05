@@ -20,7 +20,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    const start=params.get('start'),end=params.get('end'),base=Date.parse(start),seconds=(Date.parse(end)-base)/1000;
    const width=seconds<=3600?60:seconds<=21600?300:seconds<=86400?900:Math.ceil(seconds/500/60)*60;
    const count=Math.ceil(seconds/width);
-   performanceRequests.push({device:params.get('device_id'),seconds,width,count});
+   performanceRequests.push({device:params.get('device_id'),seconds,width,count,extended:params.get('extended')});
    res.setHeader('Content-Type','application/json');
    res.end(JSON.stringify({status:'ok',device_id:params.get('device_id'),start,end,bucket_seconds:width,mapping_note:'Current mapping / 当前关联',
     series:(params.get('extended')==='1'?['CPU Frequency','CPU Usage','CPU Temperature','Memory Usage','Disk Usage','Upload','Download']:['CPU Frequency','CPU Usage','CPU Temperature']).map((label,i)=>({label,metric:['cpu_frequency_ghz','cpu_percent','cpu_temperature_c','memory_percent','disk_percent','network_upload_bytes_per_second','network_download_bytes_per_second'][i],unit:['GHz','%','°C','%','%','B/s','B/s'][i],stats:{count:count-1,average:2,peak:3},points:Array.from({length:count},(_,n)=>({timestamp:new Date(base+n*width*1000).toISOString(),value:n===2?null:n%3+1,count:n===2?0:1,gap:n===3}))}))}));return;
@@ -123,13 +123,31 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
     await evalJS('document.getElementById("performance-detail-range").value="'+hours+'";document.getElementById("performance-detail-range").dispatchEvent(new Event("change"))');
     for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
     assert.strictEqual(performanceRequests.length,before+1,'Single shared request');
-    assert.deepStrictEqual(performanceRequests[performanceRequests.length-1],{device:'a',seconds:hours*3600,width,count});
-    assert(await evalJS(`(function(){var a=document.querySelectorAll('#performance-detail .performance-time-axis');return a.length===3&&a[0].innerHTML===a[1].innerHTML&&a[1].innerHTML===a[2].innerHTML&&document.querySelectorAll('#performance-detail circle').length===0&&document.querySelectorAll('#performance-detail .chart-isolated').length===3&&document.querySelectorAll('#performance-detail .chart-axis')[1].textContent.indexOf('4.0 %')>=0;}())`),'Shared axes and adaptive usage without circles');
+    assert.deepStrictEqual(performanceRequests[performanceRequests.length-1],{device:'a',seconds:hours*3600,width,count,extended:null});
+    assert(await evalJS(`(function(){var a=document.querySelectorAll('#performance-detail .performance-time-axis');return a.length===3&&a[0].innerHTML===a[1].innerHTML&&a[1].innerHTML===a[2].innerHTML&&document.querySelectorAll('#performance-detail circle').length===0&&document.querySelectorAll('#performance-detail .chart-isolated').length===3&&document.querySelectorAll('#performance-detail .device-history-y-axis')[1].textContent.indexOf('4.0 %')>=0;}())`),'Shared axes and adaptive usage without circles');
    }
 
    for(const width of [320,375,768,1024]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
     assert(await evalJS(`(function(){var b=document.querySelectorAll('#performance-detail .chart-box'),a=b[0].getBoundingClientRect(),c=b[1].getBoundingClientRect(),d=b[2].getBoundingClientRect();return document.documentElement.scrollWidth<=innerWidth+1&&(innerWidth>600?Math.abs(a.top-c.top)<1&&Math.abs(c.top-d.top)<1&&c.left>=a.right&&d.left>=c.right:c.top>=a.bottom&&d.top>=c.bottom);}())`),'Three-chart layout '+width);
+    assert(await evalJS(`(function(){
+      var boxes=document.querySelectorAll('#performance-detail .chart-box');
+      var expected=[['3.16 GHz','2.00 GHz','0.84 GHz'],['4.0 %','2.0 %','0.0 %'],['3.2 °C','2.0 °C','0.8 °C']];
+      if(document.querySelectorAll('#performance-detail .chart-axis').length!==0){return false;}
+      for(var i=0;i<boxes.length;i++){
+        var box=boxes[i].getBoundingClientRect(),svg=boxes[i].querySelector('svg'),r=svg.getBoundingClientRect();
+        var ticks=boxes[i].querySelectorAll('.device-history-y-axis span'),axis=boxes[i].querySelector('.performance-time-axis').getBoundingClientRect();
+        var reference=svg.querySelector('.device-history-reference');
+        if(ticks.length!==3 || !reference || reference.getAttribute('d')!=='M0,5 H300 M0,60 H300 M0,115 H300'
+            || getComputedStyle(svg).height!=='120px' || r.width<80 || axis.top<r.bottom || axis.right>box.right+1){return false;}
+        for(var j=0;j<3;j++){
+          var t=ticks[j].getBoundingClientRect(),p=svg.createSVGPoint();p.y=[5,60,115][j];
+          if(ticks[j].textContent!==expected[i][j] || t.left<box.left || t.right>r.left-3
+              || Math.abs((t.top+t.bottom)/2-p.matrixTransform(svg.getScreenCTM()).y)>0.6){return false;}
+        }
+      }
+      return true;
+    }())`),'Device Y ticks match SVG coordinates without overlap at '+width);
    }
    await evalJS('document.getElementById("performance-detail-range").value="6";document.getElementById("performance-detail-range").dispatchEvent(new Event("change"));selectDeviceCard({getAttribute:function(){return "d";}})');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#performance-detail svg").length===3'))break;await sleep(100);}
@@ -137,6 +155,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    await evalJS('document.getElementById("tab-history").click()');
    for(let i=0;i<50;i++){if(await evalJS('document.querySelectorAll("#history-result svg").length===6'))break;await sleep(100);}
    assert(await evalJS('document.querySelectorAll("#history-device option").length===2 && document.querySelectorAll("#history-result svg").length===6'));
+   assert.strictEqual(performanceRequests[performanceRequests.length-1].extended,'1','Only History opts into extended API');
    assert(await evalJS('document.getElementById("history-result").textContent.indexOf("Peak / 峰值")>=0'));
    for(const width of [320,375,768,1024]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await sleep(100);
@@ -182,7 +201,7 @@ const sample = () => ({status:'ok',server_time:Date.now()/1000,sources:{metrics_
    const retainedInput = await evalJS('document.getElementById("history-start").value');
    await evalJS('renderDevicePanels([])');
    assert.strictEqual(await evalJS('document.getElementById("history-start").value'), retainedInput);
-   console.log('Performance history: Device unchanged; History six rows, Y axes, network and 320/375/768/1024 layouts; Local/DST controls PASS');
+   console.log('Performance history: Device left Y ticks align to SVG; three-column responsiveness and History six rows preserved at 320/375/768/1024; Local/DST and API modes PASS');
   }
 
  }

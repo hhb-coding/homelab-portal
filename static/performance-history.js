@@ -108,10 +108,13 @@ var PerformanceHistory = (function () {
         + '<path d="M0,5 H300 M0,60 H300 M0,115 H300" class="history-reference"></path>'
         + paths + '</svg>' + timeAxis(start, end) + '</div></div>';
     }
-    return '<div class="chart-axis"><span>' + esc(text(min, series.unit)) + '</span><span>' + esc(text(max, series.unit))
-      + '</span></div><svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none">'
+    return '<div class="device-history-plot"><div class="device-history-y-axis" aria-label="Y axis / 坐标轴刻度">'
+      + '<span>' + esc(text(max, series.unit)) + '</span><span>' + esc(text((min + max) / 2, series.unit))
+      + '</span><span>' + esc(text(min, series.unit)) + '</span></div><div class="device-history-plot-area">'
+      + '<svg class="sparkline" viewBox="0 0 300 120" preserveAspectRatio="none">'
+      + '<path d="M0,5 H300 M0,60 H300 M0,115 H300" class="device-history-reference"></path>'
       + '<path d="M0,119 H300 M0,116 V120 M150,116 V120 M300,116 V120" class="chart-baseline"></path>'
-      + paths + '</svg>' + timeAxis(start, end);
+      + paths + '</svg>' + timeAxis(start, end) + '</div></div>';
   }
   function charts(data, expanded) {
     var html = '<div class="chart-grid performance-grid' + (expanded ? ' history-expanded' : '') + '">', i, s, stats, companion;
