@@ -59,6 +59,40 @@ try {
     # Reopen an empty queue on the next minute / 验证下一轮能读取已排空队列。
     Invoke-FrequencyPass $config $path $row
     Assert-Equal (Get-Content -Raw $path) '[]'
+    # A second-batch 503 must preserve the entire unacknowledged tail, with IDs
+    # and timestamps unchanged; the next pass may acknowledge it as duplicates.
+    # 第二批失败后仅移除已确认首批，重试保留原标识和时间，也接受重复回执。
+    $backlog = @(for ($i = 0; $i -lt 250; $i++) {
+        $queuedRow = $row.Clone()
+        $queuedRow.sample_id = [Guid]::NewGuid().ToString('N')
+        $queuedRow.sampled_utc = [DateTime]::UtcNow.AddMinutes(-250+$i).ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+        $queuedRow
+    })
+    Save-FrequencyQueue $path $backlog
+    $script:FrequencyBatchSizes = @()
+    function Send-PortalJson($Config,$Path,$Payload) {
+        $script:FrequencyBatchSizes += @($Payload.samples).Count
+        if ($script:FrequencyBatchSizes.Count -eq 2) { throw 'synthetic_HTTP_503' }
+        @{accepted=@($Payload.samples | ForEach-Object {$_.sample_id});duplicates=@()}
+    }
+    Assert-Throws { Invoke-FrequencyPass $config $path $partial }
+    Assert-Equal ($script:FrequencyBatchSizes -join ',') '120,120'
+    $remaining = Get-Content -Raw $path | ConvertFrom-Json
+    $remaining = @($remaining)
+    $expectedTail = @($backlog | Select-Object -Skip 120) + @($partial)
+    Assert-Equal $remaining.Count 131
+    for ($i = 0; $i -lt $remaining.Count; $i++) {
+        Assert-Equal $remaining[$i].sample_id $expectedTail[$i].sample_id
+        Assert-Equal $remaining[$i].sampled_utc $expectedTail[$i].sampled_utc
+    }
+    $script:FrequencyBatchSizes = @()
+    function Send-PortalJson($Config,$Path,$Payload) {
+        $script:FrequencyBatchSizes += @($Payload.samples).Count
+        @{accepted=@();duplicates=@($Payload.samples | ForEach-Object {$_.sample_id})}
+    }
+    Invoke-FrequencyPass $config $path $row
+    Assert-Equal ($script:FrequencyBatchSizes -join ',') '120,12'
+    Assert-Equal (Get-Content -Raw $path) '[]'
     $old=$row.Clone()
     $old.sampled_utc=[DateTime]::UtcNow.AddHours(-25).ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
     Save-FrequencyQueue $path @($old)
