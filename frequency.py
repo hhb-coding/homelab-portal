@@ -10,8 +10,9 @@ import re
 import sqlite3
 
 UTC = timezone.utc
-MAX_ROWS = 14400  # ten devices, 24 hours / 十台设备一天
-MAX_BYTES = 16 * 1024 * 1024
+MAX_ROWS = 14400  # pending samples globally / 全局未归档样本
+MAX_DEVICE_ROWS = 1440  # pending samples per device / 每设备未归档样本
+MAX_BYTES = 16 * 1024 * 1024  # all payloads, including receipts / 包括回执
 MAX_BATCH = 120
 SOURCES = {"linux_scaling_cur_freq", "linux_cpuinfo_cur_freq", "windows_processor_performance"}
 
@@ -113,9 +114,11 @@ def receive(path, device_id, samples, now=None, max_rows=MAX_ROWS, max_bytes=MAX
                     conn.execute("INSERT INTO frequency_inbox VALUES (?,?,?,?,?,0)",
                                  (*key, stamp(now), body, len(body.encode("utf-8"))))
                     accepted.append(s["sample_id"])
-            count, size = conn.execute("SELECT count(*),coalesce(sum(payload_bytes),0) FROM frequency_inbox").fetchone()
-            device_count = conn.execute("SELECT count(*) FROM frequency_inbox WHERE device_id=?", (device_id,)).fetchone()[0]
-            if count > max_rows or size > max_bytes or device_count > 1440:
+            # Receipts retain deduplication for 24h, without occupying pending slots.
+            # 回执保留完整去重窗口；全部回执与积压仍共用字节上限，不提前驱逐。
+            count, size = conn.execute("SELECT coalesce(sum(archived=0),0),coalesce(sum(payload_bytes),0) FROM frequency_inbox").fetchone()
+            device_count = conn.execute("SELECT count(*) FROM frequency_inbox WHERE device_id=? AND archived=0", (device_id,)).fetchone()[0]
+            if count > max_rows or size > max_bytes or device_count > MAX_DEVICE_ROWS:
                 raise TelemetryError("queue_full", 503)
             conn.commit()
             return {"accepted": accepted, "duplicates": duplicates, "expired_unarchived": expired}
@@ -126,10 +129,15 @@ def receive(path, device_id, samples, now=None, max_rows=MAX_ROWS, max_bytes=MAX
 
 def queue_status(path):
     with closing(connect_registry(path)) as conn:
-        pending, size = conn.execute("SELECT count(*),coalesce(sum(payload_bytes),0) FROM frequency_inbox WHERE archived=0").fetchone()
+        total, total_size, pending, size = conn.execute("""SELECT count(*),coalesce(sum(payload_bytes),0),
+            coalesce(sum(archived=0),0),
+            coalesce(sum(CASE WHEN archived=0 THEN payload_bytes ELSE 0 END),0)
+            FROM frequency_inbox""").fetchone()
         expired = conn.execute("SELECT expired FROM frequency_queue_status WHERE singleton=1").fetchone()[0]
         return {"pending": pending, "pending_payload_bytes": size, "expired_unarchived_total": expired,
-                "ttl_hours": 24, "max_rows_including_receipts": MAX_ROWS, "max_payload_bytes": MAX_BYTES}
+                "receipts": total-pending, "total_payload_bytes": total_size,
+                "ttl_hours": 24, "max_pending_rows": MAX_ROWS,
+                "max_pending_rows_per_device": MAX_DEVICE_ROWS, "max_payload_bytes": MAX_BYTES}
 
 
 def drain(archive, registry_path, check_mount, now=None, batch_size=120):

@@ -288,7 +288,7 @@ class FrequencyPipelineTests(unittest.TestCase):
         with closing(sqlite3.connect(self.registry)) as c:
             for i in range(1440):
                 body=canonical(observation(i),NOW)
-                c.execute('INSERT INTO frequency_inbox VALUES (?,?,?,?,?,1)',('example-device',observation(i)['sample_id'],stamp(NOW),body,len(body)))
+                c.execute('INSERT INTO frequency_inbox VALUES (?,?,?,?,?,0)',('example-device',observation(i)['sample_id'],stamp(NOW),body,len(body)))
             c.commit()
         with self.assertRaisesRegex(TelemetryError,'queue_full'):self.receive([observation(1441)])
 

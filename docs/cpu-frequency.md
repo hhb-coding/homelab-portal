@@ -91,9 +91,12 @@ Clients delete only fully acknowledged batches, otherwise preserve data and fail
   replacement; Linux also fsyncs the directory. Private user state contains no
   credentials. Row-full queues try uploading backlog before adding observations.
 - Server: frequency_inbox and frequency_queue_status in the existing registry,
-  24h from receipt, 1440 records/device, 14400 globally, 16 MiB logical payload
-  including dedup receipts. Indexes/free pages add overhead; this is not a cap on
-  the entire registry file or unrelated IP events. No automatic VACUUM.
+  24h from receipt. Pending samples (`archived=0`) are limited to 1440/device and
+  14400 globally. **All retained payloads, including archived dedup receipts,
+  share the existing 16 MiB limit.** Receipts are not evicted early to admit data;
+  valid pending samples are not evicted for capacity either. Indexes/free pages
+  add overhead; this is not a cap on the entire registry file or unrelated IP
+  events. No automatic VACUUM.
 - Client expiration reports a count and nonzero exit. Server expired unarchived
   rows increment a persistent counter, reported in archive runner frequency_queue;
   reception also reports newly expired rows. Expiration is explicit retention loss.
@@ -109,6 +112,71 @@ Clients delete only fully acknowledged batches, otherwise preserve data and fail
 
 两个库没有分布式事务，通过先提交后确认、至少一次投递和主键幂等恢复；冲突不覆盖。
 任务非零退出、过期计数和积压都需要运维关注，24 小时不是无限离线交付保证。
+
+### Receipt capacity correction / 回执容量修复
+
+Counting archived receipts toward the pending row limits rejected new samples
+with `503 {"error":"queue_full"}` even when the archive had drained everything.
+A batch is checked as a whole: 1416 receipts plus 25 new samples already exceed
+the old per-device limit. One-minute sampling also has no room for scheduling
+jitter at exactly 1440 receipts/24h. Backfill makes this worse: receipt TTL starts
+at **receipt time**, so a 120-sample catch-up batch occupies 120 receipt slots
+together, regardless of when those samples were measured.
+
+The correction changes only row accounting and queue reporting. It retains the
+same tables, payloads, 24h receipt TTL, canonical conflict checks, BEGIN IMMEDIATE
+transaction, rollback behavior, archive PK, and archive-commit-before-inbox-ACK
+recovery. There is no registry/archive migration, queue reset, history deletion,
+or early receipt eviction. More receipt rows can remain than before, but their
+total payload bytes remain bounded together with pending data at 16 MiB.
+
+Linux and Windows both persist before upload, send oldest first in batches of
+at most 120, and remove a batch only when accepted + duplicate IDs exactly match
+the batch. A 503/timeout/invalid ACK stops that pass, preserving the unacknowledged
+tail with original IDs/timestamps for the next scheduled minute. Each pass sends
+up to 12 batches after appending the observation; a row-full local queue first
+tries one backlog batch before appending. If that preliminary upload fails, the
+existing queue survives, but the new observation is not saved. Both clients cap
+local state at 1440 rows/1 MiB and expire by **sample time**, reporting loss. A
+timeout/task deadline can interrupt a long catch-up; durable queues allow retry.
+No client or task change is required for this server correction.
+
+X230 Windows PowerShell 5.1 hardware validation is **deferred and unverified**;
+it is not an acceptance gate for this server correction. No local Windows tests
+were executed during this repair. The existing Windows CI job runs synthetic
+tests separately and does not establish X230 hardware or scheduled-task health.
+X230 的 Windows PowerShell 5.1 实机验证已延后、尚未验证，不作为本次服务端修复
+的验收前提；本次未执行本地 Windows 测试，CI 合成测试不代表实机或计划任务验收。
+
+中文：已归档回执不再占用未归档行数配额，但回执和积压仍共同受 16 MiB 载荷限制。
+批量补传整批检查上限，因此“尚不足 1440 条”也可能返回 queue_full。回执按接收时间
+保留 24 小时，客户端按采样时间过期；补传集中到达会放大二者冲突。保留有效回执和
+未归档数据，不通过提前清理让出容量；真正积压或总字节超限仍原子拒绝。两端失败后
+下一分钟重试，完整确认后才删除该批；本地已满且预发送失败时，新观测无法持久化。
+
+Queue reports retain pending/expiry fields and `max_payload_bytes`; the obsolete
+`max_rows_including_receipts` key becomes `max_pending_rows` plus
+`max_pending_rows_per_device`. `receipts` and `total_payload_bytes` expose receipt
+pressure. Update any external log consumer of the old key when deploying.
+
+Future validation after separately approved deployment (not performed here):
+
+1. Review tests and back up the registry using SQLite online backup; record
+   per-device pending/receipt counts, byte usage, expiry counter, client backlog
+   and latest archive timestamps. Preserve private data outside Git.
+2. Deploy the reviewed server module via the normal service rollout. No schema,
+   environment, client queue, Windows task or archive migration is needed.
+3. Let existing minute schedules retry. Verify HTTP 200 and complete ACKs for
+   both platforms, decreasing local backlogs, then HDD archival through existing
+   five-minute passes. Verify real pending overflow still returns queue_full/503
+   in an isolated copy, without filling production queues for a test.
+4. Observe beyond 24h: receipts can exceed 1440/device while pending stays low;
+   total bytes stay bounded, expired_unarchived_total does not unexpectedly rise,
+   receipt TTL/conflict checks and history PK uniqueness remain valid. Check
+   existing Heartbeat, Beszel and history queries as well.
+5. Roll back code only if required; preserve all queues and databases. The old
+   code can read the unchanged schema but may reproduce receipt-driven 503s.
+   Never delete receipts or history as a rollback shortcut.
 
 ## Schema / 数据结构
 
@@ -196,6 +264,9 @@ Nearest-neighbour joins and dashboard implementation are outside Phase 1.
 
 Python synthetic tests cover Linux sampling, auth, queue overflow/conflicts,
 recovery, migration/compatibility rollback, HDD/lock failures and query gaps.
+`test_frequency_capacity.py` also covers 1440 archived receipts followed by new
+data, 1440-sample catch-up, real pending/total-byte overflow, exact 24h boundaries,
+parallel devices, atomic expiration rollback and failed archive ACK recovery.
 Native Windows PowerShell 5.1 synthetic checks run in windows-frequency CI, stubbing
 network/counters and using temporary JSON only. Existing test job retains Python,
 Node and ES5/browser syntax regression. Hardware and full-scale 180-day performance
