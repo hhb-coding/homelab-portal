@@ -16,8 +16,18 @@ table. Mandatory online backup includes WAL. Rerunning at v3 validates the schem
 and succeeds without overwriting the backup. Failed migration rolls back schema
 and version together. Network collection defaults off and never auto-migrates.
 
+`METRICS_ARCHIVE_MIN_FREE_BYTES` reserves at least 1 GiB by default. The HDD guard
+checks free space before opening the writer and before page commits/cleanup;
+invalid or exhausted reserves fail closed. Backup staging also needs room for
+the full snapshot and restore copies in addition to this reserve.
+The migration command verifies full snapshot headroom before creating its backup
+and rechecks the HDD guard during paged online copying.
+
 复用既有归档库、挂载保护、文件锁、认证与 timer；Beszel 只经 API 读取。
 v1/v2 可备份后显式升 v3，失败整笔回滚，v3 重跑不覆盖备份；默认关闭、不自动迁移。
+空间保护默认预留 1 GiB（上述私有环境变量可设正整数），打开库、逐页提交和清理前
+均核验；门槛非法或空间不足时拒绝写入。备份演练还需额外容纳完整快照及恢复副本。
+迁移命令在创建备份前验证完整快照所需空间，并在分批在线复制中重复核验保护。
 
 For future deployment, first load private HDD environment settings; use a new
 backup path on that verified HDD. These commands were **not run in production**:
@@ -130,7 +140,7 @@ without inventing recovery for a different source.
 
 Synthetic API/temp SQLite tests cover migration/backup, pagination, overlap,
 interruption, retries, weighted totals, partial-day TTL, unknowns and recovery.
-Local validation: 142 Python tests (37 network archive tests), six Node behavior
+Local validation: 145 Python tests (38 network archive tests), six Node behavior
 suites, Python AST and diff whitespace checks passed.
 Before deployment verify backup **restore**, HDD protection/space, v3 frequency/history
 compatibility, all six private role/10-second ICMP mappings, API visibility/freshness,
@@ -140,4 +150,42 @@ curves including both public targets and displays gaps.
 
 部署前验证备份恢复、HDD、v3 兼容、六项角色及配置、权限/样本时效和 timer 延迟；
 补采受上游分钟保留期限制，90天历史需上线后积累；8.03 从本库绘制六项目标曲线并保留断点。
-本地 142 项 Python（含 37 项网络归档测试）、六套 Node 行为回归、语法和差异检查通过。
+本地 145 项 Python（含 38 项网络归档测试）、六套 Node 行为回归、语法和差异检查通过。
+
+### Pre-merge copy rehearsal / 合并前副本演练（2026-11-11）
+
+Using the established private configuration, opened the live v2 archive read-only
+and used SQLite online backup into a protected, isolated HDD directory. Restore
+and integrity checks passed; explicit v2→v3 migration and identical CLI rerun
+passed. All legacy table contents and two devices' frequency/default/extended
+history query results matched before/after migration and real network ingestion.
+UUID/path/low-space rejection was verified without filling the disk; approximately
+589 GiB remained. Added the missing free-space reserve and backup-headroom checks.
+
+正式 v2 库仅以只读连接生成在线快照，写入均在 HDD 隔离副本；恢复、完整性、迁移及
+重跑通过，旧表内容及两台设备的频率/默认/扩展历史查询结果完全一致。UUID、路径与
+低空间拒写已验证（未填满磁盘），剩余约589 GiB；补齐空间预留及完整备份空间检查。
+
+Resolved six private roles against enabled 10-second ICMP monitors, keeping the
+upstream and NX30 LAN gateways distinct. First fill: 520 records across eight
+visible monitors, 65 per required target. Full-range replay: zero inserts/520
+duplicates with unchanged daily/checkpoint/event state; normal overlap: zero
+inserts/88 duplicates. Four subsequent minutes added 32 records, four per required
+target; latest samples were about 26 seconds old, recent successes 90/90 each.
+The live archive remained v2 without network tables. No snapshot, real address,
+monitor/system/device ID, authentication material or private role file is committed.
+
+六项私有角色均匹配启用的10秒ICMP，上游与LAN网关严格区分；首次520条（验收六项各
+65条），全范围重跑零新增、520次去重，常规重叠零新增、88次去重，日汇总/断点/事件
+不重复。随后四分钟新增32条，六项各增4条，最新约26秒，近期各90/90成功。正式库仍为
+v2、无网络表，真实地址、ID、配置、凭据和数据库副本均不提交。
+
+Read-only service checks confirmed the existing persistent five-minute timer and
+its configured Python/archive-script command; last execution succeeded. Production
+network enablement, real timer-to-archive lag and failure/recovery under operational
+conditions remain deployment acceptance, alongside backup freshness/restore,
+current mappings, permissions, space policy and v3 frequency/history behavior.
+
+正式timer周期、持久补触发和执行命令已只读核对、最近成功；正式网络启用后的实际
+归档延迟及现场故障/恢复行为仍属部署验收，并须复核最新备份、角色/权限、空间策略和
+v3下频率/历史功能。本次未安装、启停或重载服务与timer。

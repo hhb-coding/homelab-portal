@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
@@ -47,9 +48,16 @@ def api_stamp(value):
     return stamp(value).replace("T", " ")
 
 
-def require_hdd(database, mount=Path("/srv/data"), expected_uuid=""):
+def require_hdd(database, mount=Path("/srv/data"), expected_uuid="", min_free_bytes=None):
     """Fail before mkdir/open if the actual destination is not the expected HDD."""
     database, mount = Path(database), Path(mount)
+    try:
+        minimum = (int(os.environ.get("METRICS_ARCHIVE_MIN_FREE_BYTES", "1073741824"))
+                   if min_free_bytes is None else min_free_bytes)
+        if type(minimum) is not int or minimum < 1:
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise MountError("A positive archive free-space reserve is required") from None
     if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", expected_uuid):
         raise MountError("A valid HDD UUID must be configured")
     if not database.is_absolute() or not mount.is_absolute():
@@ -75,6 +83,11 @@ def require_hdd(database, mount=Path("/srv/data"), expected_uuid=""):
         if (entry.get("target") != str(root) or entry.get("uuid") != expected_uuid
                 or entry.get("fstype") != "ext4" or "rw" not in entry.get("options", "").split(",")):
             raise MountError("HDD mount verification failed")
+    try:
+        if shutil.disk_usage(parent).free < minimum:
+            raise MountError("Archive HDD free-space reserve exhausted")
+    except OSError:
+        raise MountError("Cannot verify HDD free space") from None
     return resolved
 
 

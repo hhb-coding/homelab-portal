@@ -216,6 +216,33 @@ class ArchiveTests(unittest.TestCase):
 
 
 class MountTests(unittest.TestCase):
+    def test_low_space_refuses_before_creating_paths_and_exact_reserve_passes(self):
+        with tempfile.TemporaryDirectory(prefix="portal-space-") as temp:
+            root = Path(temp); dest = root / "missing" / "archive.sqlite3"
+            entry = {"target": str(root), "uuid": TEST_UUID, "fstype": "ext4", "options": "rw"}
+            with patch("metrics_archive.subprocess.run", return_value=Mock(stdout=json.dumps({"filesystems": [entry]}))), \
+                    patch("metrics_archive.shutil.disk_usage", return_value=Mock(free=1023)), \
+                    patch("metrics_archive.sqlite3.connect") as connect:
+                with self.assertRaises(MountError):
+                    with writer(dest, lambda p: require_hdd(p, root, TEST_UUID, 1024)):
+                        pass
+                connect.assert_not_called()
+                self.assertFalse(dest.parent.exists())
+                self.assertEqual(require_hdd(dest, root, TEST_UUID, 1023), dest)
+
+    def test_invalid_space_reserve_and_disk_usage_failure_fail_closed(self):
+        with tempfile.TemporaryDirectory(prefix="portal-space-") as temp:
+            root = Path(temp); dest = root / "archive.sqlite3"
+            for reserve in (0, -1, True, "1024"):
+                with self.subTest(reserve=reserve), self.assertRaises(MountError):
+                    require_hdd(dest, root, TEST_UUID, reserve)
+            with patch.dict("os.environ", {"METRICS_ARCHIVE_MIN_FREE_BYTES": "invalid"}), self.assertRaises(MountError):
+                require_hdd(dest, root, TEST_UUID)
+            entry = {"target": str(root), "uuid": TEST_UUID, "fstype": "ext4", "options": "rw"}
+            with patch("metrics_archive.subprocess.run", return_value=Mock(stdout=json.dumps({"filesystems": [entry]}))), \
+                    patch("metrics_archive.shutil.disk_usage", side_effect=OSError()), self.assertRaises(MountError):
+                require_hdd(dest, root, TEST_UUID, 1024)
+
     def test_wrong_uuid_missing_mount_readonly_and_nested_mount(self):
         with tempfile.TemporaryDirectory(prefix="portal-mount-") as temp:
             root = Path(temp); dest = root / "new" / "archive.sqlite3"

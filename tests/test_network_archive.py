@@ -402,6 +402,24 @@ class EventTests(ArchiveFixture):
 
 
 class MigrationTests(unittest.TestCase):
+    def test_cli_refuses_backup_without_snapshot_headroom(self):
+        spec = importlib.util.spec_from_file_location("network_space_cli", ROOT/"tools/migrate_metrics_archive.py")
+        cli = importlib.util.module_from_spec(spec); spec.loader.exec_module(cli)
+        with tempfile.TemporaryDirectory() as temp:
+            database, backup = Path(temp)/"archive.sqlite3", Path(temp)/"backup.sqlite3"
+            with writer(database, lambda p: Path(p)):
+                pass
+            def guard(path, *args):
+                if len(args) == 3:
+                    raise MountError("synthetic snapshot headroom shortage")
+                return Path(path)
+            argv = ["migrate", "--database", str(database), "--backup", str(backup), "--to", "3"]
+            with patch.object(cli, "require_hdd", side_effect=guard), patch("sys.argv", argv):
+                self.assertEqual(cli.main(), 1)
+            self.assertFalse(backup.exists())
+            with writer(database, lambda p: Path(p)) as db:
+                self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 1)
+
     def test_v1_v2_compatibility_atomic_additive_migration_and_reopen(self):
         for version in (1, 2):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as temp:
