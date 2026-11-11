@@ -143,7 +143,7 @@ def queue_status(path):
 def drain(archive, registry_path, check_mount, now=None, batch_size=120):
     """Archive commit precedes inbox ACK; replay is idempotent / 先提交再确认。"""
     now = now or datetime.now(UTC)
-    if archive.execute("PRAGMA user_version").fetchone()[0] != 2:
+    if archive.execute("PRAGMA user_version").fetchone()[0] not in (2, 3):
         raise TelemetryError("archive_migration_required", 503)
     with closing(connect_registry(registry_path)) as inbox:
         with inbox:

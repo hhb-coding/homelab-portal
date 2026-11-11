@@ -498,7 +498,7 @@ test counts are historical, not the installation guide for current main.
 
 ## Roadmap
 
-For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan; Step 8.x Network Quality Monitoring is proposed and not started. Internal Steps are separate from GitHub Releases.
+For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan. [Step 8.02 network archive](docs/step-8-02-network-archive.md) implements an explicit v3 migration, API-only minute collection, 90-day raw retention and durable daily/event history; it is **not deployed**. Step 8.03 charts remain planned. Internal Steps are separate from GitHub Releases.
 
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device

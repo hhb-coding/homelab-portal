@@ -72,7 +72,7 @@ def query(conn, device, role, start, end, extended=False):
     seconds = (end-start).total_seconds()
     if not 0 < seconds <= 180 * 86400:
         raise TelemetryError("invalid_range")
-    if conn.execute("PRAGMA user_version").fetchone()[0] != 2:
+    if conn.execute("PRAGMA user_version").fetchone()[0] not in (2, 3):
         raise TelemetryError("archive_migration_required", 503)
     # At most 500 bins; source rows stream, never fetchall / 最多500桶，流式读取原始行。
     if seconds <= 3600:

@@ -13,7 +13,7 @@ def query(conn, device_id, start, end, after=None, limit=2000):
     start, end = parse_time(start), parse_time(end)
     if not start < end or end-start > timedelta(days=180) or not 1 <= limit <= 2000:
         raise TelemetryError("invalid_range")
-    if conn.execute("PRAGMA user_version").fetchone()[0] != 2:
+    if conn.execute("PRAGMA user_version").fetchone()[0] not in (2, 3):
         raise TelemetryError("archive_migration_required", 503)
     cursor_time, cursor_id = stamp(start), ""
     if after:

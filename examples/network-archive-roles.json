@@ -1,0 +1,13 @@
+{
+  "system_id": "<beszel-system-id>",
+  "targets": {
+    "lan_gateway": "<nx30-lan-gateway-address>",
+    "upstream_gateway": "<upstream-gateway-address>",
+    "endpoint_a": "<first-internal-target>",
+    "endpoint_b": "<second-internal-target>",
+    "public_primary": "<cloudflare-public-primary-address>",
+    "public_control": "<google-public-control-address>"
+  },
+  "abnormal_minutes": 3,
+  "recovery_minutes": 2
+}

@@ -30,7 +30,9 @@
 | **7.05** | **Security Events: Caddy-authenticated Portal requests, HTTP 401 and anomalies** | **Approved plan, not implemented / 已批准但未开发**; explicitly deferred | Caddy JSON access log; independent SQLite/timer |
 | **7.06–7.06.3.1** | **Archive-backed History Dashboard** — Local custom range, three CPU metrics, refresh/source times, DST handling, occurrence CSS fix | **Merged PRs #16–#20; deployed and operator-accepted 2026-11-05 / 已合并、部署、验收**; [details](step-7-06-history.md) | Step 7.04 Schema v2 archive |
 | **7.07–7.07.1** | **Expanded History and Device axes** — History six full-width rows (seven series), Device three CPU charts with left Y ticks | **Merged [PR #21](https://github.com/hhb-coding/homelab-portal/pull/21) + [PR #22](https://github.com/hhb-coding/homelab-portal/pull/22); HP deployed, visual checks accepted / 已合并、部署并人工确认**; [details](step-7-07-expanded-history.md) | Read-only extension of 7.04 archive; no schema or agent changes |
-| 8.x | Network Monitoring: Gateway, Internet, DNS, LAN, ZeroTier latency/loss/recovery | Proposed / 待开发 | Existing Network tab |
+| 8.01 | Network monitor/API read-only verification | Six 10-second ICMP targets verified / 已只读核验 | Baseline `7a21774` |
+| 8.02 | API-only network minute archive, durable daily totals and outage/recovery events | Backend implemented, not deployed / 后端已实现、未部署；[contract](step-8-02-network-archive.md) | Explicit v3 migration; existing 7.04 HDD/timer |
+| 8.03 | Archive-backed latency/loss charts including both public targets | Planned / 待开发 | Step 8.02 network archive |
 | 9.x | Service Monitoring: Portal, Beszel, qBittorrent, Samba, VM/Docker status | Proposed / 待开发 | Service API/status checks |
 | 10.x | General Event/Alert: device, IP, CPU/RAM/temp, service alerts, later notifications | Proposed / 待开发 | Historical/network/service data |
 | 11.x | Automation/DevOps: Ansible, client rollout, config/systemd and CI | Proposed / 待开发 | Stable deployment design |

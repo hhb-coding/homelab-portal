@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
@@ -47,9 +48,16 @@ def api_stamp(value):
     return stamp(value).replace("T", " ")
 
 
-def require_hdd(database, mount=Path("/srv/data"), expected_uuid=""):
+def require_hdd(database, mount=Path("/srv/data"), expected_uuid="", min_free_bytes=None):
     """Fail before mkdir/open if the actual destination is not the expected HDD."""
     database, mount = Path(database), Path(mount)
+    try:
+        minimum = (int(os.environ.get("METRICS_ARCHIVE_MIN_FREE_BYTES", "1073741824"))
+                   if min_free_bytes is None else min_free_bytes)
+        if type(minimum) is not int or minimum < 1:
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise MountError("A positive archive free-space reserve is required") from None
     if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", expected_uuid):
         raise MountError("A valid HDD UUID must be configured")
     if not database.is_absolute() or not mount.is_absolute():
@@ -75,6 +83,11 @@ def require_hdd(database, mount=Path("/srv/data"), expected_uuid=""):
         if (entry.get("target") != str(root) or entry.get("uuid") != expected_uuid
                 or entry.get("fstype") != "ext4" or "rw" not in entry.get("options", "").split(",")):
             raise MountError("HDD mount verification failed")
+    try:
+        if shutil.disk_usage(parent).free < minimum:
+            raise MountError("Archive HDD free-space reserve exhausted")
+    except OSError:
+        raise MountError("Cannot verify HDD free space") from None
     return resolved
 
 
@@ -136,12 +149,16 @@ def writer(database, guard=require_hdd):
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             )}
             expected = {"samples", "checkpoints"}
-            if version == 2:
+            if version in (2, 3):
                 expected.add("cpu_frequency_samples")
-            if (version not in (0, 1, 2) or (version == 0 and tables)
-                    or (version in (1, 2) and tables != expected)):
+            if version == 3:
+                from network_migration import TABLES, validate_schema
+                expected.update(TABLES)
+                validate_schema(conn)
+            if (version not in (0, 1, 2, 3) or (version == 0 and tables)
+                    or (version in (1, 2, 3) and tables != expected)):
                 raise ArchiveError("Destination is not a supported archive database")
-            if version == 2:
+            if version in (2, 3):
                 columns = [row[1] for row in conn.execute("PRAGMA table_info(cpu_frequency_samples)")]
                 if columns != ["device_id", "sample_id", "sampled_utc", "payload", "received_utc", "archived_utc"]:
                     raise ArchiveError("Unsupported frequency history columns")
