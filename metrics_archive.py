@@ -136,12 +136,16 @@ def writer(database, guard=require_hdd):
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             )}
             expected = {"samples", "checkpoints"}
-            if version == 2:
+            if version in (2, 3):
                 expected.add("cpu_frequency_samples")
-            if (version not in (0, 1, 2) or (version == 0 and tables)
-                    or (version in (1, 2) and tables != expected)):
+            if version == 3:
+                from network_migration import TABLES, validate_schema
+                expected.update(TABLES)
+                validate_schema(conn)
+            if (version not in (0, 1, 2, 3) or (version == 0 and tables)
+                    or (version in (1, 2, 3) and tables != expected)):
                 raise ArchiveError("Destination is not a supported archive database")
-            if version == 2:
+            if version in (2, 3):
                 columns = [row[1] for row in conn.execute("PRAGMA table_info(cpu_frequency_samples)")]
                 if columns != ["device_id", "sample_id", "sampled_utc", "payload", "received_utc", "archived_utc"]:
                     raise ArchiveError("Unsupported frequency history columns")

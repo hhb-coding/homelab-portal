@@ -13,10 +13,25 @@ future Beszel API changes only need to be handled in one place.
 from __future__ import annotations
 
 import math
+import json
 import re
 from typing import Any, Dict, List, Optional
 
 import requests
+
+
+def network_identity(value):
+    """Opaque PocketBase IDs, including short monitor/sample IDs / 不假设固定长度。"""
+    if (not isinstance(value, str) or not 1 <= len(value) <= 256
+            or any(ord(c) < 32 for c in value)):
+        raise ValueError("Invalid network identity")
+    return value
+
+
+def network_timestamp(value):
+    if type(value) is not int or not 0 <= value <= 253402300799999:
+        raise ValueError("Invalid Unix millisecond timestamp")
+    return value
 
 
 class BeszelAPIError(RuntimeError):
@@ -193,6 +208,38 @@ class BeszelClient:
         if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
             raise BeszelAPIError("Invalid archive page")
         return payload["items"]
+
+    def _network_page(self, collection, filters, sort, fields, per_page):
+        if type(per_page) is not int or not 1 <= per_page <= 500:
+            raise ValueError("Invalid network page size")
+        response = self.session.get(
+            f"{self.base_url}/api/collections/{collection}/records",
+            params={"page": 1, "perPage": per_page, "sort": sort,
+                    "filter": " && ".join(filters), "fields": fields}, timeout=self.timeout)
+        payload = self._check_response(response)
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise BeszelAPIError("Invalid network archive page")
+        return payload["items"]
+
+    def get_network_monitors_page(self, after=None, per_page=200):
+        filters = [] if after is None else ["id > " + json.dumps(network_identity(after))]
+        return self._network_page("network_monitors", filters, "id",
+            "id,system,target,protocol,interval,enabled,created,updated", per_page)
+
+    def get_network_archive_page(self, monitor_id, start, end, after=None, per_page=200):
+        """Only GET; numeric ms bounds and strict (created,id) continuation / 只读游标。"""
+        start, end = network_timestamp(start), network_timestamp(end)
+        if start > end:
+            raise ValueError("Invalid network archive range")
+        filters = ["monitor=" + json.dumps(network_identity(monitor_id)), "type='1m'",
+                   f"created >= {start}", f"created <= {end}"]
+        if after is not None:
+            created, identity = after
+            created = network_timestamp(created)
+            identity = json.dumps(network_identity(identity))
+            filters.append(f"(created > {created} || (created = {created} && id > {identity}))")
+        return self._network_page("network_monitor_stats", filters, "created,id",
+            "id,monitor,system,type,created,res_min,res_max,res_sum,total_count,success_count", per_page)
 
     @staticmethod
     def _capacity(value: Any, positive: bool = False) -> Optional[float]:

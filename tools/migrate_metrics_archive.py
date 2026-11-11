@@ -10,13 +10,14 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from metrics_archive import require_hdd, writer, safe_paths
 from frequency_migration import migrate
+from network_migration import migrate as migrate_network
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", required=True, type=Path)
     parser.add_argument("--backup", required=True, type=Path)
-    parser.add_argument("--to", required=True, type=int, choices=(1, 2))
+    parser.add_argument("--to", required=True, type=int, choices=(1, 2, 3))
     args = parser.parse_args()
     # No config import: UUID supplied privately in environment / UUID 仅来自私有环境。
     guard = lambda p: require_hdd(p, Path(os.environ.get("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.environ.get("METRICS_ARCHIVE_UUID", ""))
@@ -29,6 +30,9 @@ def main():
         with writer(args.database, guard) as conn:
             if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("Integrity check failed")
+            if args.to == 3 and conn.execute("PRAGMA user_version").fetchone()[0] == 3:
+                print("Archive already at requested version; no changes")
+                return 0
             fd = os.open(args.backup, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
             os.close(fd)
             with closing(sqlite3.connect(args.backup)) as backup:
@@ -37,7 +41,10 @@ def main():
                     raise ValueError("Backup integrity check failed")
             guard(args.database)
             guard(args.backup)
-            migrate(conn, args.to, lambda: guard(args.database))
+            if args.to == 3:
+                migrate_network(conn, lambda: guard(args.database))
+            else:
+                migrate(conn, args.to, lambda: guard(args.database))
         print("Migration complete; backup retained")
         return 0
     except Exception as exc:
