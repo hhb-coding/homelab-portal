@@ -99,7 +99,7 @@
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
   var template = fs.readFileSync('templates/index.html', 'utf8');
   ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
-    var version = (asset === 'dashboard.js' || asset === 'style.css') ? '8032-network-device-cards' : '7071-device-y-axis';
+    var version = (asset === 'dashboard.js' || asset === 'style.css') ? '8033-network-range-stats' : '7071-device-y-axis';
     assert(template.indexOf("filename='" + asset + "') }}?v=" + version) >= 0);
   });
   function axisLabels(data) {

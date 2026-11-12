@@ -1,12 +1,12 @@
 """Synthetic, read-only network history query coverage / 合成网络历史查询。"""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
 
-from network_history import query, ROLES
+from network_history import query, ROLES, RANGES
 from network_migration import migrate
 
 
@@ -109,6 +109,51 @@ class NetworkHistoryTests(unittest.TestCase):
             self.assertIsNone(missing['peak_loss_pct'])
             self.assertEqual(missing['rows'],[])
         self.assertEqual(self.db.total_changes,before)
+
+    def test_hour_ranges_include_start_exclude_end_and_only_read_minutes(self):
+        self.migrate()
+        end = int(self.now.timestamp()*1000)
+        self.assertEqual(list(RANGES), ['1h','3h','6h','10h','24h','7d','30d'])
+        midnight = end//86_400_000*86_400_000
+        self.db.execute('INSERT INTO network_daily VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            ('monitor0000','1m',midnight,1,1,1,999000,999000,999000,midnight,midnight))
+        for hours in (1,3,6,10,24):
+            with self.subTest(hours=hours):
+                start = end-hours*3_600_000
+                self.db.execute('DELETE FROM network_samples')
+                for index, stamp in enumerate((start-1,start,end-1,end)):
+                    self.db.execute('INSERT INTO network_samples VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+                        ('monitor0000','1m',f'minute-{index}',stamp,self.roles['system_id'],
+                         1000,1000,3000,3,3,'{}',end))
+                self.db.commit()
+                before = self.db.total_changes
+                result = query(self.db,str(self.roles_path),f'{hours}h',self.now)
+                self.assertEqual((result['start'],result['end'],result['granularity']), (start,end,'1m'))
+                self.assertEqual([p['time'] for p in result['targets'][0]['rows']], [start,end-1])
+                self.assertTrue(all(p['success_count']==3 for p in result['targets'][0]['rows']))
+                self.assertEqual(self.db.total_changes,before)
+
+    def test_daily_ranges_use_intersecting_utc_days_even_with_offset_now(self):
+        self.migrate()
+        # UTC midnight boundaries must survive a caller's non-UTC timezone.
+        now = self.now.astimezone(timezone(timedelta(hours=-5)))
+        end = int(now.timestamp()*1000)
+        midnight = end//86_400_000*86_400_000
+        for days in (7,30):
+            with self.subTest(days=days):
+                first = midnight-days*86_400_000
+                self.db.execute('DELETE FROM network_daily')
+                for stamp in (first-86_400_000,first,midnight,midnight+86_400_000):
+                    self.db.execute('INSERT INTO network_daily VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                        ('monitor0000','1m',stamp,2,10,8,16000,1000,3000,stamp,stamp+60_000))
+                self.db.commit()
+                result = query(self.db,str(self.roles_path),f'{days}d',now)
+                self.assertEqual((result['start'],result['end'],result['granularity']),
+                                 (end-days*86_400_000,end,'1d'))
+                points = result['targets'][0]['rows']
+                self.assertEqual([p['time'] for p in points], [first,midnight])
+                self.assertTrue(all((p['rtt_ms'],p['count'],p['success_count'],p['failed_count']) ==
+                                    (2,10,8,2) for p in points))
 
 
 if __name__=='__main__': unittest.main()

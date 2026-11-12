@@ -3,7 +3,9 @@ from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 
-RANGES = {"1h": (timedelta(hours=1), "1m"), "24h": (timedelta(hours=24), "1m"),
+RANGES = {"1h": (timedelta(hours=1), "1m"), "3h": (timedelta(hours=3), "1m"),
+          "6h": (timedelta(hours=6), "1m"), "10h": (timedelta(hours=10), "1m"),
+          "24h": (timedelta(hours=24), "1m"),
           "7d": (timedelta(days=7), "1d"), "30d": (timedelta(days=30), "1d")}
 ROLES = ("lan_gateway", "upstream_gateway", "endpoint_a", "endpoint_b", "public_primary", "public_control")
 

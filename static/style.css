@@ -331,7 +331,7 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .network-targets { margin:12px 0; }
 .network-targets label { display:inline-block; margin:4px 16px 4px 0; }
 .network-range { margin:10px 0; }
-.network-range button { margin-right:6px; }
+.network-range button { margin:0 6px 8px 0; min-height:36px; }
 .network-range button[aria-pressed="true"] { font-weight:bold; outline:2px solid #286090; }
 .network-chart { display:block; clear:both; width:100%; box-sizing:border-box; margin:12px 0 20px; border:1px solid #ddd; padding:8px; overflow:hidden; }
 .network-chart > svg { display:block; width:100%; height:auto; }
@@ -342,7 +342,15 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .network-marker { fill:#fff; stroke:currentColor; stroke-width:1.5; }
 .network-series-key { display:inline-block; width:40px; height:16px; vertical-align:middle; margin-right:4px; }
 .network-chart-legend { min-height:24px; font-size:12px; }
-.network-chart-legend span { display:inline-block; margin:0 14px 4px 0; }
+.network-chart-legend button { display:inline-block; margin:0 8px 6px 0; padding:6px; min-height:36px; border:1px solid #ccc; background:#fff; color:#222; text-align:left; cursor:pointer; white-space:normal; }
+.network-chart-legend button[aria-pressed="true"] { background:#e6f0fa; border-color:#286090; }
+.network-chart-legend button:focus { outline:2px solid #286090; }
+.network-chart [data-network-series] { cursor:pointer; }
+.network-series-hit { fill:none; stroke:transparent; stroke-width:14; pointer-events:stroke; }
+.network-chart-stats { border-top:1px solid #ddd; background:#f7f7f7; padding:10px; font-size:12px; line-height:1.8; word-wrap:break-word; }
+.network-chart-stats > span { display:inline-block; margin-right:16px; vertical-align:top; }
+.network-chart-stats .network-stat-target { display:block; }
+.network-chart-stats small { display:block; color:#666; }
 .network-target-ip { font-family:monospace; word-wrap:break-word; }
 .network-unselected { opacity:0.55; }
 .network-hit { fill:transparent; stroke:none; }

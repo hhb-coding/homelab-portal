@@ -12,7 +12,7 @@ import sys
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from network_history import ROLES
+from network_history import ROLES, RANGES
 from network_migration import migrate
 
 
@@ -36,21 +36,24 @@ def export(directory):
                          (identity,roles['system_id'],roles['targets'][role],'icmp',10,1,'{}',now))
             if role == 'endpoint_b':
                 continue  # missing target / 缺测目标
-            for minute in range(60):
-                if minute == 50:
+            for age in range(1,1441):
+                if age == 10:
                     continue  # real gap / 实际断点
-                stamp = now-(60-minute)*60_000
-                total = 6
-                success = max(1,5-i) if minute == 20 else 6
-                if i == 4 and minute == 55:
+                stamp = now-age*60_000
+                total = 6 if age <= 60 else 12
+                success = max(1,5-i) if age == 40 else total
+                if i == 4 and age == 5:
                     success = 0  # all failed / 全丢包
-                rtt = (i+1)*1000 if i < 4 else (i+1)*10_000
+                base = (i+1)*1000 if i < 4 else (i+1)*10_000
+                rtt = base * (2 if age == 1 else 1 if age <= 60 else 2 if age <= 180 else
+                              3 if age <= 360 else 4 if age <= 600 else 5)
                 conn.execute('INSERT INTO network_samples VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
-                             (identity,'1m','preview%02d%02d' % (i,minute),stamp,roles['system_id'],
+                             (identity,'1m','preview%02d%04d' % (i,age),stamp,roles['system_id'],
                               rtt if success else None,rtt if success else None,success*rtt,total,success,'{}',now))
             for day in range(31):
                 stamp = midnight-day*86_400_000
-                total, success = (6000,5000) if day else (120,120)
+                total, success = (12000,10000) if day > 7 else (6000,5000) if day else (120,120)
+                rtt = base * (5 if day > 7 else 3 if day else 1)
                 conn.execute('INSERT INTO network_daily VALUES (?,?,?,?,?,?,?,?,?,?,?)',
                              (identity,'1m',stamp,1000,total,success,success*rtt,rtt,rtt,stamp,stamp+60_000))
         conn.commit()
@@ -63,7 +66,7 @@ def export(directory):
         client = app.app.test_client()
         responses = {}
         with patch('metrics_archive.require_hdd',return_value=archive):
-            for key in ('1h','24h','7d','30d'):
+            for key in RANGES:
                 url = '/api/history/v3/network?range='+key
                 response = client.get(url)
                 assert response.status_code == 200
@@ -81,7 +84,7 @@ def export(directory):
             responses['/static/'+filename] = dict(type=response.content_type,body=response.get_data(as_text=True))
             response.close()
         (directory/'responses.json').write_text(json.dumps(responses))
-    print('Synthetic read-only Flask/SQLite fixture: four ranges, missing data, 100% loss and 16.7% peak passed')
+    print('Synthetic read-only Flask/SQLite fixture: seven ranges, weighted counts, gaps, 100% loss and 16.7% peak passed')
 
 
 if __name__ == '__main__':

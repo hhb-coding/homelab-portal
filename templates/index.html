@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ app_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8032-network-device-cards">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8033-network-range-stats">
 </head>
 <body>
 <div class="container">
@@ -56,6 +56,9 @@
       <h2 id="network-quality-title">Network quality / 网络质量</h2>
       <div class="network-range" role="group" aria-label="History range / 历史范围">
         <button type="button" data-network-range="1h" aria-pressed="true">1h</button>
+        <button type="button" data-network-range="3h" aria-pressed="false">3h</button>
+        <button type="button" data-network-range="6h" aria-pressed="false">6h</button>
+        <button type="button" data-network-range="10h" aria-pressed="false">10h</button>
         <button type="button" data-network-range="24h" aria-pressed="false">24h</button>
         <button type="button" data-network-range="7d" aria-pressed="false">7d</button>
         <button type="button" data-network-range="30d" aria-pressed="false">30d</button>
@@ -98,6 +101,6 @@
 </div>
 <script src="{{ url_for('static', filename='offline-seen.js') }}?v=7071-device-y-axis"></script>
 <script src="{{ url_for('static', filename='performance-history.js') }}?v=7071-device-y-axis"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=8032-network-device-cards"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=8033-network-range-stats"></script>
 </body>
 </html>
