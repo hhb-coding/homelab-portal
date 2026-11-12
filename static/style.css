@@ -302,11 +302,28 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .network-summary-card:nth-child(3n) { margin-right:0; }
 .network-summary-card span { display:block; min-height:28px; font-size:12px; }
 .network-summary-card strong { display:block; font-size:22px; }
-.network-device-card { margin-bottom:12px; padding:14px; border:1px solid #ccc; }
-.network-device-card h2 { margin:0 0 6px; font-size:18px; word-wrap:break-word; }
-.network-device-card td { word-wrap:break-word; }
-.network-device-card table { table-layout:fixed; }
-.network-state { font-size:12px; }
+#network-devices { overflow:hidden; margin-bottom:12px; }
+.network-device-card { float:left; width:31.33%; margin:0 2% 10px 0; padding:12px; box-sizing:border-box; border:1px solid #ccc; font-size:12px; word-wrap:break-word; }
+.network-device-card:nth-child(3n) { margin-right:0; }
+.network-device-card:nth-child(3n+1) { clear:left; }
+.network-device-card h2 { margin:0 0 6px; font-size:14px; word-wrap:break-word; }
+.network-device-card dl { margin:6px 0 0; line-height:1.6; }
+.network-device-card dt, .network-device-card dd { display:inline; margin:0; }
+.network-device-card dt { color:#666; }
+.network-device-card dt:after { content:": "; }
+.network-device-card dd:after { content:""; display:block; }
+.network-device-card .network-note { margin:4px 0 0; font-size:11px; }
+.network-state { margin:4px 0; font-size:12px; }
+@media screen and (max-width:900px) {
+  .network-device-card { width:48%; }
+  .network-device-card:nth-child(3n) { margin-right:2%; }
+  .network-device-card:nth-child(3n+1) { clear:none; }
+  .network-device-card:nth-child(2n) { margin-right:0; }
+  .network-device-card:nth-child(2n+1) { clear:left; }
+}
+@media screen and (max-width:600px) {
+  .network-device-card, .network-device-card:nth-child(3n), .network-device-card:nth-child(2n) { float:none; width:100%; margin-right:0; }
+}
 .network-quality-cards { overflow:hidden; }
 .network-quality-card { display:inline-block; vertical-align:top; width:31%; min-height:90px; margin:0 2% 8px 0; border:1px solid #bbb; border-top-width:4px; padding:10px; box-sizing:border-box; }
 .network-quality-card h4 { margin:0 0 8px; overflow-wrap:anywhere; }
@@ -374,17 +391,7 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
   .device-info th, .device-info td { padding:5px 4px; font-size:11px; }
 }
 
-/* Fixed desktop label; stacked mobile cells leave the complete time readable.
- * Block table cells and word-wrap work on iOS 9 Safari. */
-.network-device-card td:first-child { width:180px; white-space:nowrap; }
-.network-device-card td:last-child { overflow-wrap:break-word; word-wrap:break-word; }
 .stale-warning { color:#c00; font-weight:bold; }
-@media screen and (max-width:600px) {
-  .network-device-card table, .network-device-card tbody,
-  .network-device-card tr, .network-device-card td { display:block; width:auto; box-sizing:border-box; }
-  .network-device-card td:first-child { width:auto; white-space:nowrap; }
-  .network-device-card td:last-child { padding-top:0; }
-}
 
 /* Offline status and heartbeat each occupy a readable, separate line. */
 .mini-card-head .offline-status-row { display:block; }

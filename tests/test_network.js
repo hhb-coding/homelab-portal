@@ -106,6 +106,65 @@
     document.getElementById("tab-network").onclick();
     document.getElementById("tab-device").onclick();
     assert(selectedDeviceId === "partial", "Tab switch uses sanitized records");
+    // Network ordering must not change Device, History or the caller's array.
+    // Network 只排序副本，Device、History 与调用者的数组保持原顺序。
+    var five = [
+      {device_id: "off-old", display_name: "Offline old", beszel_status: "down", last_seen: "2026-01-01 12:00:00", uptime_seconds: 999999},
+      {device_id: "up-short", display_name: "Online short", beszel_status: "up", uptime_seconds: 3600, lan_ip: "192.0.2.10", zerotier_ip: "198.51.100.10", last_seen: "2026-01-01 14:00:00"},
+      {device_id: "unknown", display_name: "Unknown", uptime_seconds: 999999},
+      {device_id: "off-new", display_name: "Offline new", beszel_status: "paused", last_seen: "2026-01-01T08:00:00-05:00"},
+      {device_id: "up-long", display_name: "Online long", beszel_status: "up", uptime_seconds: 172800}
+    ];
+    var inputOrder = five.map(function (d) { return d.device_id; }).join(",");
+    Object.freeze(five);
+    assert(networkDeviceList(five).map(function (d) { return d.device_id; }).join(",") === "up-long,up-short,unknown,off-new,off-old", "Status, uptime and timezone-aware heartbeat ordering");
+    assert(five.map(function (d) { return d.device_id; }).join(",") === inputOrder, "Frozen input is unchanged");
+    render({status: "ok", sources: {metrics_status: "ok"}, devices: five});
+    assert(latestDashboardData.devices.map(function (d) { return d.device_id; }).join(",") === inputOrder, "Shared dashboard list keeps input order");
+    var mini = document.getElementById("mini-devices").innerHTML;
+    assert(mini.indexOf("Offline old") < mini.indexOf("Online short"), "Device mini cards keep input order");
+    cards = document.getElementById("network-devices").innerHTML;
+    var cardIds = [], match, pattern = /data-network-device="([^"]+)"/g;
+    while ((match = pattern.exec(cards))) { cardIds.push(match[1]); }
+    assert(cardIds.join(",") === "up-long,up-short,unknown,off-new,off-old", "Rendered Network cards use the sorted copy");
+    function networkCard(id) { return cards.split('data-network-device="' + id + '">')[1].split('</div>')[0]; }
+    assert(networkCard("up-long").indexOf('Uptime / 本次开机</dt><dd>2d 0h') >= 0, "Online cards show current boot uptime");
+    assert(networkCard("up-short").indexOf('Uptime / 本次开机</dt><dd>1h 0m') >= 0, "Reuse uptime formatting");
+    assert(networkCard("off-old").indexOf("Uptime") < 0 && networkCard("unknown").indexOf("Uptime") < 0, "Offline and unknown cards omit stale uptime");
+    assert(networkCard("up-short").indexOf("192.0.2.10") >= 0 && networkCard("up-short").indexOf("198.51.100.10") >= 0, "Both address fields remain visible");
+    assert(networkCard("up-short").indexOf(new Date(Date.UTC(2026, 0, 1, 14)).toLocaleString()) >= 0, "SQLite UTC heartbeat displays in local time");
+    assert(networkCard("off-new").indexOf(new Date(Date.UTC(2026, 0, 1, 13)).toLocaleString()) >= 0, "Offset heartbeat displays in local time");
+    assert(networkCard("unknown").indexOf('Last Seen / 最后心跳</dt><dd>—') >= 0, "Missing heartbeat remains unavailable");
+    var missingUptimes = [null, undefined, "", "  ", false, -1, Infinity, NaN, {}];
+    var partial = missingUptimes.map(function (value, i) { return {device_id: "missing-" + i, beszel_status: "up", uptime_seconds: value}; });
+    partial.push({device_id: "zero", beszel_status: "up", uptime_seconds: 0});
+    partial.push({device_id: "positive", beszel_status: "up", uptime_seconds: "60"});
+    var sorted = networkDeviceList(partial);
+    assert(sorted[0].device_id === "positive" && sorted[1].device_id === "zero", "Finite uptime and real zero sort before unavailable values");
+    assert(sorted.slice(2).every(function (d, i) { return d === partial[i]; }), "Unavailable uptimes keep stable order at the online tail");
+    renderNetworkPanels(partial, {metrics_status: "ok"});
+    cards = document.getElementById("network-devices").innerHTML;
+    assert(networkCard("zero").indexOf('Uptime / 本次开机</dt><dd>0m') >= 0, "Real zero uptime is not missing");
+    missingUptimes.forEach(function (value, i) {
+      assert(networkCard("missing-" + i).indexOf('Uptime / 本次开机</dt><dd>—') >= 0, "Unavailable uptime placeholder " + i);
+    });
+    var missingTimes = [null, undefined, "", "invalid", "2026-02-30 12:00:00"];
+    var offlineCases = missingTimes.map(function (value, i) { return {device_id: "time-" + i, beszel_status: "down", last_seen: value}; });
+    offlineCases.push({device_id: "seen", beszel_status: "paused", last_seen: "2026-01-01 12:00:00"});
+    offlineCases.push({device_id: "unknown-state", beszel_status: "new-status", last_seen: "2025-01-01 00:00:00"});
+    offlineCases.push({device_id: "online-missing", beszel_status: "up"});
+    sorted = networkDeviceList(offlineCases);
+    assert(sorted.slice(0, 3).map(function (d) { return d.device_id; }).join(",") === "online-missing,unknown-state,seen", "Missing online uptime still precedes unknown and paused/offline groups");
+    assert(sorted.slice(3).every(function (d, i) { return d === offlineCases[i]; }), "Missing or invalid heartbeat sorts last without reordering ties");
+    renderNetworkPanels(offlineCases, {metrics_status: "ok"});
+    cards = document.getElementById("network-devices").innerHTML;
+    missingTimes.forEach(function (value, i) {
+      assert(networkCard("time-" + i).indexOf('Last Seen / 最后心跳</dt><dd>—') >= 0, "Unavailable heartbeat placeholder " + i);
+    });
+    var ties = [{device_id: "up-a", beszel_status: "up", uptime_seconds: 60}, {device_id: "up-b", beszel_status: "up", uptime_seconds: 60},
+      {device_id: "unknown-a"}, {device_id: "unknown-b"}, {device_id: "off-a", beszel_status: "down", last_seen: "2026-01-01 12:00:00"},
+      {device_id: "off-b", beszel_status: "down", last_seen: "2026-01-01T07:00:00-05:00"}];
+    assert(networkDeviceList(ties).every(function (d, i) { return d === ties[i]; }), "All groups have deterministic ties on legacy sort engines");
     console.log("Network tab behavior: " + checks + " assertions passed");
   }
   vm.runInNewContext(fs.readFileSync("static/offline-seen.js", "utf8") + "\n" + fs.readFileSync("static/dashboard.js", "utf8") + "\n(" + exercise.toString() + ")();", {

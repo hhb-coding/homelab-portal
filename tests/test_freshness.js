@@ -40,8 +40,6 @@ c.freshness = null;
 c.acceptFreshness({data_updated_at: Date.UTC(2026, 0, 1, 23, 40) / 1000,
   server_time: Date.UTC(2026, 0, 2, 0, 11) / 1000});
 assert(text().indexOf('31 分钟') >= 0);
-var css = fs.readFileSync('static/style.css', 'utf8');
-assert(/td:first-child \{ width:180px; white-space:nowrap;/.test(css));
-assert(/@media screen and \(max-width:600px\) \{\s*\.network-device-card table,[\s\S]*display:block; width:auto; box-sizing:border-box;/.test(css));
-assert(/\.network-device-card td:last-child \{ overflow-wrap:break-word; word-wrap:break-word;/.test(css));
-console.log('Freshness: thresholds, failure, recovery, midnight, invalid times, clock skew, resume and responsive CSS passed');
+// Card wrapping is measured by test_network_device_cards_browser.js.
+// 卡片换行由实际浏览器测量，不再断言旧版表格 CSS 文本。
+console.log('Freshness: thresholds, failure, recovery, midnight, invalid times, clock skew and resume passed');
