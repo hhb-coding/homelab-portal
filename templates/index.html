@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ app_name }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7071-device-y-axis">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=8031-network-readability">
 </head>
 <body>
 <div class="container">
@@ -63,8 +63,12 @@
       <p id="network-granularity" class="network-note">Minute data / 分钟数据</p>
       <div id="network-quality-cards" class="network-quality-cards"></div>
       <div id="network-targets" class="network-targets"></div>
-      <div id="network-rtt-chart" class="network-chart" aria-label="Round-trip latency / 往返延迟"></div>
+      <div id="network-rtt-private-chart" class="network-chart" aria-label="Private RTT / 私网往返延迟"></div>
+      <div id="network-rtt-public-chart" class="network-chart" aria-label="Public RTT / 公网往返延迟"></div>
       <div id="network-loss-chart" class="network-chart" aria-label="Packet loss / 丢包率"></div>
+      <p id="network-point-detail" class="network-point-detail" role="status" aria-live="polite">Hover or select a loss point / 悬停或点选丢包点查看记录。</p>
+      <h3>Nonzero loss records / 非零丢包记录</h3>
+      <div id="network-loss-records" class="network-loss-records"></div>
       <h3>Network incidents / 网络故障事件</h3>
       <div id="network-events"></div>
     </section>
@@ -94,6 +98,6 @@
 </div>
 <script src="{{ url_for('static', filename='offline-seen.js') }}?v=7071-device-y-axis"></script>
 <script src="{{ url_for('static', filename='performance-history.js') }}?v=7071-device-y-axis"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=803-network-history"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=8031-network-readability"></script>
 </body>
 </html>

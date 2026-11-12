@@ -693,6 +693,7 @@ function selectDashboardTab(tab) {
     }
   }
   if (tab === "device") { fitDiskLabels(); }
+  if (tab === "network" && networkHistoryData) { renderNetworkPlots(); }
   if (tab === "history" && typeof PerformanceHistory !== "undefined") { PerformanceHistory.open(); }
 }
 
@@ -744,48 +745,128 @@ function renderNetworkPanels(list, sources) {
   loadNetworkHistory();
 }
 
+/* Role identity survives filtering / 角色样式不随筛选重排。 */
+var networkStyles = {
+  lan_gateway: { label: "LAN gateway / LAN 网关", color: "#1769aa", dash: "", shape: 0 },
+  upstream_gateway: { label: "Upstream gateway / 上游网关", color: "#b84b00", dash: "8 4", shape: 1 },
+  endpoint_a: { label: "Endpoint A / 终端 A", color: "#27864b", dash: "3 3", shape: 2 },
+  endpoint_b: { label: "Endpoint B / 终端 B", color: "#7d3c98", dash: "10 3 2 3", shape: 3 },
+  public_primary: { label: "Public primary / 公网主目标", color: "#a93226", dash: "12 4", shape: 4 },
+  public_control: { label: "Public control / 公网对照", color: "#117864", dash: "2 4", shape: 5 }
+};
+
 function networkTime(ms) {
   var d;
-  if (!ms) { return "—"; }
+  if (ms === null || typeof ms === "undefined") { return "—"; }
   d = new Date(ms);
   return isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
-function drawNetworkChart(id, key, title, unit) {
-  var el = document.getElementById(id), data = networkHistoryData, roles = [], i, j, target, points, max = 0, paths = "", p, x, y, previous;
+function networkSymbol(style, x, y, size) {
+  var shapes = ["M-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0", "M-3,-3H3V3H-3Z", "M0,-4L4,3H-4Z",
+    "M0,-4L4,0L0,4L-4,0Z", "M-3,-3L3,3M-3,3L3,-3", "M-4,0H4M0,-4V4"];
+  return '<path class="network-marker" transform="translate(' + x + ',' + y + ') scale(' + size + ')" d="' + shapes[style.shape] + '"/>';
+}
+
+function networkKey(role) {
+  var s = networkStyles[role];
+  return '<svg class="network-series-key" viewBox="0 0 40 16" aria-hidden="true" style="color:' + s.color + '"><path class="network-series" stroke-dasharray="' + s.dash + '" d="M1,8H39"/>' + networkSymbol(s, 20, 8, 1) + '</svg>';
+}
+
+function networkPointText(target, point) {
+  return networkStyles[target.role].label + ' · ' + target.target + ' · Local / 本地 ' + networkTime(point.time)
+    + ' · ' + num(point.loss_pct, 1) + '% · Failed / 失败 ' + point.failed_count + ' / Total / 总探测 ' + point.count
+    + (networkHistoryData.granularity === "1d" ? ' · Daily summary / 日汇总（UTC 日桶）' : ' · Minute / 分钟');
+}
+
+function networkAxisTime(ms, x, anchor) {
+  var d = new Date(ms), pad = function (n) { return (n < 10 ? "0" : "") + n; };
+  return '<text class="network-x-tick" x="' + x + '" y="225" text-anchor="' + anchor + '">'
+    + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+    + '<tspan x="' + x + '" dy="14">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + '</tspan></text>';
+}
+
+function drawNetworkChart(id, key, title, unit, group) {
+  var el = document.getElementById(id), data = networkHistoryData, roles = [], i, j, target, points, max = 0,
+    paths = "", markers = "", legend = "", axes = "", p, x, y, previous, d, s, gap, token, detail, seriesMarkers, newSegment,
+    width = Math.max(280, (el.clientWidth || 620) - 18), left = 64, right = width - 16, top = 24, bottom = 204, valid = 0;
   if (!data) { el.innerHTML = ""; return; }
   for (i = 0; i < data.targets.length; i += 1) {
-    target = data.targets[i]; if (networkSelected[target.role]) { roles.push(target); }
+    target = data.targets[i];
+    if (networkStyles[target.role] && networkSelected[target.role] && (!group || (target.role.indexOf("public_") === 0 ? "public" : "private") === group)) { roles.push(target); }
   }
-  if (!roles.length) { el.innerHTML = '<p class="network-note">Select one or more targets / 请选择一个或多个目标。</p>'; return; }
-  for (i = 0; i < roles.length; i += 1) { points = roles[i].rows; for (j = 0; j < points.length; j += 1) { p = points[j][key]; if (p !== null && isFinite(p) && p > max) { max = p; } } }
-  if (!max) { max = key === "loss_pct" ? 1 : 1; }
   for (i = 0; i < roles.length; i += 1) {
-    points = roles[i].rows; previous = null; paths += '<path class="network-series network-series-' + i + '" d="';
-    for (j = 0; j < points.length; j += 1) {
-      p = points[j][key];
-      if (p === null || !isFinite(p)) { previous = null; continue; }
-      x = 40 + (points[j].time - data.start) / (data.end - data.start) * 560;
-      y = 205 - p / max * 180;
-      paths += (previous ? " L" : " M") + x.toFixed(1) + "," + y.toFixed(1); previous = true;
-    }
-    paths += '"><title>' + esc(roles[i].role) + '</title></path>';
+    points = roles[i].rows;
+    for (j = 0; j < points.length; j += 1) { p = historyValue(points[j][key]); if (p !== null && p > max) { max = p; } }
   }
-  el.innerHTML = '<h3>' + title + ' (' + unit + ')</h3><svg viewBox="0 0 620 230" role="img" aria-label="' + title + '"><path class="network-axis" d="M40 15V205H600M40 25H600M40 115H600"/><text x="40" y="222">' + esc(networkTime(data.start)) + '</text><text x="440" y="222">' + esc(networkTime(data.end)) + '</text>' + paths + '</svg><p class="network-note">' + esc(data.granularity === "1d" ? "UTC daily weighted summaries / UTC 日汇总按探测次数加权" : "UTC minute samples / UTC 分钟样本") + ' · ' + esc(max.toFixed(1)) + ' ' + unit + '</p>';
+  max = key === "loss_pct" ? 100 : Math.max(1, Math.ceil(max * 1.1));
+  gap = data.granularity === "1d" ? 86400000 : 60000;
+  for (i = 0; i <= 4; i += 1) {
+    y = bottom - i / 4 * (bottom - top);
+    axes += '<path class="network-axis" d="M' + left + ',' + y + 'H' + right + '"/><text class="network-y-tick" x="' + (left - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + num(max * i / 4, key === "loss_pct" ? 0 : 1) + ' ' + unit + '</text>';
+  }
+  for (i = 0; i < roles.length; i += 1) {
+    target = roles[i]; points = target.rows; previous = null; d = ""; seriesMarkers = ""; s = networkStyles[target.role];
+    legend += '<span data-network-legend="' + target.role + '">' + networkKey(target.role) + esc(s.label) + '</span>';
+    paths += '<g data-network-series="' + target.role + '" style="color:' + s.color + '">';
+    for (j = 0; j < points.length; j += 1) {
+      p = historyValue(points[j][key]);
+      if (p === null || points[j].time + gap <= data.start || points[j].time >= data.end) { previous = null; continue; }
+      valid += 1;
+      x = left + (Math.max(points[j].time, data.start) - data.start) / (data.end - data.start) * (right - left);
+      y = bottom - p / max * (bottom - top);
+      newSegment = previous === null || points[j].time - previous > gap * 1.5;
+      d += (newSegment ? " M" : " L") + x.toFixed(1) + ',' + y.toFixed(1);
+      previous = points[j].time;
+      if (key === "loss_pct" && p > 0) {
+        token = target.role + ':' + j; detail = esc(networkPointText(target, points[j]));
+        markers += '<g class="network-loss-point" data-network-point="' + token + '" tabindex="0" role="button" aria-pressed="false" aria-label="' + detail + '" style="color:' + s.color + '"><title>' + detail + '</title><circle class="network-hit" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="12"/>' + networkSymbol(s, x.toFixed(1), y.toFixed(1), 1.5) + '</g>';
+      } else if (key === "rtt_ms" && (newSegment || j % Math.max(1, Math.ceil(points.length / 24)) === 0 || j === points.length - 1)) {
+        seriesMarkers += networkSymbol(s, x.toFixed(1), y.toFixed(1), 1);
+      }
+    }
+    paths += '<path class="network-series" stroke-dasharray="' + s.dash + '" d="' + d + '"><title>' + esc(s.label + ' · ' + target.target) + '</title></path>' + seriesMarkers + '</g>';
+  }
+  el.innerHTML = '<h3>' + title + ' (' + unit + ')</h3><div class="network-chart-legend">' + legend + '</div><svg viewBox="0 0 ' + width + ' 250" role="group" aria-label="' + title + '">'
+    + axes + networkAxisTime(data.start, left, "start") + networkAxisTime(data.end, right, "end") + paths + markers + '</svg>'
+    + '<p class="network-note">' + (roles.length ? valid ? 'Local time / 本地时间 · ' + (data.granularity === "1d" ? 'UTC daily weighted summaries / UTC 日汇总，按探测次数加权' : 'Minute samples; gaps stay open / 分钟样本，缺测断线') : 'No samples in this range / 此时段无样本' : 'Select targets in this group / 请勾选本组目标') + '</p>';
+}
+
+function renderNetworkPlots() {
+  var records = [], html = "", i, j, t, point;
+  drawNetworkChart("network-rtt-private-chart", "rtt_ms", "Private RTT / 私网往返延迟", "ms", "private");
+  drawNetworkChart("network-rtt-public-chart", "rtt_ms", "Public RTT / 公网往返延迟", "ms", "public");
+  drawNetworkChart("network-loss-chart", "loss_pct", "Packet loss / 丢包率", "%", null);
+  for (i = 0; i < networkHistoryData.targets.length; i += 1) {
+    t = networkHistoryData.targets[i]; if (!networkSelected[t.role] || !networkStyles[t.role]) { continue; }
+    for (j = 0; j < t.rows.length; j += 1) {
+      point = t.rows[j];
+      if (point.loss_pct > 0 && point.time + (networkHistoryData.granularity === "1d" ? 86400000 : 60000) > networkHistoryData.start && point.time < networkHistoryData.end) {
+        records.push({ target: t, point: point, token: t.role + ':' + j });
+      }
+    }
+  }
+  records.sort(function (a, b) { return b.point.time - a.point.time || a.token.localeCompare(b.token); });
+  for (i = 0; i < records.length; i += 1) {
+    t = records[i]; html += '<li><button type="button" data-network-point="' + t.token + '" aria-pressed="false">' + networkKey(t.target.role) + esc(networkPointText(t.target, t.point)) + '</button></li>';
+  }
+  document.getElementById("network-loss-records").innerHTML = html ? '<ol>' + html + '</ol>' : '<p class="network-note">No nonzero loss records for selected targets / 所选目标无非零丢包记录。</p>';
+  document.getElementById("network-point-detail").innerHTML = 'Hover or select a loss point / 悬停或点选丢包点查看记录。';
 }
 
 function renderNetworkHistory(data) {
-  var cards = "", checks = "", events = "", i, t, latest, rtt, loss, selected;
-  networkHistoryData = data;
+  var cards = "", checks = "", events = "", i, t, latest, rtt, loss, selected, s;
   if (!data || data.status !== "ok") { return; }
+  networkHistoryData = data;
   for (i = 0; i < data.targets.length; i += 1) {
-    t = data.targets[i]; latest = t.rows.length ? t.rows[t.rows.length - 1] : null;
+    t = data.targets[i]; s = networkStyles[t.role]; if (!s) { continue; }
+    latest = t.latest_sample;
     if (typeof networkSelected[t.role] === "undefined") { networkSelected[t.role] = true; }
     selected = networkSelected[t.role];
-    rtt = latest && latest.rtt_ms !== null ? num(latest.rtt_ms, 2) + " ms" : "—";
-    loss = latest && latest.loss_pct !== null ? num(latest.loss_pct, 1) + "%" : "—";
-    cards += '<article class="network-quality-card"><h4>' + esc(t.role) + '</h4><strong>RTT ' + rtt + '</strong><span>Loss / 丢包 ' + loss + '</span><small>' + esc(networkTime(latest && latest.time)) + '</small></article>';
-    checks += '<label><input type="checkbox" data-network-target="' + esc(t.role) + '"' + (selected ? ' checked' : '') + '> <i class="network-series-key network-series-' + i + '"></i>' + esc(t.role) + ' · ' + esc(t.target) + '</label>';
+    rtt = latest && historyValue(latest.rtt_ms) !== null ? num(latest.rtt_ms, 2) + ' ms' : '—';
+    loss = latest && historyValue(latest.loss_pct) !== null ? num(latest.loss_pct, 1) + '%' : '—';
+    cards += '<article data-network-card="' + t.role + '" class="network-quality-card' + (selected ? '' : ' network-unselected') + '" style="border-top-color:' + s.color + '"><h4>' + networkKey(t.role) + esc(s.label) + '</h4><span class="network-target-ip">' + esc(t.target) + '</span><strong>Latest minute RTT / 最新分钟 ' + rtt + '</strong><span>Latest loss / 最新丢包 ' + loss + '</span><small>Local / 本地 ' + esc(networkTime(latest && latest.time)) + '</small><span>Peak / 时段丢包峰值 ' + (historyValue(t.peak_loss_pct) === null ? '—' : num(t.peak_loss_pct, 1) + '%') + (data.granularity === "1d" ? ' · Daily summary / 日汇总' : '') + '</span><small>' + esc(data.range) + (selected ? ' · Shown / 已显示' : ' · Hidden / 已隐藏') + '</small></article>';
+    checks += '<label><input type="checkbox" data-network-target="' + t.role + '"' + (selected ? ' checked' : '') + '> ' + networkKey(t.role) + esc(s.label) + ' · ' + esc(t.target) + '</label>';
   }
   for (i = 0; i < data.events.length; i += 1) {
     t = data.events[i];
@@ -793,11 +874,31 @@ function renderNetworkHistory(data) {
   }
   document.getElementById("network-quality-cards").innerHTML = cards || '<p>No archived network data / 暂无网络归档数据。</p>';
   document.getElementById("network-targets").innerHTML = checks;
-  document.getElementById("network-granularity").innerHTML = data.schema_version < 3 ? "No v3 network archive yet / 尚无 v3 网络归档" : data.granularity === "1d" ? "UTC daily weighted summaries / UTC 日汇总（按探测次数加权）" : "UTC minute records / UTC 分钟记录";
+  document.getElementById("network-granularity").innerHTML = data.schema_version < 3 ? "No v3 network archive yet / 尚无 v3 网络归档" : data.granularity === "1d" ? "UTC daily weighted summaries; peaks are daily / UTC 日汇总（按探测次数加权），峰值为日汇总峰值" : "UTC minute records / UTC 分钟记录";
   document.getElementById("network-events").innerHTML = events ? '<table><thead><tr><th>Event / 事件</th><th>Started / 开始</th><th>Recovered / 恢复</th><th>Duration / 持续</th></tr></thead><tbody>' + events + '</tbody></table>' : '<p>No events / 暂无故障事件。</p>';
-  drawNetworkChart("network-rtt-chart", "rtt_ms", "RTT / 往返延迟", "ms");
-  drawNetworkChart("network-loss-chart", "loss_pct", "Packet loss / 丢包率", "%");
+  renderNetworkPlots();
 }
+
+function showNetworkPoint(node) {
+  var token, parts, i, t, p, matches;
+  while (node && node.getAttribute) {
+    token = node.getAttribute("data-network-point"); if (token) { break; } node = node.parentNode;
+  }
+  if (!token || !networkHistoryData) { return false; }
+  parts = token.split(':');
+  for (i = 0; i < networkHistoryData.targets.length; i += 1) {
+    t = networkHistoryData.targets[i];
+    if (t.role === parts[0] && networkSelected[t.role]) {
+      p = t.rows[Number(parts[1])]; if (!p) { return false; }
+      document.getElementById("network-point-detail").innerHTML = esc(networkPointText(t, p));
+      matches = document.querySelectorAll('[data-network-point]');
+      for (i = 0; i < matches.length; i += 1) { matches[i].setAttribute("aria-pressed", matches[i].getAttribute("data-network-point") === token ? "true" : "false"); }
+      return true;
+    }
+  }
+  return false;
+}
+
 
 function loadNetworkHistory() {
   if (!document.getElementById("network-quality")) { return; }
@@ -815,16 +916,28 @@ if (document.addEventListener) { document.addEventListener("change", function (e
   var target = event.target, role;
   if (target && target.getAttribute && target.getAttribute("data-network-target")) {
     role = target.getAttribute("data-network-target"); networkSelected[role] = target.checked;
-    drawNetworkChart("network-rtt-chart", "rtt_ms", "RTT / 往返延迟", "ms"); drawNetworkChart("network-loss-chart", "loss_pct", "Packet loss / 丢包率", "%");
+    renderNetworkHistory(networkHistoryData);
   }
 }, false); }
 if (document.addEventListener) { document.addEventListener("click", function (event) {
+  if (showNetworkPoint(event.target)) { return; }
   var range = event.target && event.target.getAttribute && event.target.getAttribute("data-network-range"), buttons, i;
   if (!range) { return; }
   networkRange = range; buttons = document.querySelectorAll("[data-network-range]");
   for (i = 0; i < buttons.length; i += 1) { buttons[i].setAttribute("aria-pressed", buttons[i].getAttribute("data-network-range") === range ? "true" : "false"); }
   loadNetworkHistory();
 }, false); }
+
+if (document.addEventListener) {
+  document.addEventListener("mouseover", function (event) { showNetworkPoint(event.target); }, false);
+  document.addEventListener("focusin", function (event) { showNetworkPoint(event.target); }, false);
+  document.addEventListener("keydown", function (event) {
+    if ((event.keyCode === 13 || event.keyCode === 32) && showNetworkPoint(event.target)) { event.preventDefault(); }
+  }, false);
+}
+if (typeof window !== "undefined" && window.addEventListener) {
+  window.addEventListener("resize", function () { if (networkHistoryData) { renderNetworkPlots(); } }, false);
+}
 
 function render(data) {
   /* Reject broken payloads before replacing retained data / 替换旧数据前验证响应。 */
