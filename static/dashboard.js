@@ -708,23 +708,48 @@ function networkSummaryCard(label, value) {
   return '<div class="network-summary-card"><span>' + label + '</span><strong>' + value + '</strong></div>';
 }
 
+/* Sort a separate Network list; index ties preserve input order on ES5 engines.
+ * 仅排序 Network 副本；用原索引保证旧浏览器上的同值顺序。 */
+function networkDeviceList(list) {
+  var ranks = { online: 0, unknown: 1, offline: 2 };
+  return list.map(function (device, index) {
+    var state = networkState(device), value = null;
+    if (state === "online") {
+      value = historyValue(device.uptime_seconds);
+      if (value !== null && value < 0) { value = null; }
+    } else if (state === "offline") { value = OfflineSeen.parse(device.last_seen); }
+    return { device: device, index: index, rank: ranks[state], value: value };
+  }).sort(function (a, b) {
+    if (a.rank !== b.rank) { return a.rank - b.rank; }
+    if (a.value !== b.value) {
+      if (a.value === null) { return 1; }
+      if (b.value === null) { return -1; }
+      return b.value - a.value;
+    }
+    return a.index - b.index;
+  }).map(function (item) { return item.device; });
+}
+
 function renderNetworkPanels(list, sources) {
   var online = 0, offline = 0, unknown = 0, lan = 0, zerotier = 0;
-  var cards = "", summary = "", i, device, state;
+  var cards = "", summary = "", i, device, state, seen, devices = networkDeviceList(list);
   var labels = { online: "ONLINE / 在线", offline: "OFFLINE / 离线", unknown: "UNKNOWN / 未知" };
-  for (i = 0; i < list.length; i += 1) {
-    device = list[i];
+  for (i = 0; i < devices.length; i += 1) {
+    device = devices[i];
     state = networkState(device);
     if (state === "online") { online += 1; }
     else if (state === "offline") { offline += 1; }
     else { unknown += 1; }
     if (device.lan_ip) { lan += 1; }
     if (device.zerotier_ip) { zerotier += 1; }
-    cards += '<div class="network-device-card"><h2>' + esc(nameOf(device)) + '</h2>'
+    seen = OfflineSeen.parse(device.last_seen);
+    cards += '<div class="network-device-card" data-network-device="' + esc(device.device_id || "") + '"><h2>' + esc(nameOf(device)) + '</h2>'
       + '<p class="network-state ' + (state === "online" ? "ok" : state === "offline" ? "bad" : "network-unknown")
-      + '">' + labels[state] + '</p><table><tr><td>LAN IP</td><td>' + esc(device.lan_ip || "—")
-      + '</td></tr><tr><td>ZeroTier IP</td><td>' + esc(device.zerotier_ip || "—")
-      + '</td></tr><tr><td>Last Seen / 最后心跳</td><td>' + localTime(device.last_seen) + '</td></tr></table>';
+      + '">' + labels[state] + '</p><dl><dt>LAN IP</dt><dd>' + esc(device.lan_ip || "—")
+      + '</dd><dt>ZeroTier IP</dt><dd>' + esc(device.zerotier_ip || "—")
+      + '</dd><dt>Last Seen / 最后心跳</dt><dd>' + esc(seen === null ? "—" : new Date(seen).toLocaleString()) + '</dd>';
+    if (state === "online") { cards += '<dt>Uptime / 本次开机</dt><dd>' + esc(uptime(device.uptime_seconds)) + '</dd>'; }
+    cards += '</dl>';
     if (!device.lan_ip) { cards += '<p class="network-note">LAN address unavailable / LAN 地址缺失</p>'; }
     if (!device.zerotier_ip) { cards += '<p class="network-note">No ZeroTier address reported (optional) / 未上报 ZeroTier 地址（可选）</p>'; }
     cards += '</div>';

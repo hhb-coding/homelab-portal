@@ -338,8 +338,13 @@ optional missing ZeroTier addresses have explanatory placeholders.
 This is a **summary of device-reported network information**, not a network
 scanner, ping sweep, link map or automatic topology discovery. A recorded
 address does not establish reachability. No extra network service or API is used.
-Desktop label columns are 180px; at 600px and below, labels and values stack
-vertically and long addresses wrap.
+Compact device cards match summary-card widths: three per desktop row (five
+devices form 3+2), two at 900px and below, and one at 600px and below. Long names
+and addresses wrap. Online cards also show current boot uptime. Only the Network
+list copy is sorted: online by uptime descending (missing uptime last), unknown
+in original order, then offline by last Heartbeat descending (missing/invalid
+timestamps last). Ties retain input order; Device and History keep their order.
+See [Step 8.03.2 validation](docs/step-8-03-2-network-device-cards.md).
 
 ## Beszel metrics and disk estimates
 
@@ -635,7 +640,11 @@ ES5/XHR 与不使用 CSS Grid、CSS 变量的响应式 CSS 面向旧设备。
 显示设备总数、在线/离线/未知数量、LAN/ZeroTier 上报数量、登记地址和最后心跳，
 隐藏 Device Details。仅汇总客户端上报的信息，**不是网络扫描器或自动拓扑发现**，
 不进行 Ping、不推断连接关系。登记地址不代表可达性，不新增后台服务或 API。
-桌面标签列为 180px；600px 及以下采用标签和值上下排列，长地址可换行。
+紧凑设备卡与摘要卡同宽：桌面每行三张，五台为 3+2；900px 及以下每行两张，600px 及以下
+每行一张，长名称和地址换行。在线卡另显示本次开机时长。仅排序 Network 列表副本：在线按
+开机时长降序（缺值在在线组末尾），随后为未知状态（原顺序），最后是离线按心跳降序
+（缺失或无效时间垫底）；同值保留原顺序，Device 和 History 的顺序不变。
+详见 [Step 8.03.2 验证](docs/step-8-03-2-network-device-cards.md)。
 
 ### Beszel 指标与磁盘估算限制
 
