@@ -39,6 +39,11 @@ var metricHistory = {};
 var selectedDeviceId = null;
 var latestDashboardData = null;
 var networkRange = "1h", networkSelected = {}, networkHistoryRequest = null, networkHistoryData = null;
+var networkCharts = {
+  "network-rtt-private-chart": { key: "rtt_ms", pinned: "upstream_gateway", hover: null },
+  "network-rtt-public-chart": { key: "rtt_ms", pinned: "public_primary", hover: null },
+  "network-loss-chart": { key: "loss_pct", pinned: "upstream_gateway", hover: null }
+};
 
 
 function historyValue(value) {
@@ -811,18 +816,109 @@ function networkAxisTime(ms, x, anchor) {
     + '<tspan x="' + x + '" dy="14">' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + '</tspan></text>';
 }
 
+/* Plot and stats share bucket validity, including the intersecting UTC day.
+ * 图与统计共用有效点规则；包含与时段相交的 UTC 日桶。 */
+function networkChartValue(point, key, data) {
+  var value = historyValue(point[key]), count = historyValue(point[key === "rtt_ms" ? "success_count" : "count"]),
+    gap = data.granularity === "1d" ? 86400000 : 60000;
+  if (value === null || value < 0 || (key === "loss_pct" && value > 100) || count === null || count <= 0
+      || point.time + gap <= data.start || point.time >= data.end) { return null; }
+  return value;
+}
+
+function networkRangeStats(target, key, data) {
+  var result = { count: 0, max: null, min: null, average: null }, sum = 0, weight = 0, i, point, value;
+  if (!target) { return result; }
+  for (i = 0; i < target.rows.length; i += 1) {
+    point = target.rows[i]; value = networkChartValue(point, key, data);
+    if (value === null) { continue; }
+    result.count += 1;
+    result.max = result.max === null ? value : Math.max(result.max, value);
+    result.min = result.min === null ? value : Math.min(result.min, value);
+    if (key === "rtt_ms") { sum += value * point.success_count; weight += point.success_count; }
+    else { sum += point.failed_count; weight += point.count; }
+  }
+  if (weight > 0) { result.average = sum / weight * (key === "loss_pct" ? 100 : 1); }
+  return result;
+}
+
+function networkStatsHtml(id) {
+  var state = networkCharts[id], role = state.hover || state.pinned, target = null, data = networkHistoryData, i, stats,
+    unit = state.key === "rtt_ms" ? " ms" : "%";
+  for (i = 0; i < data.targets.length; i += 1) {
+    if (data.targets[i].role === role && networkSelected[role]) { target = data.targets[i]; break; }
+  }
+  stats = networkRangeStats(target, state.key, data);
+  function value(number) { return number === null ? "—" : num(number, 2) + unit; }
+  return '<span class="network-stat-target">Target / 目标 <strong>' + (target ? esc(networkStyles[role].label) : '—')
+    + '</strong> · <span class="network-target-ip">' + (target ? esc(target.target) : '—') + '</span></span>'
+    + '<span>Range / 时段 <strong>' + esc(data.range) + '</strong></span>'
+    + '<span>Valid samples / 有效样本 <strong>' + stats.count + '</strong></span>'
+    + '<span>Max / 最大 <strong>' + value(stats.max) + '</strong></span>'
+    + '<span>Min / 最小 <strong>' + value(stats.min) + '</strong></span>'
+    + '<span>Average / 平均 <strong>' + value(stats.average) + '</strong></span>'
+    + '<small>' + (state.hover && state.hover !== state.pinned ? 'Preview / 临时查看' : 'Pinned / 固定目标')
+    + ' · ' + (data.granularity === "1d" ? 'UTC daily points / UTC 日汇总点' : 'Minute points / 分钟点') + '</small>';
+}
+
+function updateNetworkStats(id) {
+  var state = networkCharts[id], el = document.getElementById(id + "-stats"), buttons, i;
+  if (!el) { return; }
+  el.innerHTML = networkStatsHtml(id);
+  el.setAttribute("data-network-stats-role", state.hover || state.pinned || "");
+  buttons = document.querySelectorAll('[data-network-chart="' + id + '"][data-network-legend]');
+  for (i = 0; i < buttons.length; i += 1) {
+    buttons[i].setAttribute("aria-pressed", buttons[i].getAttribute("data-network-legend") === state.pinned ? "true" : "false");
+  }
+}
+
+/* Delegation works for SVG paths, native legend buttons and loss records.
+ * 事件委托兼容 SVG 曲线、原生图例按钮和丢包记录。 */
+function networkChartTarget(node) {
+  var role = null, id = null, token;
+  while (node && node.getAttribute) {
+    token = node.getAttribute("data-network-point");
+    role = role || node.getAttribute("data-network-legend") || node.getAttribute("data-network-series") || (token && token.split(':')[0]);
+    id = id || node.getAttribute("data-network-chart") || (token && "network-loss-chart");
+    node = node.parentNode;
+  }
+  return role && networkSelected[role] && networkCharts[id] ? { id: id, role: role } : null;
+}
+
+function previewNetworkTarget(node, pin) {
+  var target = networkChartTarget(node), state;
+  if (!target) { return false; }
+  state = networkCharts[target.id];
+  if (pin) { state.pinned = target.role; }
+  state.hover = pin ? null : target.role;
+  updateNetworkStats(target.id);
+  return true;
+}
+
+function restoreNetworkTarget(event) {
+  var from = networkChartTarget(event.target), to = networkChartTarget(event.relatedTarget);
+  if (!from || (to && from.id === to.id && from.role === to.role)) { return; }
+  networkCharts[from.id].hover = to && from.id === to.id ? to.role : null;
+  updateNetworkStats(from.id);
+}
+
 function drawNetworkChart(id, key, title, unit, group) {
   var el = document.getElementById(id), data = networkHistoryData, roles = [], i, j, target, points, max = 0,
     paths = "", markers = "", legend = "", axes = "", p, x, y, previous, d, s, gap, token, detail, seriesMarkers, newSegment,
-    width = Math.max(280, (el.clientWidth || 620) - 18), left = 64, right = width - 16, top = 24, bottom = 204, valid = 0;
+    width = Math.max(280, (el.clientWidth || 620) - 18), left = 64, right = width - 16, top = 24, bottom = 204, valid = 0,
+    state = networkCharts[id], hasPinned = false;
   if (!data) { el.innerHTML = ""; return; }
   for (i = 0; i < data.targets.length; i += 1) {
     target = data.targets[i];
-    if (networkStyles[target.role] && networkSelected[target.role] && (!group || (target.role.indexOf("public_") === 0 ? "public" : "private") === group)) { roles.push(target); }
+    if (networkStyles[target.role] && networkSelected[target.role] && (!group || (target.role.indexOf("public_") === 0 ? "public" : "private") === group)) {
+      roles.push(target); if (target.role === state.pinned) { hasPinned = true; }
+    }
   }
+  if (!hasPinned) { state.pinned = roles.length ? roles[0].role : null; }
+  state.hover = null;
   for (i = 0; i < roles.length; i += 1) {
     points = roles[i].rows;
-    for (j = 0; j < points.length; j += 1) { p = historyValue(points[j][key]); if (p !== null && p > max) { max = p; } }
+    for (j = 0; j < points.length; j += 1) { p = networkChartValue(points[j], key, data); if (p !== null && p > max) { max = p; } }
   }
   max = key === "loss_pct" ? 100 : Math.max(1, Math.ceil(max * 1.1));
   gap = data.granularity === "1d" ? 86400000 : 60000;
@@ -832,11 +928,11 @@ function drawNetworkChart(id, key, title, unit, group) {
   }
   for (i = 0; i < roles.length; i += 1) {
     target = roles[i]; points = target.rows; previous = null; d = ""; seriesMarkers = ""; s = networkStyles[target.role];
-    legend += '<span data-network-legend="' + target.role + '">' + networkKey(target.role) + esc(s.label) + '</span>';
-    paths += '<g data-network-series="' + target.role + '" style="color:' + s.color + '">';
+    legend += '<button type="button" data-network-chart="' + id + '" data-network-legend="' + target.role + '" aria-pressed="' + (state.pinned === target.role ? 'true' : 'false') + '">' + networkKey(target.role) + esc(s.label) + '</button>';
+    paths += '<g data-network-chart="' + id + '" data-network-series="' + target.role + '" style="color:' + s.color + '">';
     for (j = 0; j < points.length; j += 1) {
-      p = historyValue(points[j][key]);
-      if (p === null || points[j].time + gap <= data.start || points[j].time >= data.end) { previous = null; continue; }
+      p = networkChartValue(points[j], key, data);
+      if (p === null) { previous = null; continue; }
       valid += 1;
       x = left + (Math.max(points[j].time, data.start) - data.start) / (data.end - data.start) * (right - left);
       y = bottom - p / max * (bottom - top);
@@ -850,10 +946,12 @@ function drawNetworkChart(id, key, title, unit, group) {
         seriesMarkers += networkSymbol(s, x.toFixed(1), y.toFixed(1), 1);
       }
     }
-    paths += '<path class="network-series" stroke-dasharray="' + s.dash + '" d="' + d + '"><title>' + esc(s.label + ' · ' + target.target) + '</title></path>' + seriesMarkers + '</g>';
+    paths += '<path class="network-series-hit" d="' + d + '"/><path class="network-series" stroke-dasharray="' + s.dash + '" d="' + d + '"><title>' + esc(s.label + ' · ' + target.target) + '</title></path>' + seriesMarkers + '</g>';
   }
   el.innerHTML = '<h3>' + title + ' (' + unit + ')</h3><div class="network-chart-legend">' + legend + '</div><svg viewBox="0 0 ' + width + ' 250" role="group" aria-label="' + title + '">'
     + axes + networkAxisTime(data.start, left, "start") + networkAxisTime(data.end, right, "end") + paths + markers + '</svg>'
+    + '<div id="' + id + '-stats" class="network-chart-stats" data-network-stats-role="' + (state.pinned || '') + '" role="status" aria-live="polite">' + networkStatsHtml(id) + '</div>'
+    + '<p class="network-note">Hover to preview; click a curve or legend to pin / 悬停临时查看，点曲线或图例固定。</p>'
     + '<p class="network-note">' + (roles.length ? valid ? 'Local time / 本地时间 · ' + (data.granularity === "1d" ? 'UTC daily weighted summaries / UTC 日汇总，按探测次数加权' : 'Minute samples; gaps stay open / 分钟样本，缺测断线') : 'No samples in this range / 此时段无样本' : 'Select targets in this group / 请勾选本组目标') + '</p>';
 }
 
@@ -945,6 +1043,7 @@ if (document.addEventListener) { document.addEventListener("change", function (e
   }
 }, false); }
 if (document.addEventListener) { document.addEventListener("click", function (event) {
+  previewNetworkTarget(event.target, true);
   if (showNetworkPoint(event.target)) { return; }
   var range = event.target && event.target.getAttribute && event.target.getAttribute("data-network-range"), buttons, i;
   if (!range) { return; }
@@ -954,10 +1053,15 @@ if (document.addEventListener) { document.addEventListener("click", function (ev
 }, false); }
 
 if (document.addEventListener) {
-  document.addEventListener("mouseover", function (event) { showNetworkPoint(event.target); }, false);
-  document.addEventListener("focusin", function (event) { showNetworkPoint(event.target); }, false);
+  document.addEventListener("mouseover", function (event) { previewNetworkTarget(event.target, false); showNetworkPoint(event.target); }, false);
+  document.addEventListener("mouseout", restoreNetworkTarget, false);
+  document.addEventListener("focusin", function (event) { previewNetworkTarget(event.target, false); showNetworkPoint(event.target); }, false);
+  document.addEventListener("focusout", restoreNetworkTarget, false);
   document.addEventListener("keydown", function (event) {
-    if ((event.keyCode === 13 || event.keyCode === 32) && showNetworkPoint(event.target)) { event.preventDefault(); }
+    if (event.keyCode === 13 || event.keyCode === 32) {
+      var selected = previewNetworkTarget(event.target, true), point = showNetworkPoint(event.target);
+      if (selected || point) { event.preventDefault(); }
+    }
   }, false);
 }
 if (typeof window !== "undefined" && window.addEventListener) {
