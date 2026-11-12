@@ -52,6 +52,22 @@
       / 地址来自 Heartbeat，设备状态来自 Beszel；不代表连通性检测或网络拓扑。</p>
     <div id="network-summary"><div class="loading">Loading network summary / 正在加载网络摘要…</div></div>
     <div id="network-devices"><div class="loading">Loading device addresses / 正在加载设备地址…</div></div>
+    <section id="network-quality" aria-labelledby="network-quality-title">
+      <h2 id="network-quality-title">Network quality / 网络质量</h2>
+      <div class="network-range" role="group" aria-label="History range / 历史范围">
+        <button type="button" data-network-range="1h" aria-pressed="true">1h</button>
+        <button type="button" data-network-range="24h" aria-pressed="false">24h</button>
+        <button type="button" data-network-range="7d" aria-pressed="false">7d</button>
+        <button type="button" data-network-range="30d" aria-pressed="false">30d</button>
+      </div>
+      <p id="network-granularity" class="network-note">Minute data / 分钟数据</p>
+      <div id="network-quality-cards" class="network-quality-cards"></div>
+      <div id="network-targets" class="network-targets"></div>
+      <div id="network-rtt-chart" class="network-chart" aria-label="Round-trip latency / 往返延迟"></div>
+      <div id="network-loss-chart" class="network-chart" aria-label="Packet loss / 丢包率"></div>
+      <h3>Network incidents / 网络故障事件</h3>
+      <div id="network-events"></div>
+    </section>
   </div>
 
   <div id="history-panel" class="hidden">
@@ -78,6 +94,6 @@
 </div>
 <script src="{{ url_for('static', filename='offline-seen.js') }}?v=7071-device-y-axis"></script>
 <script src="{{ url_for('static', filename='performance-history.js') }}?v=7071-device-y-axis"></script>
-<script src="{{ url_for('static', filename='dashboard.js') }}?v=7071-device-y-axis"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}?v=803-network-history"></script>
 </body>
 </html>

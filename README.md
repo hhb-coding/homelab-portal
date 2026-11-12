@@ -498,7 +498,7 @@ test counts are historical, not the installation guide for current main.
 
 ## Roadmap
 
-For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan. [Step 8.02 network archive](docs/step-8-02-network-archive.md) implements an explicit v3 migration, API-only minute collection, 90-day raw retention and durable daily/event history; it is **not deployed**. Step 8.03 charts remain planned. Internal Steps are separate from GitHub Releases.
+For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan. [Step 8.02](docs/step-8-02-network-archive.md) was deployed to HP on 2026-11-11: v3 migration, isolated online-backup restore, six-role first sync and the existing timer were verified. Step 8.03 adds the read-only network quality dashboard; local browser review is still pending until this branch is merged/deployed. Internal Steps are separate from GitHub Releases.
 
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
 network reachability checks, topology discovery, IP-event browsing UI, a device
@@ -756,3 +756,9 @@ Local 自定义时间在请求时转换 UTC。默认 API 三条序列；`extende
 [7.07/7.07.1 实现与验收](docs/step-7-07-expanded-history.md)。
 旧 iOS 9 Safari 的新日期控件触控与文本后备仍待实机验收；
 这不影响用户已确认的现代浏览器视觉效果。
+
+### Step 8.03 — Network quality / 网络质量
+
+The Network panel reads `GET /api/history/v3/network?range=1h|24h|7d|30d` from the v3 HDD archive. Set `NETWORK_HISTORY_ROLES_FILE` in the Portal's private environment to the same protected role file used by the archive service. The endpoint requires no Beszel credentials, applies the existing HDD UUID guard, opens SQLite read-only, and caps minute, daily, and incident rows. Hour/day views use UTC minutes; week/month views use UTC daily summaries weighted by probe counts. Gaps remain absent, and RTT is null when a bucket has no successful probes. The bilingual panel shows six role cards, selectable RTT and loss plots on a shared time axis, granularity, and target/public-connectivity incidents. No live browser acceptance or deployment is implied by merge status.
+
+网络标签页从 v3 HDD 归档读取 `GET /api/history/v3/network?range=1h|24h|7d|30d`。Portal 私有环境中的 `NETWORK_HISTORY_ROLES_FILE` 应指向归档服务使用的同一受保护角色文件。接口使用现有 HDD UUID 校验及 SQLite 只读连接，限制分钟、日汇总和事件行数；1/24 小时读取 UTC 分钟，7/30 天按探测次数加权汇总 UTC 日数据。缺测不补点，全丢包时 RTT 为空。双语面板包含六个角色卡片、可选目标的 RTT/丢包共用时间轴图、数据粒度及目标/疑似公网故障事件。代码合并不代表浏览器验收或生产部署完成。
