@@ -14,6 +14,8 @@ const browser = spawn(executable, ['--headless','--no-sandbox','--disable-gpu','
   '--remote-debugging-pipe','--user-data-dir='+path.join(output,'profile')], {stdio:['ignore','ignore','pipe','pipe','pipe']});
 let sequence=0, buffer='', session, stderr='', exited=false;
 const pending = new Map(), handlers = new Map(), pageErrors=[];
+const context={width:null,step:'launch Chromium',selector:'(none)'};
+function step(name, selector='(none)') { context.step=name;context.selector=selector; }
 function cdp(method, params={}, sessionId=session) {
   return new Promise((resolve,reject) => {
     if (exited) return reject(Error('Chromium exited: '+stderr));
@@ -52,9 +54,27 @@ async function screenshot(name) {
   const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
   fs.writeFileSync(path.join(output,name+'.png'),Buffer.from(result.data,'base64'));
 }
-async function click(selector) { await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`); }
-async function pointPosition() {
-  return evaluate(`(function(){var p=document.querySelector('#network-loss-chart [data-network-point="lan_gateway:20"]');p.scrollIntoView({block:'center'});var c=p.querySelector('circle'),m=c.getScreenCTM();return {x:m.a*Number(c.getAttribute('cx'))+m.e,y:m.d*Number(c.getAttribute('cy'))+m.f};}())`);
+async function visible(selector) {
+  context.selector=selector;
+  await until(`(function(){var e=document.querySelector(${JSON.stringify(selector)});if(!e)return false;var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0 && r.height>0 && s.visibility!=='hidden' && s.display!=='none';}())`);
+}
+async function click(selector) { await visible(selector);await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`); }
+async function lossPoint(container, role, failed, count) {
+  context.selector=container+' [data-network-point^="'+role+':"]';
+  const target=await evaluate(`networkHistoryData.targets.find(t=>t.role===${JSON.stringify(role)})`);
+  assert(target,'Missing target: '+role);
+  // Tokens use the returned row index; the rolling range and missing minutes change it.
+  // 点位编号来自实际返回行；滚动时间边界和缺测都会改变索引。
+  const matches=target.rows.map((point,index)=>({...point,index}))
+    .filter(point=>point.failed_count===failed && point.count===count && point.loss_pct>0);
+  assert.equal(matches.length,1,'Expected one '+role+' loss record with failed/count '+failed+'/'+count);
+  const point=matches[0], selector=container+' [data-network-point="'+role+':'+point.index+'"]';
+  await visible(selector);
+  return {...point,selector};
+}
+async function pointPosition(selector) {
+  await visible(selector);
+  return evaluate(`(function(){var p=document.querySelector(${JSON.stringify(selector)});p.scrollIntoView({block:'center'});var c=p.querySelector('circle'),m=c.getScreenCTM();return {x:m.a*Number(c.getAttribute('cx'))+m.e,y:m.d*Number(c.getAttribute('cy'))+m.f};}())`);
 }
 async function styleIdentity() {
   return evaluate(`(function(){var role='public_control',line=document.querySelector('#network-rtt-public-chart [data-network-series="'+role+'"] > .network-series'),key=document.querySelector('[data-network-card="'+role+'"] .network-series');return {stroke:getComputedStyle(line).stroke,dash:line.getAttribute('stroke-dasharray'),key:getComputedStyle(key).stroke,marker:line.parentNode.querySelector('.network-marker').getAttribute('d')};}())`);
@@ -73,11 +93,13 @@ async function run() {
   await cdp('Page.enable');await cdp('Runtime.enable');await cdp('Fetch.enable',{patterns:[{urlPattern:'*'}]});
   await cdp('Emulation.setTimezoneOverride',{timezoneId:'America/Toronto'});
   for (const width of [1440,390]) {
+    context.width=width;step('load 1h history','#network-quality-cards');
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width===390});
     await cdp('Emulation.setTouchEmulationEnabled',{enabled:width===390});
     await cdp('Page.navigate',{url:'http://portal.test/'});
     await until('typeof networkHistoryData !== "undefined" && networkHistoryData && networkHistoryData.range === "1h"');
-    await click('#tab-network');
+    step('open Network tab','#tab-network');await click('#tab-network');
+    step('verify layout, cards and axes','#network-quality');
     const layout=await evaluate(`(function(){var ids=['network-rtt-private-chart','network-rtt-public-chart','network-loss-chart'],q=document.getElementById('network-quality').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,cards:document.querySelectorAll('[data-network-card]').length,charts:ids.map(function(id){var e=document.getElementById(id),r=e.getBoundingClientRect(),svg=e.querySelector(':scope > svg'),m=svg.getScreenCTM();return {width:r.width,left:r.left,top:r.top,bottom:r.bottom,start:m.a*64+m.e,end:m.a*(svg.viewBox.baseVal.width-16)+m.e};}),width:q.width,left:q.left,private:document.querySelectorAll('#network-rtt-private-chart [data-network-series]').length,public:document.querySelectorAll('#network-rtt-public-chart [data-network-series]').length,lossTicks:document.querySelector('#network-loss-chart').textContent};}())`);
     assert(!layout.overflow,'Horizontal overflow at '+width);assert.equal(layout.cards,6);assert.equal(layout.private,4);assert.equal(layout.public,2);
     layout.charts.forEach((chart,i)=>{
@@ -88,29 +110,52 @@ async function run() {
     assert(layout.lossTicks.includes('100 %') && layout.lossTicks.includes('0 %'));
     assert(await evaluate(`document.querySelector('[data-network-card="lan_gateway"]').textContent.includes('最新丢包 0.0%') && document.querySelector('[data-network-card="lan_gateway"]').textContent.includes('峰值 16.7%')`));
     assert(await evaluate(`document.querySelectorAll('.network-y-tick').length === 15 && document.querySelector('#network-rtt-private-chart .network-y-tick').textContent.includes('ms') && document.querySelector('#network-rtt-public-chart .network-y-tick').textContent.includes('ms')`));
+    step('verify role styles','#network-rtt-public-chart [data-network-series="public_control"]');
     const before=await styleIdentity();assert.equal(before.stroke,before.key);
-    const xy=await pointPosition();
+    step(width===390?'tap LAN loss point':'hover LAN loss point');
+    const lanPoint=await lossPoint('#network-loss-chart','lan_gateway',1,6);
+    const xy=await pointPosition(lanPoint.selector);
     if(width===390) {
       await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:xy.x,y:xy.y}]});
       await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     } else {await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:xy.x,y:xy.y});}
     await until(`document.getElementById('network-point-detail').textContent.includes('失败 1 / Total / 总探测 6')`);
-    assert(await evaluate(`document.getElementById('network-point-detail').textContent.includes('192.0.2.1') && document.getElementById('network-point-detail').textContent.includes(networkTime(networkHistoryData.targets[0].rows[20].time))`));
-    await click('#network-loss-records [data-network-point="public_primary:54"]');
+    assert(await evaluate(`document.getElementById('network-point-detail').textContent.includes('192.0.2.1') && document.getElementById('network-point-detail').textContent.includes(networkTime(${lanPoint.time}))`));
+    step('select all-failed loss record');
+    const allFailed=await lossPoint('#network-loss-records','public_primary',6,6);
+    await click(allFailed.selector);
     assert(await evaluate(`document.getElementById('network-point-detail').textContent.includes('失败 6 / Total / 总探测 6')`));
     await screenshot(width+'-points');
+    step('filter LAN and public primary targets');
     await click('[data-network-target="lan_gateway"]');await click('[data-network-target="public_primary"]');
     assert.deepEqual(await styleIdentity(),before,'Style stable after filtering at '+width);
     assert(await evaluate(`!document.querySelector('#network-loss-chart [data-network-series="lan_gateway"]') && !document.querySelector('#network-loss-records [data-network-point^="lan_gateway:"]') && document.querySelector('[data-network-card="lan_gateway"]').className.includes('network-unselected')`));
+    step('capture filtered charts','#network-quality');await visible('#network-quality');
     await evaluate('document.getElementById("network-quality").scrollIntoView()');await screenshot(width+'-filtered');
+    step('restore LAN and public primary targets');
     await click('[data-network-target="lan_gateway"]');await click('[data-network-target="public_primary"]');
     for (const range of ['24h','7d','30d','1h']) {
+      step('switch range and verify latest/peak: '+range);
       await click('[data-network-range="'+range+'"]');await until('networkHistoryData.range === '+JSON.stringify(range));
       assert(await evaluate(`document.querySelector('[data-network-card="lan_gateway"]').textContent.includes('最新丢包 0.0%') && document.querySelector('[data-network-card="lan_gateway"]').textContent.includes('峰值 16.7%')`));
       if(range==='7d'||range==='30d') assert(await evaluate(`document.querySelector('[data-network-card="lan_gateway"]').textContent.includes('日汇总') && document.getElementById('network-loss-records').textContent.includes('失败 1000 / Total / 总探测 6000')`));
     }
     console.log(width+'px: full rows, aligned axes, latest/peak, point interaction, stable styles and four ranges passed');
   }
-  assert.deepEqual(pageErrors,[]);console.log('Browser artifacts: '+output);
+  step('verify no page errors');assert.deepEqual(pageErrors,[]);console.log('Browser artifacts: '+output);
 }
-run().catch(error=>{console.error(error.message);console.error('Browser artifacts: '+output);process.exitCode=1;}).finally(()=>{browser.kill();});
+run().catch(async error=>{
+  console.error('Browser acceptance failed: width='+context.width+'px step='+JSON.stringify(context.step)+' selector='+JSON.stringify(context.selector));
+  console.error(error.stack || error.message);
+  const failure={...context,error:error.message,pageErrors};
+  if(session && !exited) {
+    try {
+      failure.page=await evaluate(`(function(){var data=typeof networkHistoryData==='undefined'?null:networkHistoryData;return {range:data && data.range,points:Array.from(document.querySelectorAll('#network-loss-chart [data-network-point]')).map(function(e){return e.getAttribute('data-network-point');}),records:Array.from(document.querySelectorAll('#network-loss-records [data-network-point]')).map(function(e){return e.getAttribute('data-network-point');}),targets:data && data.targets.map(function(t){return {role:t.role,target:t.target,rows:t.rows.length,lossPoints:t.rows.map(function(p,i){return {index:i,time:p.time,failed_count:p.failed_count,count:p.count};}).filter(function(p){return p.failed_count>0;})};}),detail:document.getElementById('network-point-detail') && document.getElementById('network-point-detail').textContent};}())`);
+      console.error('Page state: '+JSON.stringify(failure.page));
+      fs.writeFileSync(path.join(output,'failure.html'),await evaluate('document.documentElement.outerHTML'));
+      await screenshot('failure');
+    } catch(diagnosticError) { failure.diagnosticError=diagnosticError.message; }
+  }
+  fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify(failure,null,2));
+  console.error('Browser artifacts: '+output);process.exitCode=1;
+}).finally(()=>{browser.kill();});

@@ -66,18 +66,52 @@ service or timer change is part of this work.
 - The isolated Flask fixture exercised the real read-only HTTP route for all
   four ranges and rejected an invalid range. All addresses are synthetic RFC 5737
   examples; external HTTP is blocked and only temporary SQLite is used.
-- **1440px / 390px browser acceptance is pending.** Cached Chromium aborted with
-  `SIGTRAP` / `setsockopt: Operation not permitted`; cached headless shell also
-  aborted on a sandbox-denied socket operation. The existing optional
-  `test_offline_layout.js` browser check could not listen on localhost (`EPERM`).
-  No screenshots or browser passes are claimed.
+- **1440px / 390px browser acceptance passed on 2026-11-12**, using HP's cached
+  Chromium outside the execution sandbox. Both widths passed full-row layout,
+  aligned axes, latest/peak values, hover/tap, record selection, exact counts,
+  stable styles after filtering and all four ranges, with no page errors.
+  Four screenshots are in `/tmp/portal08-step8031-browser-24IINX`.
+  Chromium still cannot start inside the execution sandbox (`SIGTRAP` /
+  `setsockopt: Operation not permitted`); the separate optional
+  `test_offline_layout.js` check was not rerun in this follow-up.
 
 - 复用 HP Python 虚拟环境，148 项测试通过；临时库覆盖最新 0% / 历史 16.7%、缺测、
   零探测、全丢包、分钟/日加权、实际计数和四种范围。
 - 复用 nvm Node 22.23.3，七个 CI JavaScript 回归程序通过；语法及 diff 检查通过。
 - 隔离 Flask 样本通过真实只读接口验证四种范围及非法范围，禁用外部 HTTP，仅用临时库。
-- **1440px / 390px 浏览器验收未完成**：沙箱禁止 Chromium 所需的套接字操作，启动即退出；
-  现有可选离线布局检查也因 localhost 监听被拒而无法执行，不能据此宣称视觉/触控通过。
+- **2026-11-12，1440px / 390px 浏览器验收通过**：在 HP 执行沙箱外运行缓存 Chromium，
+  两种宽度均通过整行布局、横轴对齐、最新值/峰值、悬停/触控、记录点选、实际计数、
+  筛选样式和四种范围断言，页面异常为零；四张截图在上述临时目录。
+  执行沙箱内仍因套接字限制启动失败；本次没有重跑独立的可选离线布局浏览器检查。
+
+The original failure was a test selector mismatch at **1440px, hover LAN loss
+point**, before the 390px iteration. The test called `scrollIntoView` on
+`#network-loss-chart [data-network-point="lan_gateway:20"]`, but the actual DOM
+and API data used `lan_gateway:19` (one failure out of six). Fixture creation
+precedes the route's rolling 1h query, so its first minute falls outside that
+range: 58 rows remain instead of the 59 returned for 24h. The all-failed public
+record likewise uses `public_primary:53`, rather than the hardcoded `:54`.
+The page correctly derives both tokens from the returned row index.
+
+原失败在 **1440px 悬停 LAN 丢包点**，尚未进入 390px：测试对写死的 `lan_gateway:20`
+选择器返回的空节点调用 `scrollIntoView`，实际 DOM 和接口均为 `lan_gateway:19`（失败
+1 / 总探测 6）。夹具生成早于接口的滚动 1h 查询，首分钟已越过左边界，返回 58 行，而
+24h 返回 59 行；全丢包公网记录也应是 `public_primary:53`，并非写死的 `:54`。
+页面按返回行号生成点位的行为正确。
+
+The test now locates each record by role and exact failed/total counts in the
+loaded data, requires one match, builds its actual selector, and waits for that
+specific element to be visible before scrolling or clicking. The timestamp
+assertion uses that same record; all existing acceptance assertions remain.
+Failures report width, step and selector, return nonzero, and save
+`failure.json`, `failure.html` and `failure.png` when the page is available.
+The reproduced failure and DOM/data evidence are in
+`/tmp/portal08-step8031-browser-Sq8beb`.
+
+测试现按已加载数据中的角色及实际失败数/总探测数唯一定位记录，再生成实际选择器，
+滚动和点击前等待该目标可见；时间断言使用同一条记录，原有验收断言全部保留。
+失败输出宽度、步骤和选择器并返回非零；页面可用时保存 JSON 状态、实际 DOM 和截图。
+带诊断的复现产物位于上述 `Sq8beb` 临时目录。
 
 Re-run browser acceptance in an execution context that permits Chromium:
 
@@ -97,3 +131,18 @@ reported with a nonzero exit status.
 
 脚本导出合成接口响应，通过 CDP 管道拦截请求，在两种宽度验证整行布局、共用横轴、
 悬停/触控/记录点选、实际计数、筛选后颜色及四种范围，并输出临时截图目录；失败返回非零。
+
+HP ordinary SSH recheck from the development worktree passed at both widths on
+2026-11-12; four screenshots are in `/tmp/portal08-step8031-browser-1MQt2z`.
+
+HP 普通 SSH 在开发目录于 2026-11-12 复验，两种宽度均通过；四张截图位于上述临时目录：
+
+```sh
+NETWORK_BROWSER_PYTHON="$HOME/homelab-portal-dev/.venv/bin/python" "$HOME/.nvm/versions/node/v22.23.3/bin/node" tests/test_network_readability_browser.js
+```
+
+The script defaults to HP's cached `chromium-1187/chrome-linux/chrome`; set
+`CHROMIUM_BINARY` explicitly when using a different cached browser.
+
+脚本默认使用 HP 缓存的 `chromium-1187/chrome-linux/chrome`；更换缓存浏览器时显式设置
+`CHROMIUM_BINARY`。
