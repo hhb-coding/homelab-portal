@@ -111,6 +111,28 @@ def performance_history_api():
         return jsonify(error="archive_unavailable"), 503
 
 
+@app.route("/api/history/v3/network")
+def network_history_api():
+    """Bounded read-only latency, loss and incident history / 有界只读网络历史。"""
+    from contextlib import closing
+    import os
+    from pathlib import Path
+    import sqlite3
+    from metrics_archive import require_hdd
+    from network_history import query
+    try:
+        database = Path(os.getenv("METRICS_ARCHIVE_PATH", "/srv/data/homelab-portal-archive/metrics.sqlite3"))
+        require_hdd(database, Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.getenv("METRICS_ARCHIVE_UUID", ""))
+        roles_path = os.getenv("NETWORK_HISTORY_ROLES_FILE") or os.getenv("NETWORK_ARCHIVE_ROLES_FILE", "")
+        with closing(sqlite3.connect(database.resolve().as_uri()+"?mode=ro", uri=True, timeout=2)) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            return jsonify(query(conn, roles_path, request.args.get("range", "1h")))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    except Exception:
+        return jsonify(error="network_history_unavailable"), 503
+
+
 # Initialize SQLite when the application starts.
 # 应用启动时自动初始化 SQLite 数据库。
 init_db()

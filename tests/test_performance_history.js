@@ -99,7 +99,8 @@
   assert(axes[0].indexOf('2025-12-31 19:00') >= 0 && axes[0].indexOf('UTC-05:00') >= 0);
   var template = fs.readFileSync('templates/index.html', 'utf8');
   ['style.css', 'performance-history.js', 'offline-seen.js', 'dashboard.js'].forEach(function (asset) {
-    assert(template.indexOf("filename='" + asset + "') }}?v=7071-device-y-axis") >= 0);
+    var version = asset === 'dashboard.js' ? '803-network-history' : '7071-device-y-axis';
+    assert(template.indexOf("filename='" + asset + "') }}?v=" + version) >= 0);
   });
   function axisLabels(data) {
     var output = c.PerformanceHistory.charts(data), all = output.match(/<div class="performance-time-axis"[^>]*>[\s\S]*?<\/div>/g);

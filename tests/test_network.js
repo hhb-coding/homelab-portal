@@ -89,7 +89,8 @@
     assert(document.getElementById("devices").innerHTML.indexOf("No devices registered") >= 0, "Empty Device view");
     assert(timers.length === 4 && timers[1].delay === 5000 && timers[2].delay === 60000, "Existing polling unchanged");
     assert(requests.every(function (request) {
-      return request.url.indexOf("/api/dashboard?") === 0 || request.url.indexOf("/api/history?") === 0;
+      return request.url.indexOf("/api/dashboard?") === 0 || request.url.indexOf("/api/history?") === 0
+        || request.url.indexOf("/api/history/v3/network?range=1h") === 0;
     }), "No extra network APIs");
     assert(num(null, 1) === "—" && num("", 1) === "—" && num("  ", 1) === "—" && num(false, 1) === "—" && num(Infinity, 1) === "—", "Missing and invalid numbers are not zero");
     assert(num(0, 1) === "0.0", "Real zero remains zero");

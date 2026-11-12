@@ -307,6 +307,26 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .network-device-card td { word-wrap:break-word; }
 .network-device-card table { table-layout:fixed; }
 .network-state { font-size:12px; }
+.network-quality-cards { overflow:hidden; }
+.network-quality-card { display:inline-block; vertical-align:top; width:31%; min-height:90px; margin:0 2% 8px 0; border:1px solid #bbb; padding:10px; box-sizing:border-box; }
+.network-quality-card h4 { margin:0 0 8px; overflow-wrap:anywhere; }
+.network-quality-card strong, .network-quality-card span, .network-quality-card small { display:block; margin:4px 0; }
+.network-targets { margin:12px 0; }
+.network-targets label { display:inline-block; margin:4px 16px 4px 0; }
+.network-range { margin:10px 0; }
+.network-range button { margin-right:6px; }
+.network-range button[aria-pressed="true"] { font-weight:bold; outline:2px solid #286090; }
+.network-chart { margin:12px 0 20px; border:1px solid #ddd; padding:8px; overflow:hidden; }
+.network-chart svg { display:block; width:100%; height:auto; min-height:160px; }
+.network-chart text { font:10px sans-serif; fill:#555; }
+.network-axis { fill:none; stroke:#ccc; stroke-width:1; }
+.network-series { fill:none; stroke-width:2; }
+.network-series-key { display:inline-block; width:12px; height:3px; vertical-align:middle; margin-right:4px; }
+.network-series-key.network-series-0 { background:#1769aa; }.network-series-key.network-series-1 { background:#d35400; }.network-series-key.network-series-2 { background:#27864b; }
+.network-series-key.network-series-3 { background:#7d3c98; }.network-series-key.network-series-4 { background:#a93226; }.network-series-key.network-series-5 { background:#117864; }
+.network-series-0 { stroke:#1769aa; }.network-series-1 { stroke:#d35400; }.network-series-2 { stroke:#27864b; }
+.network-series-3 { stroke:#7d3c98; }.network-series-4 { stroke:#a93226; }.network-series-5 { stroke:#117864; }
+@media screen and (max-width:600px) { .network-chart { padding:4px; } .network-quality-card { width:48%; margin-right:2%; } }
 .network-unknown { color:#666; }
 @media screen and (max-width:600px) {
   .network-summary-card { width:48%; }
