@@ -1,8 +1,11 @@
 # HomeLab Portal — Unified Development Roadmap / 统一开发路线图
 
 **Original planning date / 初版规划日期:** 2026-10-13  
-**Repository:** `hhb-coding/homelab-portal`  
-**Status / 状态:** Maintained in GitHub `main`; deployment/status reconciliation 2026-11-05 / 已在 `main` 维护；部署与进度核对日期 2026-11-05  
+**Repository:** `hhb-coding/homelab-portal`
+
+**Status / 状态** — Maintained in GitHub `main`. Step 8 HP acceptance recorded on
+2026-11-13. / 已在 `main` 维护，2026-11-13 记录 Step 8 的 HP 验收状态。
+
 **Approved scopes / 已批准范围:** [Step 7.03 Issue #11](https://github.com/hhb-coding/homelab-portal/issues/11) and [Step 7.05 Security Events](step-7-05-security-events.md)
 
 > Scope numbering: `Step 7.05` is an **internal work-package identifier**, not a claim that GitHub tag/release `v7.05` exists. The repository has already published [v0.2.0](https://github.com/hhb-coding/homelab-portal/releases/tag/v0.2.0). Never equate a planned Step with a deployed version.
@@ -10,9 +13,18 @@
 >
 > 编号说明：`Step 7.05` 是内部开发任务编号，不代表 GitHub 已发布名为 `v7.05` 的 Tag 或 Release。GitHub 已正式发布 `v0.2.0`。规划、已合并代码与生产运行状态必须分开核对。
 >
-> **Verified snapshot / 已核对快照（2026-11-05）：** GitHub `main` is `5808ffadeee4f34c8e0092ca5768b8037e8617e3` (PR #22 Squash merge). The operator reported that HP production was upgraded to Step 7.07.1 and visually accepted Device/History; confirm the live host again before any future deployment. GitHub release `v0.2.0` is separate from internal Step numbering.
+> **HP production snapshot / HP 生产验收快照（2026-11-13）.** The operator
+> deployed `44e4bfcb51064a39018937f9948af57ab232e6a7` (PR #31) with local patches.
+> Live acceptance passed for the network quality layout, Endpoint B discovery
+> and mapping, fresh archive samples, CPU history and Web health.
+> [Acceptance record](network-quality-layout-acceptance.md#hp-production-acceptance)
 >
-> **中文：** 用户报告 HP 已部署 Step 7.07.1，并人工确认 Device 与 History 图表。以上是当日验收记录，不代表今后任何时刻服务仍健康；未来部署必须现场核对。
+> HP 已部署 PR #31 合并提交并保留本机补丁。网络质量布局、Endpoint B 发现和映射、
+> 归档新样本、CPU 历史及 Web 健康均通过实机验收。
+>
+> **Earlier HP snapshot / HP 历史验收快照（2026-11-05）.** The operator accepted
+> the Step 7.07.1 Device and History views at `5808ffadeee4f34c8e0092ca5768b8037e8617e3`
+> (PR #22). 当日已确认 HP 上的 Step 7.07.1 Device 与 History 图表。
 
 ## 1. Version and scope decisions / 编号及范围决议
 
@@ -31,11 +43,13 @@
 | **7.06–7.06.3.1** | **Archive-backed History Dashboard** — Local custom range, three CPU metrics, refresh/source times, DST handling, occurrence CSS fix | **Merged PRs #16–#20; deployed and operator-accepted 2026-11-05 / 已合并、部署、验收**; [details](step-7-06-history.md) | Step 7.04 Schema v2 archive |
 | **7.07–7.07.1** | **Expanded History and Device axes** — History six full-width rows (seven series), Device three CPU charts with left Y ticks | **Merged [PR #21](https://github.com/hhb-coding/homelab-portal/pull/21) + [PR #22](https://github.com/hhb-coding/homelab-portal/pull/22); HP deployed, visual checks accepted / 已合并、部署并人工确认**; [details](step-7-07-expanded-history.md) | Read-only extension of 7.04 archive; no schema or agent changes |
 | 8.01 | Network monitor/API read-only verification | Six 10-second ICMP targets verified / 已只读核验 | Baseline `7a21774` |
-| 8.02 | API-only network minute archive, durable daily totals and outage/recovery events | **Deployed on HP 2026-11-11; v3, backup/restore, six-role sync and first timer verified / 已部署并验收**；[contract](step-8-02-network-archive.md) | Explicit v3 migration; existing 7.04 HDD/timer |
-| 8.03 | Archive-backed latency/loss charts including both public targets and persisted events | Implemented locally on `feature/step-8-03-network-dashboard`; browser acceptance/review pending / 已在本地实现，待浏览器验收与评审 | Step 8.02 v3 network archive |
-| 8.03.1 | Full-row private/public RTT, fixed role identity and inspectable loss records | Implemented on `feature/step-8-03-1-network-readability`; 148 Python tests, seven JS regressions and HP ordinary-SSH synthetic browser acceptance at 1440px/390px passed on 2026-11-12; review pending / 已实现，148 项 Python、七组 JS 回归及 HP 普通 SSH 双宽度合成样本浏览器验收通过，待评审；[details](step-8-03-1-network-readability.md) | Existing v3 archive/read-only route |
-| 8.03.2 | Compact Network device cards, online uptime and independent status/uptime/Heartbeat ordering | Implemented on `feature/step-8-03-2-network-device-cards`; 77 Network assertions and 1440px/768px/390px synthetic browser checks passed; review pending / 已实现，77 项 Network 断言及三种宽度合成浏览器验收通过，待评审；[details](step-8-03-2-network-device-cards.md) | Deployed 8.03.1 baseline `2d65388`; existing dashboard API |
-| 8.03.3 | Seven network ranges and per-chart weighted statistics with temporary preview and pinned targets | Implemented on `feature/step-8-03-3-network-range-stats`; 150 Python tests, seven JS regressions and 1440px/390px synthetic Chromium acceptance passed; review pending, not deployed / 已实现，150 项 Python、七组 JS 回归及双宽度合成浏览器验收通过，待评审、未部署；[details](step-8-03-3-network-range-stats.md) | Deployed 8.03.2 baseline `046be3f`; existing read-only network API/archive |
+| 8.02 | API-only network minute archive, durable daily totals and outage/recovery events | [PR #25](https://github.com/hhb-coding/homelab-portal/pull/25) merged. **HP deployed and accepted 2026-11-11 / 已部署并验收**. v3, backup/restore, six-role sync and first timer run verified. [Archive contract](step-8-02-network-archive.md) | Explicit v3 migration; existing 7.04 HDD/timer |
+| 8.03 | Archive-backed latency/loss charts including both public targets and persisted events | [PR #26](https://github.com/hhb-coding/homelab-portal/pull/26) merged. Included in the accepted HP snapshot / 已合并，纳入 HP 已验收版本 | Step 8.02 v3 network archive |
+| 8.03.1 | Full-row private/public RTT, fixed role identity and inspectable loss records | [PR #27](https://github.com/hhb-coding/homelab-portal/pull/27) merged. **HP deployed and accepted 2026-11-12 / 已部署并验收**. [Validation](step-8-03-1-network-readability.md) | Existing v3 archive/read-only route |
+| 8.03.2 | Compact Network device cards, online uptime and independent status/uptime/Heartbeat ordering | [PR #28](https://github.com/hhb-coding/homelab-portal/pull/28) merged. **HP deployed and accepted 2026-11-12 / 已部署并验收**. [Validation](step-8-03-2-network-device-cards.md) | Deployed 8.03.1 baseline `2d65388`; existing dashboard API |
+| 8.03.3 | Seven network ranges and per-chart weighted statistics with temporary preview and pinned targets | [PR #29](https://github.com/hhb-coding/homelab-portal/pull/29) merged. **HP deployed and accepted 2026-11-12 / 已部署并验收**. [Validation](step-8-03-3-network-range-stats.md) | Deployed 8.03.2 baseline `046be3f`; existing read-only network API/archive |
+| 8.03 follow-up / 扩展 | Endpoint B TP-Link discovery, local mapping and archive sync / 查找、映射与归档同步 | [PR #30](https://github.com/hhb-coding/homelab-portal/pull/30) merged. **HP live acceptance passed with PR #31 on 2026-11-13 / 随 PR #31 部署并通过实机验收**. [Workflow](network-endpoint-b-discovery.md) | Existing HP ICMP probe in Beszel |
+| 8.03 follow-up / 扩展 | Network quality 3 / 1 / 2 layout and deployment acceptance fixes / 卡片布局与验收修复 | [PR #31](https://github.com/hhb-coding/homelab-portal/pull/31) merged. **HP deployed and accepted 2026-11-13 / 已部署并验收**. [Acceptance](network-quality-layout-acceptance.md#hp-production-acceptance) | PR #30 and the existing archive timer |
 | 9.x | Service Monitoring: Portal, Beszel, qBittorrent, Samba, VM/Docker status | Proposed / 待开发 | Service API/status checks |
 | 10.x | General Event/Alert: device, IP, CPU/RAM/temp, service alerts, later notifications | Proposed / 待开发 | Historical/network/service data |
 | 11.x | Automation/DevOps: Ansible, client rollout, config/systemd and CI | Proposed / 待开发 | Stable deployment design |
@@ -84,18 +98,14 @@ Historical snapshot (2026-10-13): PR #7, #8 and #9 were merged while this ROADMA
 
 ## 5. Other planned streams / 其他规划
 
-- **8.x Network Monitoring:** gateway/ISP/Internet/DNS reachability, periodic Ping, jitter/loss/latency, ZeroTier status, outage/recovery history and multi-target diagnosis. The existing Network tab is only an address/status summary, not an active scanner.
+- **8.x network follow-ups / 网络后续规划** — DNS resolution probes, dedicated
+  ZeroTier path probes, jitter statistics and more detailed multi-target
+  diagnostics, including X230 dual-path comparison. / DNS 解析探测、ZeroTier
+  路径探测、抖动统计及更细的多目标诊断（含 X230 双路径对照）。
 - **9.x Services:** Beszel, Portal, Samba, qBittorrent availability, download/upload/DHT indicators and later VM/Docker/SMART checks. DHT=0 alone must not trigger an unconditional restart.
 - **10.x Alerts:** IP/device changes, sustained CPU/RAM/temperature events and service down/recovery; start with persistent events and UI, evaluate email later as separate scope.
 - **11.x Automation:** Ansible-driven Heartbeat/agent/service/config deployment and GitHub Actions validation.
 - **12.x Release/Portfolio:** screenshots, bilingual README, architecture/API/security/compatibility docs, repeatable installation and release readiness.
-
-### Endpoint B HTTP discovery / 终端 B 发现扩展
-
-Approved in the current development request: private-scope TL-WDR5620 HTTP discovery,
-manual Beszel update, pinned local mapping and shared archive-backed card/curve.
-Implemented on `feat/network-endpoint-b-discovery`, PR review pending, not deployed.
-See [behavior and validation](network-endpoint-b-discovery.md). / 本轮需求已实现，待 PR 评审，未部署。
 
 ## 6. Coordination rule / 跨 Project 同步
 

@@ -1,6 +1,8 @@
 # Network quality layout and PR30 acceptance repair
 
-Based on merged PR30 (`b1de1f5`). Production remains at `1087536` plus its preserved local changes and v3 compatibility collector. No production deployment is claimed by this PR.
+[PR #31](https://github.com/hhb-coding/homelab-portal/pull/31) follows PR #30
+(`b1de1f5`). During development and preflight, HP used the rollback baseline
+`1087536` with local patches and the v3 compatibility collector.
 
 Desktop uses three cards (LAN gateway, Upstream gateway, Endpoint A), a full-width Endpoint B with metrics left and all discovery controls right, then two equal Public cards. At 600px and below all six cards stack in that order. Existing CPU patches, network archive, private mappings and rollback artifacts are retained.
 
@@ -35,6 +37,22 @@ Rollback verification independently failed at `int('3d 11h 13min 53.422345s')`: 
 ![Desktop 1440px](screenshots/network-quality-layout/desktop.png)
 
 ![Mobile 390px](screenshots/network-quality-layout/mobile.png)
+
+## HP production acceptance
+
+On 2026-11-13 at 10:20 EST (America/Toronto), the operator's live acceptance
+completed on HP at merge commit `44e4bfcb51064a39018937f9948af57ab232e6a7`,
+with local patches applied. The production browser found one TL-WDR5620,
+matched it to the enabled HP ICMP probe in Beszel, and saved the Endpoint B
+mapping. The scheduled archive run wrote a new post-save sample. The card,
+curve and statistics showed data for the same target. Live Chromium at 1440px
+and 390px, CPU history before and after deployment, existing archive records,
+timer checks and Web health all passed.
+
+2026-11-13 蒙特利尔时间 10:20，HP 完成 PR #31 合并提交的实机验收，并保留本机补丁。
+生产页面找到唯一的 TL-WDR5620，匹配 Beszel 已启用的 HP ICMP 探测并保存映射。
+既有定时任务写入保存后的新样本，卡片、曲线和统计均对应同一目标。1440px 与 390px
+浏览器、部署前后的 CPU 历史、旧归档、定时任务及 Web 健康均通过检查。
 
 ## Deployment package
 

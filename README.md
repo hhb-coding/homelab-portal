@@ -1,9 +1,14 @@
 # HomeLab Portal
 
-**Current main / 已验收生产快照（2026-11-05）：** Step 7.07.1 at commit
-`5808ffadeee4f34c8e0092ca5768b8037e8617e3` was merged and operator-reported
-deployed to HP, with Device/History visual acceptance. This is an as-of record,
-not a live service-health guarantee or GitHub Release. See [ROADMAP](docs/ROADMAP.md).
+**HP production snapshot / HP 生产验收快照（2026-11-13）.** The operator deployed
+[PR #31](https://github.com/hhb-coding/homelab-portal/pull/31) at
+`44e4bfcb51064a39018937f9948af57ab232e6a7` with local patches. Live desktop and
+mobile checks passed for TP-Link discovery, Endpoint B mapping, fresh network
+samples, CPU history and Web health.
+
+HP 已部署该提交并保留本机补丁。TP-Link 发现、Endpoint B 映射、新网络样本、CPU 历史
+及 Web 健康均通过实机验收。详见 [验收记录](docs/network-quality-layout-acceptance.md#hp-production-acceptance)
+和 [路线图](docs/ROADMAP.md)。
 
 Step 7.03 provides isolated one-minute CPU frequency clients, a bounded authenticated
 inbox and explicit v2 archive migration. **HP and X230 are deployed and producing
@@ -330,21 +335,14 @@ user-confirmed Lite result described above.
 
 ## Network tab
 
-Endpoint B optionally supports **查找 TP-Link** using server-configured parallel HTTP
-discovery for TL-WDR5620. A unique IP is preselected; save waits for its HP ICMP probe
-in Beszel, then normal archive ingestion updates the card and curve together.
-See [private setup, states and synthetic previews](docs/network-endpoint-b-discovery.md).
-Endpoint B 可选私有配置 HTTP 查找 TP-Link；唯一发现后等待 Beszel 对应 HP ICMP，再保存本地映射，
-首个归档样本同步显示卡片和曲线，旧归档保留。代码待评审，未部署。
-
 Full's **Network** tab hides Device Details and shows device totals,
 online/offline/unknown counts, LAN/ZeroTier address-reporting counts, and
 per-device registered addresses and last Heartbeat. Missing LAN addresses and
 optional missing ZeroTier addresses have explanatory placeholders.
 
-This is a **summary of device-reported network information**, not a network
-scanner, ping sweep, link map or automatic topology discovery. A recorded
-address does not establish reachability. No extra network service or API is used.
+The device summary shows reported addresses and Heartbeats. The
+[Network quality panel](#step-803--network-quality--网络质量) shows reachability
+from the archived results of configured Beszel probes.
 Compact device cards match summary-card widths: three per desktop row (five
 devices form 3+2), two at 900px and below, and one at 600px and below. Long names
 and addresses wrap. Online cards also show current boot uptime. Only the Network
@@ -510,10 +508,16 @@ test counts are historical, not the installation guide for current main.
 
 ## Roadmap
 
-For current, cross-Project work-package planning see [the unified ROADMAP](docs/ROADMAP.md). Steps 7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality (with Dell frequency pending). Step 7.05 Security Events is an approved **unimplemented** plan. [Step 8.02](docs/step-8-02-network-archive.md) was deployed to HP on 2026-11-11: v3 migration, isolated online-backup restore, six-role first sync and the existing timer were verified. Step 8.03 adds the read-only network quality dashboard; local browser review is still pending until this branch is merged/deployed. Internal Steps are separate from GitHub Releases.
+See [the unified roadmap](docs/ROADMAP.md) for cross-project planning. Steps
+7.01–7.04 and 7.06–7.07.1 have operator-confirmed HP production functionality
+(with Dell frequency pending). Step 7.05 Security Events is approved for future
+development. HP deployed and verified the [Step 8.02 v3 archive](docs/step-8-02-network-archive.md)
+on 2026-11-11. The Step 8.03 dashboard and Endpoint B extensions are included in
+the [2026-11-13 production acceptance](docs/network-quality-layout-acceptance.md#hp-production-acceptance).
+Step numbers track development milestones. GitHub Releases track published versions.
 
 Not implemented: strict Heartbeat payload validation, Portal user authentication,
-network reachability checks, topology discovery, IP-event browsing UI, a device
+general-purpose topology discovery, IP-event browsing UI, a device
 management editor and a hardened public deployment guide. These are possible
 future directions, not commitments for v0.2.0. Complete latest-UI hardware
 acceptance, long-duration refresh testing and broader Android/browser,
@@ -645,8 +649,8 @@ ES5/XHR 与不使用 CSS Grid、CSS 变量的响应式 CSS 面向旧设备。
 ### Network Tab / 网络信息页面
 
 显示设备总数、在线/离线/未知数量、LAN/ZeroTier 上报数量、登记地址和最后心跳，
-隐藏 Device Details。仅汇总客户端上报的信息，**不是网络扫描器或自动拓扑发现**，
-不进行 Ping、不推断连接关系。登记地址不代表可达性，不新增后台服务或 API。
+隐藏 Device Details。设备摘要显示上报地址和心跳，[网络质量区](#step-803--network-quality--网络质量)
+使用已配置的 Beszel 探测归档显示可达性。
 紧凑设备卡与摘要卡同宽：桌面每行三张，五台为 3+2；900px 及以下每行两张，600px 及以下
 每行一张，长名称和地址换行。在线卡另显示本次开机时长。仅排序 Network 列表副本：在线按
 开机时长降序（缺值在在线组末尾），随后为未知状态（原顺序），最后是离线按心跳降序
@@ -728,7 +732,7 @@ HTTP 不加密信息，调试必须关闭；Flask 内置服务器不是公网部
 
 ### 后续规划
 
-严格的心跳数据校验、Portal 用户认证、连通性检测、拓扑发现、IP 事件浏览界面、
+严格的心跳数据校验、Portal 用户认证、通用拓扑发现、IP 事件浏览界面、
 设备管理编辑和加固部署指南均未实现，只是潜在方向，不是 v0.2.0 承诺。
 最新 UI 的完整真机验收、长时间刷新、更多 Android/旧浏览器及 Beszel/依赖版本验证仍需继续。
 
@@ -775,9 +779,28 @@ Local 自定义时间在请求时转换 UTC。默认 API 三条序列；`extende
 
 ### Step 8.03 — Network quality / 网络质量
 
-The Network panel reads `GET /api/history/v3/network?range=1h|3h|6h|10h|24h|7d|30d` from the v3 HDD archive. Set `NETWORK_HISTORY_ROLES_FILE` in the Portal's private environment to the same protected role file used by the archive service. The endpoint requires no Beszel credentials, applies the existing HDD UUID guard, opens SQLite read-only, and caps minute, daily, and incident rows. Hour views use UTC minutes; week/month views use UTC daily summaries weighted by probe counts. Gaps remain absent, and RTT is null when a bucket has no successful probes. The bilingual panel shows six role cards, selectable RTT and loss plots on a shared time axis, granularity, and target/public-connectivity incidents. No live browser acceptance or deployment is implied by merge status.
+Desktop network quality cards use a **3 / 1 / 2** layout. The LAN gateway,
+upstream gateway and Endpoint A share the first row. Endpoint B spans the second
+row with metrics on the left and discovery controls on the right. The two
+public targets share the third row. At 600px and below, cards stack in that order.
 
-网络标签页从 v3 HDD 归档读取 `GET /api/history/v3/network?range=1h|3h|6h|10h|24h|7d|30d`。Portal 私有环境中的 `NETWORK_HISTORY_ROLES_FILE` 应指向归档服务使用的同一受保护角色文件。接口使用现有 HDD UUID 校验及 SQLite 只读连接，限制分钟、日汇总和事件行数；1/3/6/10/24 小时读取 UTC 分钟，7/30 天按探测次数加权汇总 UTC 日数据。缺测不补点，全丢包时 RTT 为空。双语面板包含六个角色卡片、可选目标的 RTT/丢包共用时间轴图、数据粒度及目标/疑似公网故障事件。代码合并不代表浏览器验收或生产部署完成。
+With a private scan range configured, Endpoint B can find the TL-WDR5620
+management page. Update the HP ICMP probe in Beszel if the address has changed.
+Once Portal finds the matching enabled probe, save the mapping. The next
+archived sample updates the card and curve together. See
+[setup and workflow](docs/network-endpoint-b-discovery.md) and
+[HP acceptance](docs/network-quality-layout-acceptance.md#hp-production-acceptance).
+
+桌面卡片按 **3 / 1 / 2** 排列。首行是 LAN 网关、上游网关、Endpoint A。第二行
+Endpoint B 独占一行，指标居左，发现与映射控件居右。两个公网目标共用第三行。
+600px 及以下按相同顺序堆叠。配置私有扫描范围后，可查找 TL-WDR5620。地址有变时，
+先在 Beszel 更新 HP ICMP 探测。Portal 匹配到已启用的探测后即可保存映射，归档写入
+新样本后，卡片和曲线同步更新。
+详见 [配置与操作流程](docs/network-endpoint-b-discovery.md)。
+
+The Network panel reads `GET /api/history/v3/network?range=1h|3h|6h|10h|24h|7d|30d` from the v3 HDD archive. Set `NETWORK_HISTORY_ROLES_FILE` in the Portal's private environment to the same protected role file used by the archive service. The endpoint requires no Beszel credentials, applies the existing HDD UUID guard, opens SQLite read-only, and caps minute, daily, and incident rows. Hour views use UTC minutes; week/month views use UTC daily summaries weighted by probe counts. Gaps remain absent, and RTT is null when a bucket has no successful probes. The bilingual panel shows six role cards, selectable RTT and loss plots on a shared time axis, granularity, and target/public-connectivity incidents.
+
+网络标签页从 v3 HDD 归档读取 `GET /api/history/v3/network?range=1h|3h|6h|10h|24h|7d|30d`。Portal 私有环境中的 `NETWORK_HISTORY_ROLES_FILE` 应指向归档服务使用的同一受保护角色文件。接口使用现有 HDD UUID 校验及 SQLite 只读连接，限制分钟、日汇总和事件行数；1/3/6/10/24 小时读取 UTC 分钟，7/30 天按探测次数加权汇总 UTC 日数据。缺测不补点，全丢包时 RTT 为空。双语面板包含六个角色卡片、可选目标的 RTT/丢包共用时间轴图、数据粒度及目标/疑似公网故障事件。
 
 Step 8.03.1 separates private RTT, public RTT and loss into three full-width rows with aligned time axes. Cards show the latest archived minute independently of the selected range, plus range peak loss (explicitly daily-summary peaks for 7d/30d). Role colors/dashes/symbols remain stable after filtering; nonzero loss points and selectable records expose local time, target IP and exact failed/total probe counts. See [implementation and validation](docs/step-8-03-1-network-readability.md); 1440px/390px synthetic browser acceptance passed through ordinary SSH on HP on 2026-11-12.
 

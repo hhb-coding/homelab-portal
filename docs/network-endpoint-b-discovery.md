@@ -1,12 +1,13 @@
 # Endpoint B: find TP-Link / 查找 TP-Link
 
-Implementation on `feat/network-endpoint-b-discovery`, based on `1087536` (PR #29).
-PR review only; **not deployed**. Production services, timers, private files and
-databases were not changed. The original hp-linux finder was inspected; development
-verification uses synthetic HTTP results and temporary SQLite, not a new live LAN scan.
+[PR #30](https://github.com/hhb-coding/homelab-portal/pull/30) merged as
+`b1de1f5`. HP passed live discovery, mapping and new-sample acceptance on
+2026-11-13 with the [PR #31 deployment](network-quality-layout-acceptance.md#hp-production-acceptance).
+The validation section below records the original synthetic HTTP and temporary
+SQLite tests.
 
-基于 PR #29 的独立开发分支，供 PR 评审，**未部署**。本轮只核对 hp-linux 已实测脚本，
-测试使用合成 HTTP 结果、临时配置与临时 SQLite；未重新扫描真实内网，未改生产配置、库或服务。
+PR #30 已合并为 `b1de1f5`，并随 PR #31 于 2026-11-13 在 HP 完成实机验收，
+覆盖查找、保存映射及新样本显示。下文保留原合成 HTTP 与临时 SQLite 测试记录。
 
 ## Behavior / 使用流程
 
