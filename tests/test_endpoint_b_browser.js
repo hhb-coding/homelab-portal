@@ -10,7 +10,7 @@ const responses=JSON.parse(fs.readFileSync(path.join(output,'responses.json'),'u
 const base=JSON.parse(responses['/api/history/v3/network?range=1h'].body);
 const executable=process.env.CHROMIUM_BINARY||path.join(os.homedir(),'.cache/ms-playwright/chromium-1187/chrome-linux/chrome');
 const browser=spawn(executable,['--headless','--no-sandbox','--no-first-run','--no-default-browser-check',
-  '--disable-background-networking','--disable-crashpad-for-testing','--disable-gpu','--disable-dev-shm-usage','--remote-debugging-pipe',
+  '--disable-background-networking','--disable-gpu','--disable-dev-shm-usage','--remote-debugging-pipe',
   '--user-data-dir='+path.join(output,'profile')],{stdio:['ignore','ignore','pipe','pipe','pipe']});
 let sequence=0,buffer='',session,stderr='',exited=false,mode='unique',ready=false,saved=false,active=false,scans=0,saveCalls=0;
 const pending=new Map(),errors=[],report=[],ip='192.0.2.99';
