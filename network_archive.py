@@ -114,6 +114,32 @@ def _insert(conn, row, run_ms):
     return True
 
 
+def archive_binding(conn, monitor, raw, run_ms):
+    """Version a reused upstream ID without moving old samples / 同 ID 改址保留旧归档。"""
+    previous = conn.execute("""SELECT monitor_id,system_id,target,protocol,config_json FROM network_monitors
+        WHERE monitor_id=? OR json_extract(config_json,'$.id')=?""", (monitor[0], monitor[0])).fetchall()
+    # Persist the active version, including when upstream disables a probe.
+    # 即使上游停用探测，也按最后确认的版本匹配。
+    current = max(previous, key=lambda r: json.loads(r[4]).get("_portal_binding_generation", 0)) if previous else None
+    if current and current[1:4] == monitor[1:4]:
+        metadata = json.loads(current[4])
+        since = metadata.get("_portal_binding_since_ms", 0)
+        if since:
+            raw = compact({**json.loads(raw), "_portal_binding_since_ms": since,
+                           "_portal_binding_generation": metadata["_portal_binding_generation"]})
+        return (current[0], *monitor[1:]), raw, since
+    if not current:
+        return monitor, raw, 0
+    # Skip all older/straddling minute aggregates after observing a rebind.
+    # 确认改址后，仅接收下一完整分钟起的数据，避免重放旧地址样本。
+    since = (run_ms//MINUTE+1)*MINUTE
+    generation = json.loads(current[4]).get("_portal_binding_generation", 0)+1
+    identity = "binding_" + hashlib.sha256(compact([monitor[:4], run_ms, generation]).encode()).hexdigest()
+    conn.executemany("UPDATE network_monitors SET enabled=0 WHERE monitor_id=?", [(r[0],) for r in previous])
+    return (identity, *monitor[1:]), compact({**json.loads(raw), "_portal_binding_since_ms": since,
+                                           "_portal_binding_generation": generation}), since
+
+
 def collect(conn, client, now=None, page_size=200, check_mount=lambda: None, roles=None):
     """Reuse the 7.04 writer lock/guard; never migrate automatically / 不自动迁移。"""
     if conn.execute("PRAGMA user_version").fetchone()[0] != 3:
@@ -149,23 +175,23 @@ def collect(conn, client, now=None, page_size=200, check_mount=lambda: None, rol
         for monitor, raw in prepared:
             report["network_monitors"] += 1
             try:
-                binding = conn.execute("SELECT system_id,target,protocol FROM network_monitors WHERE monitor_id=?",
-                                       (monitor[0],)).fetchone()
-                if binding is not None and binding != monitor[1:4]:
-                    raise ArchiveError("Monitor identity rebound; a new monitor ID is required")
                 check_mount()
                 with conn:
+                    archived, binding_raw, since = archive_binding(conn, monitor, raw, run_ms)
                     conn.execute("""INSERT INTO network_monitors VALUES (?,?,?,?,?,?,?,?)
                         ON CONFLICT(monitor_id) DO UPDATE SET system_id=excluded.system_id,
                         target=excluded.target,protocol=excluded.protocol,interval=excluded.interval,
                         enabled=excluded.enabled,config_json=excluded.config_json,archived_ms=excluded.archived_ms""",
-                        (*monitor, raw, run_ms))
+                        (*archived, binding_raw, run_ms))
                     check_mount()
                 checkpoint = conn.execute("""SELECT created_ms,record_id FROM network_checkpoints
-                    WHERE monitor_id=? AND type='1m'""", (monitor[0],)).fetchone()
+                    WHERE monitor_id=? AND type='1m'""", (archived[0],)).fetchone()
                 if checkpoint and checkpoint[0] > run_ms:
                     raise ArchiveError("Network checkpoint is ahead of run time")
                 start = max(cutoff, checkpoint[0]-OVERLAP) if checkpoint else cutoff
+                start = max(start, since)
+                if start > run_ms:
+                    continue
                 after = None
                 while True:
                     records = client.get_network_archive_page(monitor[0], start, run_ms, after, page_size)
@@ -176,7 +202,7 @@ def collect(conn, client, now=None, page_size=200, check_mount=lambda: None, rol
                     rows, previous = [], after
                     for record in records:
                         previous, row = _sample(record, monitor, start, run_ms, previous)
-                        rows.append(row)
+                        rows.append((archived[0], *row[1:]))
                     check_mount()
                     inserted = 0
                     with conn:
@@ -187,7 +213,7 @@ def collect(conn, client, now=None, page_size=200, check_mount=lambda: None, rol
                             created_ms=excluded.created_ms,record_id=excluded.record_id
                             WHERE excluded.created_ms>network_checkpoints.created_ms OR
                             (excluded.created_ms=network_checkpoints.created_ms AND excluded.record_id>network_checkpoints.record_id)""",
-                            (monitor[0], previous[0], previous[1]))
+                            (archived[0], previous[0], previous[1]))
                         check_mount()
                     report["network_inserted"] += inserted
                     report["network_duplicates"] += len(rows)-inserted

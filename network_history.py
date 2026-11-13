@@ -17,7 +17,7 @@ def sample(time, res_sum, total, success):
                 count=total, success_count=success, failed_count=total-success)
 
 
-def query(conn, roles_path, range_key, now=None):
+def query(conn, roles_path, range_key, now=None, endpoint_b_mapping=None):
     if range_key not in RANGES:
         raise ValueError("invalid_range")
     span, grain = RANGES[range_key]
@@ -36,6 +36,11 @@ def query(conn, roles_path, range_key, now=None):
     if config:
         for role in ROLES:
             target = config["targets"].get(role)
+            binding = endpoint_b_mapping if role == "endpoint_b" else None
+            if binding:
+                if binding["system_id"] != config["system_id"]:
+                    raise ValueError("mapping_system_changed")
+                target = binding["target"]
             if not isinstance(target, str) or not target:
                 raise ValueError("invalid_roles")
             if version != 3:
@@ -43,6 +48,11 @@ def query(conn, roles_path, range_key, now=None):
                 continue
             monitor = conn.execute("""SELECT monitor_id,protocol,interval FROM network_monitors
                 WHERE system_id=? AND target=? AND enabled=1""", (config["system_id"], target)).fetchall()
+            if binding:
+                monitor = conn.execute("""SELECT monitor_id,protocol,interval FROM network_monitors
+                    WHERE system_id=? AND target=? AND enabled=1 AND protocol='icmp'
+                    AND (monitor_id=? OR json_extract(config_json,'$.id')=?)""",
+                    (config["system_id"], target, binding["monitor_id"], binding["monitor_id"])).fetchall()
             if len(monitor) != 1:
                 targets.append(dict(role=role,target=target,monitor_id=None,protocol=None,interval=None,latest=None,latest_sample=None,peak_loss_pct=None,rows=[]))
                 continue
@@ -75,5 +85,9 @@ def query(conn, roles_path, range_key, now=None):
                     FROM network_events WHERE (monitor_id IN ("""+placeholders+""" ) OR kind='suspected_public_connectivity')
                     AND started_ms>=? AND started_ms<? ORDER BY started_ms DESC,event_id LIMIT 200""",
                     (*monitor_ids,int((now-span).timestamp()*1000),int(now.timestamp()*1000)))]
+    if endpoint_b_mapping:
+        for target in targets:
+            if target['role'] == 'endpoint_b':
+                target['mapping_status'] = 'active' if target['latest_sample'] else 'waiting_archive'
     return dict(status="ok",schema_version=version,range=range_key,granularity=grain,
                 start=int((now-span).timestamp()*1000),end=int(now.timestamp()*1000),targets=targets,events=events)

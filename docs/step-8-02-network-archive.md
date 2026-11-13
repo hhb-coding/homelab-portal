@@ -82,13 +82,15 @@ and existing history readers working. Older binaries cannot open v3: compatibili
 rollback means disabling network collection with v3-capable code; full old-binary
 rollback needs the backup and loses subsequent writes.
 
-An existing monitor ID cannot change system/target/protocol: that monitor fails
-closed to preserve historical identity; use a new upstream ID for a new binding.
+The original 8.02 implementation rejected changes to system/target/protocol under
+the same upstream monitor ID. The [Endpoint B extension](network-endpoint-b-discovery.md)
+versions these bindings locally while retaining the original archive identity and data.
 
 每页样本、日汇总和断点原子提交，重跑去重、空页不推进、单目标失败隔离；内容冲突
 拒绝当前页。新代码兼容旧库，v3 保留频率采集和历史查询。回滚应关闭网络功能并保留
 支持 v3 的代码；回退旧二进制需恢复备份，会丢失备份后写入。
-同一 ID 更换系统、目标或协议时拒绝归档；新绑定应使用新监控 ID，避免混合历史。
+原 8.02 对同 ID 更换系统、目标或协议拒绝归档；Endpoint B 扩展改为独立本地版本身份，
+保留旧数据并隔离新地址样本，具体边界见扩展文档。
 
 Raw network samples retain 90 days. Daily totals, metadata, checkpoints and
 incident/state tables have no TTL. Increment daily totals **only on first insert**;

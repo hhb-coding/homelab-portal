@@ -79,7 +79,7 @@ def export(directory):
         responses['/'] = dict(type='text/html',body=response.get_data(as_text=True))
         responses['/api/dashboard'] = dict(type='application/json',body=json.dumps(dict(status='ok',devices=[],sources={})))
         responses['/api/history'] = dict(type='application/json',body=json.dumps(dict(status='ok',devices=[])))
-        for filename in ('style.css','dashboard.js','offline-seen.js','performance-history.js'):
+        for filename in ('style.css','dashboard.js','offline-seen.js','performance-history.js','endpoint-b.js'):
             response = client.get('/static/'+filename)
             responses['/static/'+filename] = dict(type=response.content_type,body=response.get_data(as_text=True))
             response.close()

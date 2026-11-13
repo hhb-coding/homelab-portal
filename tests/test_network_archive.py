@@ -81,6 +81,47 @@ class ArchiveFixture(unittest.TestCase):
 
 
 class NetworkArchiveTests(ArchiveFixture):
+    def test_endpoint_b_same_id_rebind_waits_then_first_sample_activates_shared_history(self):
+        from network_history import query
+        api = API([sample(1)], [monitor(target=ROLE_TARGETS['endpoint_b'])])
+        collect(self.db, api, NOW)
+        old_samples = self.db.execute('SELECT * FROM network_samples').fetchall()
+        old_daily = self.db.execute('SELECT * FROM network_daily').fetchall()
+        roles_path = self.path.parent/'roles.json'
+        roles_path.write_text(json.dumps(ROLES))
+        target = '10.254.253.9'  # synthetic LAN, no real address / 合成地址
+        mapping = dict(system_id=SYSTEM, target=target, monitor_id='abc1234')
+        def endpoint(now):
+            return next(t for t in query(self.db,str(roles_path),'1h',now,endpoint_b_mapping=mapping)['targets'] if t['role']=='endpoint_b')
+        self.assertEqual(endpoint(NOW)['mapping_status'],'waiting_archive')
+        api.monitors[0]['target'] = target
+        self.assertEqual(collect(self.db,api,NOW)['network_failed'],0)
+        self.assertEqual(endpoint(NOW)['mapping_status'],'waiting_archive')
+        self.assertEqual(endpoint(NOW)['rows'],[])
+        api.records.append(sample(2,RUN+MINUTE,response=3500))
+        self.assertEqual(collect(self.db,api,NOW+timedelta(minutes=2))['network_inserted'],1)
+        active = endpoint(NOW+timedelta(minutes=2))
+        self.assertEqual(active['mapping_status'],'active')
+        self.assertEqual(active['target'],target)
+        self.assertEqual(active['latest_sample'],active['rows'][0])
+        self.assertEqual(active['latest_sample']['rtt_ms'],3.5)
+        self.assertNotEqual(active['monitor_id'],'abc1234')
+        self.assertEqual(self.db.execute("SELECT * FROM network_samples WHERE monitor_id='abc1234'").fetchall(),old_samples)
+        self.assertEqual(self.db.execute("SELECT * FROM network_daily WHERE monitor_id='abc1234'").fetchall(),old_daily)
+        self.assertEqual(collect(self.db,api,NOW+timedelta(minutes=2))['network_inserted'],0)
+        self.assertEqual(endpoint(NOW+timedelta(minutes=2)),active)
+
+    def test_multiple_rebindings_in_same_minute_keep_distinct_archive_versions(self):
+        api = API([sample(1)])
+        collect(self.db,api,NOW)
+        for target in ['192.0.2.2','192.0.2.1','192.0.2.2']:
+            api.monitors[0]['target'] = target
+            self.assertEqual(collect(self.db,api,NOW)['network_failed'],0)
+        rows = self.db.execute('SELECT monitor_id,enabled FROM network_monitors').fetchall()
+        self.assertEqual(len(rows),4)
+        self.assertEqual(sum(r[1] for r in rows),1)
+        self.assertEqual(self.count(),1)
+
     def test_short_pages_tied_ms_short_ids_fixed_upper_and_overlap(self):
         api = API([sample(i) for i in range(1, 8)], cap=1)
         report = collect(self.db, api, NOW, page_size=5)
@@ -383,7 +424,7 @@ class EventTests(ArchiveFixture):
         self.run_archive()
         self.assertEqual(len(self.events("suspected_public_connectivity")), 1)
 
-    def test_reused_monitor_id_rejects_rebinding_without_false_recovery(self):
+    def test_reused_monitor_id_versions_binding_without_false_recovery(self):
         for slot in range(3):
             self.observations(slot, ["public_primary"])
         self.run_archive()
@@ -394,11 +435,16 @@ class EventTests(ArchiveFixture):
         self.rows = []
         self.observations(3); self.observations(4)
         report = self.run_archive()
-        self.assertEqual(report["network_failed"], 1)
+        self.assertEqual(report["network_failed"], 0)
         self.assertIn(original, self.events())
         self.assertIsNone(self.events()[0][3])
         stored = self.db.execute("SELECT target FROM network_monitors WHERE monitor_id=?", (self.ids["public_primary"],)).fetchone()[0]
         self.assertEqual(stored, ROLE_TARGETS["public_primary"])
+        old = self.db.execute("SELECT enabled FROM network_monitors WHERE monitor_id=?", (target["id"],)).fetchone()[0]
+        self.assertEqual(old, 0)
+        new = self.db.execute("SELECT monitor_id FROM network_monitors WHERE target=?", (target["target"],)).fetchone()[0]
+        self.assertNotEqual(new, target["id"])
+        self.assertEqual(self.db.execute("SELECT count(*) FROM network_samples WHERE monitor_id=?", (new,)).fetchone()[0], 0)
 
 
 class MigrationTests(unittest.TestCase):

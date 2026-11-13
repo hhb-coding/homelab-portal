@@ -3,6 +3,30 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  endpoint-b-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 -m pip install -r requirements.txt
+      - name: Desktop and mobile Endpoint B acceptance / 桌面手机交互验收
+        run: CHROMIUM_BINARY="$(command -v google-chrome)" node tests/test_endpoint_b_browser.js
+        env:
+          ENDPOINT_B_ARTIFACTS_DIR: /tmp/endpoint-b-browser-artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: endpoint-b-desktop-mobile
+          path: |
+            /tmp/endpoint-b-browser-artifacts/*.png
+            /tmp/endpoint-b-browser-artifacts/acceptance.json
+            /tmp/endpoint-b-browser-artifacts/failure.json
+          if-no-files-found: warn
   windows-frequency:
     runs-on: windows-latest
     steps:
@@ -38,4 +62,5 @@ jobs:
           node --check static/lite.js
           node --check static/offline-seen.js
           node --check static/performance-history.js
+          node --check static/endpoint-b.js
           node --check tests/test_network.js
