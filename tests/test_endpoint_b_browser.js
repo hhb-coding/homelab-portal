@@ -9,7 +9,8 @@ assert.equal(fixture.status,0,fixture.stdout+fixture.stderr);
 const responses=JSON.parse(fs.readFileSync(path.join(output,'responses.json'),'utf8'));
 const base=JSON.parse(responses['/api/history/v3/network?range=1h'].body);
 const executable=process.env.CHROMIUM_BINARY||path.join(os.homedir(),'.cache/ms-playwright/chromium-1187/chrome-linux/chrome');
-const browser=spawn(executable,['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--remote-debugging-pipe',
+const browser=spawn(executable,['--headless','--no-sandbox','--no-first-run','--no-default-browser-check',
+  '--disable-background-networking','--disable-crashpad-for-testing','--disable-gpu','--disable-dev-shm-usage','--remote-debugging-pipe',
   '--user-data-dir='+path.join(output,'profile')],{stdio:['ignore','ignore','pipe','pipe','pipe']});
 let sequence=0,buffer='',session,stderr='',exited=false,mode='unique',ready=false,saved=false,active=false,scans=0,saveCalls=0;
 const pending=new Map(),errors=[],report=[],ip='192.0.2.99';
@@ -18,7 +19,7 @@ function state(){return {status:'ok',discovery:{id:'synthetic-discovery',status:
   can_save:ready&&mode==='unique',probe_status:ready?'ready':'waiting_beszel',mapping:saved?{monitor_id:'new-hp-icmp',target:ip}:null};}
 function cdp(method,params={},sessionId=session){return new Promise((resolve,reject)=>{
   if(exited)return reject(Error('Chromium exited: '+stderr));
-  const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method));},15000);
+  const id=++sequence,timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout: '+method+': '+stderr));},30000);
   pending.set(id,{resolve,reject,timer});browser.stdio[3].write(JSON.stringify({id,method,params,sessionId})+'\0');
 });}
 function rejectAll(error){for(const p of pending.values()){clearTimeout(p.timer);p.reject(error);}pending.clear();}
@@ -119,7 +120,7 @@ async function run(){
   fs.writeFileSync(path.join(output,'acceptance.json'),JSON.stringify({report,errors},null,2));console.log('Browser artifacts: '+output);
 }
 run().catch(async error=>{
-  console.error(error.stack||error.message);process.exitCode=1;
+  console.error(error.stack||error.message);console.error(stderr);process.exitCode=1;
   if(session&&!exited){try{await screenshot('failure');}catch(e){errors.push(e.message);}}
   fs.writeFileSync(path.join(output,'failure.json'),JSON.stringify({error:error.message,errors},null,2));console.error('Browser artifacts: '+output);
 }).finally(()=>browser.kill());
