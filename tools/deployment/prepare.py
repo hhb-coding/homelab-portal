@@ -48,7 +48,7 @@ with tempfile.TemporaryDirectory() as tmp:
         rollback+=diff(name,git('show',base+':'+name).decode(),original)
         upstream=git('show',target+':'+name).decode()
         if name=='network_archive.py':
-            assert upstream==compat
+            assert upstream.encode()==compat
             continue
         # Both sides retain PR30 behavior; normalize its updated cache key before a three-way merge.
         ancestor=git('show','b1de1f5:'+name).decode().replace('endpoint-b-discovery','network-quality-layout')
