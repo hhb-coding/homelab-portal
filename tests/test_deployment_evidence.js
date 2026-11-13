@@ -1,0 +1,13 @@
+'use strict';
+const assert = require('node:assert/strict');
+const {hasEvidence} = require('../tools/deployment/sample-evidence.cjs');
+const saved = 1794577784240.195;
+const old = {time:1794577775685,count:6,success_count:6};
+const good = {time:1794577835655,count:6,success_count:6};
+const loss = {time:1794578075657,count:6,success_count:0};
+const endpoint = rows => ({target:'192.0.2.71',mapping_status:'active',latest_sample:rows.at(-1),rows});
+assert(!hasEvidence(endpoint([old]),saved,'192.0.2.71'),'An old sample archived after save is insufficient');
+assert(!hasEvidence(endpoint([old,loss]),saved,'192.0.2.71'),'Fresh complete loss does not prove a successful probe');
+assert(hasEvidence(endpoint([old,good,loss]),saved,'192.0.2.71'),'A batch ending in loss retains its earlier new successful probe');
+assert(!hasEvidence(endpoint([good,loss]),saved,'192.0.2.72'),'The discovered address must match');
+console.log('Deployment sample time and batch-loss regressions passed');

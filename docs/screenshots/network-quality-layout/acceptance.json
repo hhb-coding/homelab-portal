@@ -1,0 +1,69 @@
+{
+  "report": [
+    {
+      "width": 1440,
+      "layout": {
+        "overflow": false,
+        "controlOverflow": false,
+        "buttons": true
+      },
+      "states": [
+        "none",
+        "multiple",
+        "waiting_beszel",
+        "ready",
+        "waiting_archive",
+        "active"
+      ]
+    },
+    {
+      "width": 768,
+      "layout": {
+        "overflow": false,
+        "controlOverflow": false,
+        "buttons": true
+      },
+      "states": [
+        "none",
+        "multiple",
+        "waiting_beszel",
+        "ready",
+        "waiting_archive",
+        "active"
+      ]
+    },
+    {
+      "width": 390,
+      "layout": {
+        "overflow": false,
+        "controlOverflow": false,
+        "buttons": true
+      },
+      "states": [
+        "none",
+        "multiple",
+        "waiting_beszel",
+        "ready",
+        "waiting_archive",
+        "active"
+      ]
+    },
+    {
+      "width": 320,
+      "layout": {
+        "overflow": false,
+        "controlOverflow": false,
+        "buttons": true
+      },
+      "states": [
+        "none",
+        "multiple",
+        "waiting_beszel",
+        "ready",
+        "waiting_archive",
+        "active"
+      ]
+    }
+  ],
+  "errors": []
+}

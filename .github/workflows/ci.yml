@@ -53,6 +53,7 @@ jobs:
       - run: node tests/test_lite.js
       - run: node tests/test_network.js
       - run: node tests/test_network_readability.js
+      - run: node tests/test_deployment_evidence.js
       - run: node tests/test_device_v3.js
       - run: node tests/test_freshness.js
       - run: node tests/test_offline_seen.js
