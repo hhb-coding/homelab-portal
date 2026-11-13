@@ -1,5 +1,12 @@
 # Step 8.03.1 — Network readability / 网络可读性
 
+[PR #27](https://github.com/hhb-coding/homelab-portal/pull/27) merged as
+`2d65388`. HP deployed and accepted it on 2026-11-12 with live Chromium checks
+at 1440px and 390px, including a real packet-loss sample.
+
+PR #27 合并提交 `2d65388` 于 2026-11-12 在 HP 部署并验收，覆盖 1440px、
+390px 布局及真实丢包点。
+
 Implemented locally on `feature/step-8-03-1-network-readability`, based on the
 GitHub main merge `24f85a7` (PR #26). GitHub confirmed that main was at that exact
 commit. Direct SSH fetch failed under the execution sandbox's DNS restriction;

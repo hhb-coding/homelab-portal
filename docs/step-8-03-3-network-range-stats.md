@@ -1,11 +1,12 @@
 # Step 8.03.3 — Network ranges and statistics / 网络时段与统计
 
-Branch `feature/step-8-03-3-network-range-stats` starts from the latest fetched
-`origin/main`, `046be3f` (merged PR #28, the operator-confirmed production baseline).
-This step implements, tests and submits the change for review; it is not deployed.
+[PR #29](https://github.com/hhb-coding/homelab-portal/pull/29) merged as
+`1087536`. HP deployed and accepted it on 2026-11-12. Live checks covered all
+seven ranges and the 1440px and 390px views. The operator independently
+recalculated RTT and loss statistics from the archived probes.
 
-指定分支从最新获取的 `origin/main`（`046be3f`，PR #28 合并提交、用户确认的生产基线）
-建立。本步骤实现、验收并提交评审，尚未部署。
+PR #29 合并提交 `1087536` 于 2026-11-12 在 HP 部署并验收。实测覆盖七个时段、
+1440px 和 390px 布局，以及根据归档探测数据独立复算的 RTT 和丢包统计。
 
 ## Behavior / 行为
 

@@ -1,11 +1,11 @@
 # Step 8.03.2 — Network device cards / 网络设备卡
 
-Branch `feature/step-8-03-2-network-device-cards` starts from the latest fetched
-`origin/main`, `2d65388bda9c809cafbf21491057622c66101d2d` (merged PR #27 and the
-already deployed Step 8.03.1 baseline).
+[PR #28](https://github.com/hhb-coding/homelab-portal/pull/28) merged as
+`046be3f`. HP deployed and accepted it on 2026-11-12. Live checks covered
+status and uptime/Heartbeat ordering, the 1440px 3+2 layout and the 390px view.
 
-指定分支从最新获取的 `origin/main`（`2d65388`，PR #27 合并提交，已上线的 8.03.1
-基线）建立。本步骤仅实现、测试与提交评审，不包含生产部署。
+PR #28 合并提交 `046be3f` 于 2026-11-12 在 HP 部署并验收，实测了状态、
+开机时长与心跳排序，以及 1440px 的 3+2 布局和 390px 窄屏布局。
 
 Device cards now use the summary cards' desktop width and compact typography.
 Five cards form **3+2 at 1440px**; at 900px and below they use two columns, and
