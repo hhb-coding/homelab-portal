@@ -70,8 +70,9 @@ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(expression){for(let i=0;i<150;i++){if(await evaluate(expression))return;await delay(50);}throw Error('Condition timed out: '+expression);}
 async function click(id){await evaluate('document.getElementById('+JSON.stringify(id)+').click()');}
 async function screenshot(name){
-  await evaluate('document.querySelector("[data-network-card=endpoint_b]").scrollIntoView()');
-  const r=await cdp('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(output,name+'.png'),Buffer.from(r.data,'base64'));
+  await evaluate('document.getElementById("network-quality").scrollIntoView()');
+  const clip=await evaluate(`(function(){var r=document.getElementById('network-quality-cards').getBoundingClientRect();return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:1};})()`);
+  const r=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip});fs.writeFileSync(path.join(output,name+'.png'),Buffer.from(r.data,'base64'));
 }
 async function run(){
   await cdp('Browser.getVersion',{},undefined);
@@ -113,6 +114,15 @@ async function run(){
       overflow:document.documentElement.scrollWidth>innerWidth,controlOverflow:e.scrollWidth>e.clientWidth+1,
       buttons:Array.from(e.querySelectorAll('button,select')).every(n=>{var b=n.getBoundingClientRect();return b.left>=r.left-1 && b.right<=r.right+1;})};})()`);
     assert(!layout.overflow&&!layout.controlOverflow&&layout.buttons,JSON.stringify({width,layout}));
+    const cards=await evaluate(`Array.from(document.querySelectorAll('[data-network-card]')).map(e=>{var r=e.getBoundingClientRect();return {role:e.dataset.networkCard,x:r.x,y:r.y,width:r.width,right:r.right};})`);
+    assert.deepEqual(cards.map(c=>c.role),['lan_gateway','upstream_gateway','endpoint_a','endpoint_b','public_primary','public_control']);
+    if(width>600){
+      assert.equal(cards[0].y,cards[1].y);assert.equal(cards[1].y,cards[2].y);
+      assert(cards[3].y>cards[2].y);assert(cards[4].y>cards[3].y);assert.equal(cards[4].y,cards[5].y);
+      assert(Math.abs(cards[3].width-(cards[2].right-cards[0].x))<2);
+      const sides=await evaluate(`(function(){var a=document.querySelector('[data-network-card=endpoint_b] .network-quality-metrics').getBoundingClientRect(),b=document.getElementById('endpoint-b-controls').getBoundingClientRect();return b.left>a.right;})()`);
+      assert(sides,'Endpoint B metrics left, controls right');
+    }else{for(let i=1;i<cards.length;i++)assert(cards[i].y>cards[i-1].y);}
     await screenshot(width+'-active');report.push({width,layout,states:['none','multiple','waiting_beszel','ready','waiting_archive','active']});
     console.log(width+'px: discovery states, preselection, save, first sample, shared IP/curve and no overflow passed');
   }
