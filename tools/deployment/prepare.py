@@ -24,7 +24,7 @@ for name, digest in json.loads((old/'checksums.private.json').read_text()).items
 dest.mkdir(mode=0o700)
 for item in old.iterdir():
     if item.is_file() and item.name not in ('deploy.lock',): shutil.copy2(item,dest/item.name)
-for name in ('original','untracked','private-config'):
+for name in ('original','untracked','private-config','systemd-before'):
     shutil.copytree(old/name,dest/name)
 manifest=json.loads((old/'manifest.private.json').read_text())
 # Retain the v3 compatibility collector already running after rollback.
