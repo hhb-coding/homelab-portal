@@ -995,7 +995,9 @@ function renderNetworkHistory(data) {
     t = data.events[i];
     events += '<tr><td>' + esc(t.kind === "target_anomaly" ? "Target anomaly / 目标异常" : t.kind === "suspected_public_connectivity" ? "Suspected public outage / 疑似公网故障" : t.kind) + '</td><td>' + esc(networkTime(t.started)) + '</td><td>' + esc(t.recovered ? networkTime(t.recovered) : "Ongoing / 进行中") + '</td><td>' + esc((t.duration_ms / 3600000).toFixed(1)) + ' h</td></tr>';
   }
+  cards = cards.replace(/(<article data-network-card="endpoint_b"[\s\S]*?)(<\/article>)/, '$1<div id="endpoint-b-controls" class="endpoint-b-controls"></div>$2');
   document.getElementById("network-quality-cards").innerHTML = cards || '<p>No archived network data / 暂无网络归档数据。</p>';
+  if (typeof renderEndpointB === "function") { renderEndpointB(); }
   document.getElementById("network-targets").innerHTML = checks;
   document.getElementById("network-granularity").innerHTML = data.schema_version < 3 ? "No v3 network archive yet / 尚无 v3 网络归档" : data.granularity === "1d" ? "UTC daily weighted summaries; peaks are daily / UTC 日汇总（按探测次数加权），峰值为日汇总峰值" : "UTC minute records / UTC 分钟记录";
   document.getElementById("network-events").innerHTML = events ? '<table><thead><tr><th>Event / 事件</th><th>Started / 开始</th><th>Recovered / 恢复</th><th>Duration / 持续</th></tr></thead><tbody>' + events + '</tbody></table>' : '<p>No events / 暂无故障事件。</p>';

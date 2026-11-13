@@ -90,6 +90,13 @@ Historical snapshot (2026-10-13): PR #7, #8 and #9 were merged while this ROADMA
 - **11.x Automation:** Ansible-driven Heartbeat/agent/service/config deployment and GitHub Actions validation.
 - **12.x Release/Portfolio:** screenshots, bilingual README, architecture/API/security/compatibility docs, repeatable installation and release readiness.
 
+### Endpoint B HTTP discovery / 终端 B 发现扩展
+
+Approved in the current development request: private-scope TL-WDR5620 HTTP discovery,
+manual Beszel update, pinned local mapping and shared archive-backed card/curve.
+Implemented on `feat/network-endpoint-b-discovery`, PR review pending, not deployed.
+See [behavior and validation](network-endpoint-b-discovery.md). / 本轮需求已实现，待 PR 评审，未部署。
+
 ## 6. Coordination rule / 跨 Project 同步
 
 This roadmap and the approved Step 7.05 scope document should be referenced in future ChatGPT Project / Codex work. **Separate Projects do not inherently synchronize their task plans.** GitHub repository documentation, after merger into `main`, is the shared planning record. The **latest HP checked-out code and running service** remain authoritative for actual deployment state.

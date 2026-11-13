@@ -80,7 +80,7 @@ class PortalSmokeTests(unittest.TestCase):
     def test_legacy_frontend_guards(self):
         """Guard known iOS 9 incompatibilities / 防止引入已知的 iOS 9 不兼容语法。"""
         root = Path(__file__).resolve().parents[1]
-        for name in ("dashboard.js", "lite.js", "offline-seen.js", "performance-history.js"):
+        for name in ("dashboard.js", "lite.js", "offline-seen.js", "performance-history.js", "endpoint-b.js"):
             source = (root / "static" / name).read_text()
             code = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
             self.assertNotRegex(code, r"\b(?:const|let)\s+\w|=>|\?\.|\bfetch\s*\(")

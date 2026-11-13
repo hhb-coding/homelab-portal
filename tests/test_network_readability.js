@@ -171,6 +171,6 @@
   var template = fs.readFileSync('templates/index.html', 'utf8');
   assert.deepStrictEqual(Array.from(template.matchAll(/data-network-range="([^"]+)"/g), function (m) { return m[1]; }),
     ['1h', '3h', '6h', '10h', '24h', '7d', '30d']);
-  assert(template.includes('8033-network-range-stats'));
+  assert(template.includes('endpoint-b-discovery'));
   console.log('Network readability: seven ranges, weighted stats, hover/pin/focus, redraw, gaps, loss records and XHR passed');
 }());

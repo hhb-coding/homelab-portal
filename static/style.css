@@ -327,6 +327,16 @@ td:first-child { width:110px; background:#f7f7f7; font-weight:bold; }
 .network-quality-cards { overflow:hidden; }
 .network-quality-card { display:inline-block; vertical-align:top; width:31%; min-height:90px; margin:0 2% 8px 0; border:1px solid #bbb; border-top-width:4px; padding:10px; box-sizing:border-box; }
 .network-quality-card h4 { margin:0 0 8px; overflow-wrap:anywhere; }
+.endpoint-b-controls { border-top:1px solid #ddd; margin-top:10px; padding-top:10px; overflow-wrap:anywhere; }
+.endpoint-b-discovery { display:flex; flex-wrap:wrap; align-items:center; }
+.endpoint-b-discovery button, .endpoint-b-actions button { margin:0 8px 6px 0; }
+.endpoint-b-discovery button, .endpoint-b-actions button { min-height:36px; white-space:normal; }
+.endpoint-b-discovery span { flex:1 1 150px; min-width:0; }
+.endpoint-b-controls label { display:block; margin:8px 0 4px; }
+.endpoint-b-controls select { width:100%; max-width:100%; min-height:36px; box-sizing:border-box; }
+.endpoint-b-actions { display:flex; flex-wrap:wrap; margin-top:8px; }
+.endpoint-b-status, .endpoint-b-mapping { font-size:13px; line-height:1.5; margin:8px 0 0; }
+@media screen and (max-width:600px) { .network-quality-cards .network-quality-card[data-network-card="endpoint_b"] { width:98%; } }
 .network-quality-card strong, .network-quality-card span, .network-quality-card small { display:block; margin:4px 0; }
 .network-targets { margin:12px 0; }
 .network-targets label { display:inline-block; margin:4px 16px 4px 0; }

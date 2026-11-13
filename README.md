@@ -330,6 +330,13 @@ user-confirmed Lite result described above.
 
 ## Network tab
 
+Endpoint B optionally supports **查找 TP-Link** using server-configured parallel HTTP
+discovery for TL-WDR5620. A unique IP is preselected; save waits for its HP ICMP probe
+in Beszel, then normal archive ingestion updates the card and curve together.
+See [private setup, states and synthetic previews](docs/network-endpoint-b-discovery.md).
+Endpoint B 可选私有配置 HTTP 查找 TP-Link；唯一发现后等待 Beszel 对应 HP ICMP，再保存本地映射，
+首个归档样本同步显示卡片和曲线，旧归档保留。代码待评审，未部署。
+
 Full's **Network** tab hides Device Details and shows device totals,
 online/offline/unknown counts, LAN/ZeroTier address-reporting counts, and
 per-device registered addresses and last Heartbeat. Missing LAN addresses and

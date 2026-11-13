@@ -24,6 +24,81 @@ from db import (
 app = Flask(__name__)
 
 
+def network_beszel_client():
+    """Authentication and GET only / 只认证、只读探测列表。"""
+    from network_discovery import DiscoveryError
+    client = BeszelClient(config.BESZEL_URL, timeout=config.BESZEL_TIMEOUT)
+    try:
+        if config.BESZEL_TOKEN:
+            client.authenticate_with_token(config.BESZEL_TOKEN)
+        elif config.BESZEL_EMAIL and config.BESZEL_PASSWORD:
+            client.authenticate_with_password(config.BESZEL_EMAIL, config.BESZEL_PASSWORD)
+        else:
+            raise DiscoveryError("beszel_not_configured")
+        return client
+    except Exception:
+        client.session.close()
+        raise
+
+
+@app.route("/api/network/endpoint-b", methods=["GET", "POST"])
+@app.route("/api/network/endpoint-b/discover", methods=["POST"])
+def endpoint_b_api():
+    from network_discovery import (DiscoveryError, discover, eligible_monitors,
+                                   read_state, save, settings, status)
+    client = None
+    try:
+        if request.method == "POST":
+            # Custom header + JSON prevents cross-origin form/CSRF requests.
+            # 自定义头与 JSON 拒绝跨站表单；沿用 Portal 既有可信访问边界。
+            from urllib.parse import urlsplit
+            origin = request.headers.get("Origin")
+            if (request.headers.get("X-Portal-Request") != "1" or not request.is_json
+                    or (origin and (urlsplit(origin).scheme not in ("http", "https")
+                                    or urlsplit(origin).netloc.lower() != request.host.lower()))):
+                return jsonify(error="invalid_origin"), 403
+            if request.content_length is None or request.content_length > 4096:
+                return jsonify(error="invalid_payload"), 400
+            payload = request.get_json(silent=True)
+            expected = set() if request.path.endswith("/discover") else {"discovery_id", "monitor_id"}
+            if not isinstance(payload, dict) or set(payload) != expected:
+                return jsonify(error="invalid_payload"), 400
+        _, path, roles = settings()
+        if request.path.endswith("/discover"):
+            state = discover()
+        else:
+            state = read_state(path)
+        # No upstream request until discovery is unique / 唯一发现后才读 Beszel。
+        if request.method == "POST" and not request.path.endswith("/discover"):
+            client = network_beszel_client()
+            result = save(payload["discovery_id"], payload["monitor_id"], client)
+        else:
+            result = status(state, roles, [])
+            if result["discovery"] and result["discovery"]["status"] == "unique":
+                try:
+                    client = network_beszel_client()
+                    result = status(state, roles, eligible_monitors(client, roles["system_id"]))
+                except Exception:
+                    result.update(probe_status="beszel_unavailable", can_save=False)
+        response = jsonify(result)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    except DiscoveryError as exc:
+        return jsonify(error=exc.code), exc.status
+    except Exception:
+        return jsonify(error="endpoint_b_unavailable"), 503
+    finally:
+        if client:
+            client.session.close()
+
+
+@app.after_request
+def endpoint_b_no_cache(response):
+    if request.path.startswith("/api/network/endpoint-b"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route("/api/telemetry/cpu-frequency", methods=["POST"])
 def cpu_frequency_receive():
     """Authenticated inbox, independent of Heartbeat / 独立认证接收，不更新心跳。"""
@@ -120,13 +195,16 @@ def network_history_api():
     import sqlite3
     from metrics_archive import require_hdd
     from network_history import query
+    from network_archive import load_roles
+    from network_discovery import saved_mapping
     try:
         database = Path(os.getenv("METRICS_ARCHIVE_PATH", "/srv/data/homelab-portal-archive/metrics.sqlite3"))
         require_hdd(database, Path(os.getenv("METRICS_ARCHIVE_MOUNT", "/srv/data")), os.getenv("METRICS_ARCHIVE_UUID", ""))
         roles_path = os.getenv("NETWORK_HISTORY_ROLES_FILE") or os.getenv("NETWORK_ARCHIVE_ROLES_FILE", "")
         with closing(sqlite3.connect(database.resolve().as_uri()+"?mode=ro", uri=True, timeout=2)) as conn:
             conn.execute("PRAGMA query_only=ON")
-            return jsonify(query(conn, roles_path, request.args.get("range", "1h")))
+            return jsonify(query(conn, roles_path, request.args.get("range", "1h"),
+                                 endpoint_b_mapping=saved_mapping(load_roles(roles_path))))
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     except Exception:

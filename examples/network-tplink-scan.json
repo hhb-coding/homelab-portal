@@ -1,0 +1,4 @@
+{
+  "start": "<first-private-ipv4>",
+  "end": "<last-private-ipv4>"
+}
